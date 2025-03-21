@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "central.h": "c",
+        "ws2812.h": "c"
+    }
+}
