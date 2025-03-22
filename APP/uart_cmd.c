@@ -102,6 +102,23 @@ void UART1_IRQHandler(void)
                     setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
 
                 }
+                if (uart_rx_buffer[0] == 0x35)
+                {
+                    
+                    // 使能看门狗
+                    R8_SAFE_ACCESS_SIG = SAFE_ACCESS_SIG1;
+                    R8_SAFE_ACCESS_SIG = SAFE_ACCESS_SIG2;
+                    R8_RST_WDOG_CTRL = RB_WDOG_RST_EN;
+                    
+                    // 触发看门狗复位
+                    R8_SAFE_ACCESS_SIG = SAFE_ACCESS_SIG1;
+                    R8_SAFE_ACCESS_SIG = SAFE_ACCESS_SIG2;
+                    R8_RST_WDOG_CTRL |= RB_SOFTWARE_RESET;
+                    
+                    // 等待复位发生
+                    while(1);
+
+                }
 
             }while(R8_UART1_RFC > 0);
             //uart_rx_flag = true;
