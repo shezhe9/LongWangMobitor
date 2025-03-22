@@ -1,2 +1,2 @@
 RVMSIS/core_riscv.o: \
- D:/BaiduSyncdisk/Tools/Raditor/Code/CH583EVT/EXAM/SRC/RVMSIS/core_riscv.c
+ D:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/SRC/RVMSIS/core_riscv.c

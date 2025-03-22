@@ -39,34 +39,34 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 SECONDARY_FLASH += \
-Central_连接HIDKBD.hex \
+HID-TEST.hex \
 
 SECONDARY_LIST += \
-Central_连接HIDKBD.lst \
+HID-TEST.lst \
 
 SECONDARY_SIZE += \
-Central_连接HIDKBD.siz \
+HID-TEST.siz \
 
 
 # All Target
-all: Central_连接HIDKBD.elf secondary-outputs
+all: HID-TEST.elf secondary-outputs
 
 # Tool invocations
-Central_连接HIDKBD.elf: $(OBJS) $(USER_OBJS)
-	@	@	riscv-none-embed-gcc -march=rv32imac -mabi=ilp32 -mcmodel=medany -msmall-data-limit=8 -mno-save-restore -Os -fsigned-char -ffunction-sections -fno-common  -g -T "D:\BaiduSyncdisk\Tools\Raditor\Code\CH583EVT\EXAM\SRC\Ld\Link.ld" -nostartfiles -Xlinker --gc-sections -L"../" -L"D:\BaiduSyncdisk\Tools\Raditor\Code\CH583EVT\EXAM\BLE\LIB" -L"D:\BaiduSyncdisk\Tools\Raditor\Code\CH583EVT\EXAM\SRC\StdPeriphDriver" -Xlinker --print-memory-usage -Wl,-Map,"Central_连接HIDKBD.map" --specs=nano.specs --specs=nosys.specs -o "Central_连接HIDKBD.elf" $(OBJS) $(USER_OBJS) $(LIBS)
+HID-TEST.elf: $(OBJS) $(USER_OBJS)
+	@	@	riscv-none-embed-gcc -march=rv32imac -mabi=ilp32 -mcmodel=medany -msmall-data-limit=8 -mno-save-restore -Os -fsigned-char -ffunction-sections -fno-common  -g -T "D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\Ld\Link.ld" -nostartfiles -Xlinker --gc-sections -L"../" -L"D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\LIB" -L"D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver" -Xlinker --print-memory-usage -Wl,-Map,"HID-TEST.map" --specs=nano.specs --specs=nosys.specs -o "HID-TEST.elf" $(OBJS) $(USER_OBJS) $(LIBS)
 	@	@
-Central_连接HIDKBD.hex: Central_连接HIDKBD.elf
-	@	riscv-none-embed-objcopy -O ihex "Central_连接HIDKBD.elf"  "Central_连接HIDKBD.hex"
+HID-TEST.hex: HID-TEST.elf
+	@	riscv-none-embed-objcopy -O ihex "HID-TEST.elf"  "HID-TEST.hex"
 	@	@
-Central_连接HIDKBD.lst: Central_连接HIDKBD.elf
-	@	riscv-none-embed-objdump --source --all-headers --demangle --line-numbers --wide "Central_连接HIDKBD.elf" > "Central_连接HIDKBD.lst"
+HID-TEST.lst: HID-TEST.elf
+	@	riscv-none-embed-objdump --source --all-headers --demangle --line-numbers --wide "HID-TEST.elf" > "HID-TEST.lst"
 	@	@
-Central_连接HIDKBD.siz: Central_连接HIDKBD.elf
-	@	riscv-none-embed-size --format=berkeley "Central_连接HIDKBD.elf"
+HID-TEST.siz: HID-TEST.elf
+	@	riscv-none-embed-size --format=berkeley "HID-TEST.elf"
 	@	@
 # Other Targets
 clean:
-	-$(RM) $(ASM_UPPER_DEPS)$(OBJS)$(SECONDARY_FLASH)$(SECONDARY_LIST)$(SECONDARY_SIZE)$(ASM_DEPS)$(S_DEPS)$(S_UPPER_DEPS)$(C_DEPS) Central_连接HIDKBD.elf
+	-$(RM) $(ASM_UPPER_DEPS)$(OBJS)$(SECONDARY_FLASH)$(SECONDARY_LIST)$(SECONDARY_SIZE)$(ASM_DEPS)$(S_DEPS)$(S_UPPER_DEPS)$(C_DEPS) HID-TEST.elf
 	-@
 secondary-outputs: $(SECONDARY_FLASH) $(SECONDARY_LIST) $(SECONDARY_SIZE)
 

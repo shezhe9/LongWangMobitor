@@ -13,6 +13,7 @@
 #include "CONFIG.h"
 #include "hal.h"
 #include "central.h"
+#include "uart_cmd.h"
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -60,9 +61,13 @@ int main(void)
 #ifdef DEBUG
     GPIOA_SetBits(bTXD1);
     GPIOA_ModeCfg(bTXD1, GPIO_ModeOut_PP_5mA);
+    GPIOA_SetBits(bRXD1);//added by longwang
+    GPIOA_ModeCfg(bRXD1, GPIO_ModeIN_PU);//added by longwang
     UART1_DefInit();
 #endif
+
     PRINT("%s\n", VER_LIB);
+    app_uart_init();
     CH58X_BLEInit();
     HAL_Init();
 
