@@ -26,7 +26,7 @@
 #define DarkBlue   0x00008B  // ÉîÀ¶É«
 
 
-#define INI_STATE  DarkBlue  
+#define INI_STATE  GREEN  
 
 
 void ws2812_ini(void);

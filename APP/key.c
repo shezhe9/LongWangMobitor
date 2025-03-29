@@ -199,6 +199,7 @@ void Key_Init(void)
 
 // 全局变量记录当前 PB5 的状态
 static uint8_t pb5State = 0; // 默认低电平
+static uint8_t pb14State = 0; // 默认低电平
 
 void CHANGE_PB5(void) {
     // 反转 PB5 的电平
@@ -206,16 +207,41 @@ void CHANGE_PB5(void) {
 
     // 设置 PB5 的电平
     if (pb5State) {
+
+        GPIOB_ResetBits(GPIO_Pin_14); // 设置 PB14 为低电平
+        DelayMs(200); // 延迟 200ms
         // PB5 为高电平，设置显示为红色
         GPIOB_SetBits(GPIO_Pin_5); // 设置 PB5 为高电平
         setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
+        // 延迟50ms
+        DelayMs(50); // 延迟 50ms
+
     } else {
         // PB5 为低电平，设置显示为绿色
         GPIOB_ResetBits(GPIO_Pin_5); // 设置 PB5 为低电平
-        setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
+        //setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
+        DelayMs(200); // 延迟 200ms
+        GPIOB_SetBits(GPIO_Pin_14); // 设置 PB14 为高电平
+        setDimColor(BLUE, 0.1); // 设置 WS2812 为红色，亮度 5%
     }
 }
 
+
+void CHANGE_PB14(void) {
+    // 反转 PB14 的电平
+    pb14State = !pb14State; // 反转状态
+
+    // 设置 PB5 的电平
+    if (pb14State) {
+        // PB5 为高电平，设置显示为红色
+        GPIOB_SetBits(GPIO_Pin_14); // 设置 PB14 为高电平
+        setDimColor(Purple, 0.05); // 设置 WS2812 为红色，亮度 5%
+    } else {
+        // PB5 为低电平，设置显示为绿色
+        GPIOB_ResetBits(GPIO_Pin_14); // 设置 PB14 为低电平
+        setDimColor(RED, 0.05); // 设置 WS2812 为绿色，亮度 5%
+    }
+}
 
 /**
  * @brief GPIO_B中断服务函数
@@ -268,12 +294,28 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & KEY_EVENT_DOUBLE_CLICK)
     {
         PRINT("按键双击事件\n");
+
+
+        /*
         GPIOB_ResetBits(GPIO_Pin_5); // 设置 PB5 为低电平
         setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
         //延迟50ms
         DelayMs(50); // 延迟 50ms
         GPIOB_SetBits(GPIO_Pin_5); // 设置 PB5 为高电平
         setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
+*/
+
+
+        GPIOB_ResetBits(GPIO_Pin_14); // 设置 PB14 为低电平
+        DelayMs(100); // 延迟 50ms
+
+        GPIOB_ResetBits(GPIO_Pin_5); // 设置 PB5 为低电平
+        setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
+        //延迟50ms
+        DelayMs(50); // 延迟 50ms
+        GPIOB_SetBits(GPIO_Pin_5); // 设置 PB5 为高电平
+        setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
+
 
         return (events ^ KEY_EVENT_DOUBLE_CLICK);
     }
@@ -282,6 +324,9 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & KEY_EVENT_LONG_PRESS)
     {
         PRINT("按键长按事件\n");
+        GPIOB_ResetBits(GPIO_Pin_5); // 设置 PB5 为低电平
+        GPIOB_ResetBits(GPIO_Pin_14); // 设置 PB14 为低电平
+        setDimColor(WHITE, 0.05); // 设置 WS2812 为红色，亮度 5%
         return (events ^ KEY_EVENT_LONG_PRESS);
     }
     

@@ -81,6 +81,9 @@ int main(void)
     GPIOB_ModeCfg(GPIO_Pin_5, GPIO_ModeOut_PP_5mA); // 设置 PB5 为推挽输出
     GPIOB_ResetBits(GPIO_Pin_5); // 默认低电平
 
+    GPIOB_ModeCfg(GPIO_Pin_14, GPIO_ModeOut_PP_5mA); // 设置 PB5 为推挽输出
+    GPIOB_ResetBits(GPIO_Pin_14); // 默认低电平
+
     Main_Circulation();
 }
 

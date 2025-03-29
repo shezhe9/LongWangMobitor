@@ -102,6 +102,14 @@ void UART1_IRQHandler(void)
                     setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
 
                 }
+                if (uart_rx_buffer[0] == 0x34)
+                {
+                    
+                    GPIOB_ResetBits(GPIO_Pin_5); // 设置 PB5 为低电平
+                    GPIOB_ResetBits(GPIO_Pin_14); // 设置 PB14 为低电平
+                    setDimColor(WHITE, 0.05); // 设置 WS2812 为红色，亮度 5%
+                }
+
                 if (uart_rx_buffer[0] == 0x35)
                 {
                     
