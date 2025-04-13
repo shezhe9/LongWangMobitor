@@ -18,6 +18,8 @@ typedef enum {
     KEY_TEST_SECOND = 0x0008
 } KeyEvent;
 
+extern  uint8_t keyTaskId;                 // TMOS任务ID，用于发送按键事件
+
 // 新增按键检测事件
 #define KEY_DOUBLE_CLICK_CHECK  0x0010  // 双击检测事件
 #define KEY_LONG_PRESSED_CHECK  0x0020  // 长按检测事件

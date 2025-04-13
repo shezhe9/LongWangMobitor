@@ -19,7 +19,8 @@ APP/uart_cmd.o: ../APP/uart_cmd.c \
  D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_usbhost.h \
  D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/ISP583.h \
  D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\APP\include/uart_cmd.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\APP\include/ws2812.h
+ D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\APP\include/ws2812.h \
+ D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\APP\include/key.h
 
 D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HAL\include/CONFIG.h:
 
@@ -62,3 +63,5 @@ D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/ISP583.h:
 D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\APP\include/uart_cmd.h:
 
 D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\APP\include/ws2812.h:
+
+D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\APP\include/key.h:

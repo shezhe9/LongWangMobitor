@@ -1,7 +1,7 @@
 #include "CONFIG.h"
 #include "uart_cmd.h"
 #include "ws2812.h"
-
+#include "key.h"
 void app_uart_init(void)
 {
 
@@ -98,9 +98,7 @@ void UART1_IRQHandler(void)
                 if (uart_rx_buffer[0] == 0x33)
                 {
                     
-                    GPIOB_SetBits(GPIO_Pin_5); // 设置 PB5 为高电平
-                    setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
-
+                    tmos_set_event(keyTaskId,KEY_EVENT_SINGLE_CLICK);
                 }
                 if (uart_rx_buffer[0] == 0x34)
                 {

@@ -18,7 +18,7 @@ typedef enum {
 
 volatile ButtonState buttonState = BUTTON_IDLE;  // 按钮状态机
 volatile KeyEvent keyEvent = KEY_EVENT_NONE;     // 当前按键事件
-static uint8_t keyTaskId = 0xFF;                 // TMOS任务ID，用于发送按键事件
+ uint8_t keyTaskId = 0xFF;                 // TMOS任务ID，用于发送按键事件
 
 // 时间戳结构体（使用RTC寄存器）
 typedef struct {
