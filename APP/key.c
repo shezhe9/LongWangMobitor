@@ -78,7 +78,7 @@ int8_t  unkonw_sate=0;
  */
 void ButtonHandler(void) 
 {
-    uint8_t buttonPressed = (R32_PB_PIN & GPIO_Pin_3) ? 0 : 1;  // 读取PB3状态（0=高电平未按下，1=低电平按下）
+    uint32_t buttonPressed = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 0 : 1;  // 读取PB3状态（0=高电平未按下，1=低电平按下）
     
     //PRINT("ButtonHandler(), state=%d, pressed=%d\n", buttonState, buttonPressed);
 
@@ -180,68 +180,184 @@ void Key_Init(void)
     keyTaskId = TMOS_ProcessEventRegister(Key_ProcessEvent);
     PRINT("按键初始化: keyTaskId=%d\n", keyTaskId);
     
-    // 配置PB3为输入模式，使能上拉
-    GPIOB_ModeCfg(GPIO_Pin_3, GPIO_ModeIN_PU);
     
-    // 配置PB3的中断，初始设置为下降沿触发
-    GPIOB_ITModeCfg(GPIO_Pin_3, GPIO_ITMode_FallEdge);
-    //GPIOB_ITCmd(GPIO_Pin_3, ENABLE); cfg已经启用
+    //设置为输入模式
+    PRINT("设置为输入模式: CH582_Key_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_Key_Pin);
+    GPIOB_ModeCfg(CH582_Key_Pin, GPIO_ModeIN_PU);
+
+
+    //设置为输入模式
+    PRINT("设置为输入模式: CH582_AutoCheck_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_AutoCheck_Pin);
+    GPIOB_ModeCfg(CH582_AutoCheck_Pin, GPIO_ModeIN_PU);
+
+    //设置为输出模式
+    ///PRINT("设置为输入模式: CH582_AutoCheck_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_AutoCheck_Pin);
+    //GPIOB_ModeCfg(CH582_AutoCheck_Pin, GPIO_ModeOut_PP_5mA);
+    //GPIOB_SetBits(CH582_AutoCheck_Pin);
+    //DelayMs(200);
+
+    // 配置为输入模式，使能上拉 PB0-15才有中断
+    PRINT("设置为输入模式: CH582_PROG_BOOT_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_PROG_BOOT_Pin);
+    GPIOB_ModeCfg(CH582_PROG_BOOT_Pin, GPIO_ModeIN_PU);
     
+    //RB_PIN_INTX：由于INT24/INT25 功能引脚映射选择位 默认是0,但是1才能：INT24_/25_映射到 PB[22]/PB[23]；
+    //中断对应引脚重映射 设置(R16_PIN_ALTERNATE的RB_PIN_INTX位为1
+    PRINT("设置为输入模式: RB_PIN_INTX(0x%x)=1  \n", RB_PIN_INTX);
+    R16_PIN_ALTERNATE |= RB_PIN_INTX;
+
+    // 配置中断，初始设置为下降沿触发
+    PRINT("初始设置为下降沿触发: CH582_PROG_BOOT_Pin(0x%x)=GPIO_ITMode_FallEdge  \n", CH582_PROG_BOOT_Pin);
+    GPIOB_ITModeCfg(CH582_PROG_BOOT_Pin, GPIO_ITMode_FallEdge);
+    //GPIOB_ITCmd(CH582_PROG_BOOT_Pin, ENABLE); cfg已经启用
     // 设置默认触发模式为下降沿
     currentTriggerMode = GPIO_ITMode_FallEdge;
-    
     // 启用GPIO中断
     PFIC_EnableIRQ(GPIO_B_IRQn);
-    
     // 设置初始状态
     buttonState = BUTTON_IDLE;
+    CH340_CTRL_PIN_INI();
+}
+
+
+
+
+void CH340_CTRL_PIN_INI(void)
+{
+    GPIOB_ModeCfg(EN_CH_Pin, GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
+    GPIOB_SetBits(EN_CH_Pin); // 默认高电平
+    GPIOB_ModeCfg(EN_ESP_Pin, GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
+    GPIOB_SetBits(EN_ESP_Pin); // 默认高电平
+    GPIOA_ModeCfg(EN_ESP_ME_Pin, GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
+    GPIOA_SetBits(EN_ESP_ME_Pin); // 默认高电平
+    GPIOB_ModeCfg(EN_ESP_UART1_LOG_Pin, GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
+    GPIOB_SetBits(EN_ESP_UART1_LOG_Pin); // 默认高电平
+
+    GPIOB_ModeCfg(CH582_3V3_Pin, GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
+    GPIOB_ResetBits(CH582_3V3_Pin); // 为低电平
+    
+    GPIOB_ModeCfg(CH582_12V_Pin, GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
+    GPIOB_SetBits(CH582_12V_Pin); // 为低电平
+
+    GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin, GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
+    GPIOB_SetBits(EN_TEMP_SWITCH_Pin); // 为低电平
+    
+
 }
 
 // 全局变量记录当前 PB5 的状态
-static uint8_t pb5State = 0; // 默认低电平
-static uint8_t pb14State = 0; // 默认低电平
+static uint8_t BootState = 0; // 默认低电平
 
-void CHANGE_PB5(void) {
-    // 反转 PB5 的电平
-    pb5State = !pb5State; // 反转状态
-
-    // 设置 PB5 的电平
-    if (pb5State) {
-
-        GPIOB_ResetBits(GPIO_Pin_14); // 设置 PB14 为低电平
+void BOOT_SWICH(void) {
+    // 反转  的电平
+    BootState = !BootState; // 反转状态
+    // 设置  的电平
+    if (BootState) {
+        GPIOB_SetBits(EN_CH_Pin); // 高电平关闭
+        GPIOB_ResetBits(CH582_12V_Pin); // 设置  为低电平
+        GPIOB_ResetBits(CH582_3V3_Pin); // 设置  为低电平
         DelayMs(200); // 延迟 200ms
-        // PB5 为高电平，设置显示为红色
-        GPIOB_SetBits(GPIO_Pin_5); // 设置 PB5 为高电平
+        //  为高电平，设置显示为红色
+        GPIOB_SetBits(CH582_3V3_Pin); // 设置  为高电平
         setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
+        GPIOB_ResetBits(EN_CH_Pin); // 低电平打开
+        PRINT("3V3 EN\n");
+
         // 延迟50ms
         DelayMs(50); // 延迟 50ms
-
     } else {
-        // PB5 为低电平，设置显示为绿色
-        GPIOB_ResetBits(GPIO_Pin_5); // 设置 PB5 为低电平
+        //  为低电平，设置显示为绿色
+        GPIOB_SetBits(EN_CH_Pin); // 高电平关闭
+        GPIOB_ResetBits(CH582_12V_Pin); // 设置  为低电平
+        GPIOB_ResetBits(CH582_3V3_Pin); // 设置  为低电平
         //setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
         DelayMs(200); // 延迟 200ms
-        GPIOB_SetBits(GPIO_Pin_14); // 设置 PB14 为高电平
+        GPIOB_SetBits(CH582_12V_Pin); // 设置  为高电平
         setDimColor(BLUE, 0.1); // 设置 WS2812 为红色，亮度 5%
+        GPIOB_ResetBits(EN_CH_Pin); // 低电平打开
+        PRINT("12V EN\n");
+        
+        // 延迟50ms
+        DelayMs(50); // 延迟 50ms
     }
+    
 }
 
 
-void CHANGE_PB14(void) {
-    // 反转 PB14 的电平
-    pb14State = !pb14State; // 反转状态
-
-    // 设置 PB5 的电平
-    if (pb14State) {
-        // PB5 为高电平，设置显示为红色
-        GPIOB_SetBits(GPIO_Pin_14); // 设置 PB14 为高电平
-        setDimColor(Purple, 0.05); // 设置 WS2812 为红色，亮度 5%
-    } else {
-        // PB5 为低电平，设置显示为绿色
-        GPIOB_ResetBits(GPIO_Pin_14); // 设置 PB14 为低电平
-        setDimColor(RED, 0.05); // 设置 WS2812 为绿色，亮度 5%
+static uint8_t EN_CH_flag = 1; // 默认high电平
+void EN_CH_SWITCH(void) {
+    if(EN_CH_flag)
+    {
+        GPIOB_SetBits(EN_CH_Pin); // 设置  为高电平
+        setDimColor(WHITE, 0.05); // 亮度 5%
+        
+    }else
+    {
+        GPIOB_ResetBits(EN_CH_Pin); // 设置  为低电平
+        setDimColor(GREEN, 0.05); // 亮度 5% 
     }
+    EN_CH_flag =!EN_CH_flag; // 反转状态 
+    PRINT("EN_CH_flag:%d\n",EN_CH_flag);
 }
+
+
+static uint8_t EN_ESP_flag = 1; // 默认high电平
+void EN_ESP_SWITCH(void) {
+    EN_ESP_flag =!EN_ESP_flag; // 反转状态
+    if(EN_ESP_flag) 
+    {
+        GPIOB_SetBits(EN_ESP_Pin); // 设置  为高电平
+        setDimColor(WHITE, 0.05); // 亮度 5% 
+    }else
+    {
+        GPIOB_ResetBits(EN_ESP_Pin); // 设置  为低电平
+        setDimColor(GREEN, 0.05); // 亮度 5%
+    }
+    PRINT("EN_ESP_flag:%d\n",EN_ESP_flag);
+}
+
+
+static uint8_t EN_ESP_ME_flag = 1; // 默认high电平
+void EN_ESP_ME_SWITCH(void) {
+    EN_ESP_ME_flag =!EN_ESP_ME_flag; // 反转状态
+    if(EN_ESP_ME_flag) {
+        GPIOA_SetBits(EN_ESP_ME_Pin); // 设置  为高电平
+        setDimColor(WHITE, 0.05); // 亮度 5%  
+    } 
+    else {
+        GPIOA_ResetBits(EN_ESP_ME_Pin); // 设置  为低电平
+        setDimColor(GREEN, 0.05); // 亮度 5% 
+    }
+    PRINT("EN_ESP_ME_flag:%d\n",EN_ESP_ME_flag);
+}
+
+static uint8_t EN_ESP_UART1_LOG_flag = 1; // 默认high电平
+void EN_ESP_UART1_LOG_SWITCH(void) {
+    EN_ESP_UART1_LOG_flag =!EN_ESP_UART1_LOG_flag; // 反转状态
+    if(EN_ESP_UART1_LOG_flag) {
+        GPIOB_SetBits(EN_ESP_UART1_LOG_Pin); // 设置 PB14 为高电平
+        setDimColor(WHITE, 0.05); // 亮度 5%  
+    }
+    else {  
+        GPIOB_ResetBits(EN_ESP_UART1_LOG_Pin); // 设置 PB14 为低电平
+        setDimColor(GREEN, 0.05); // 亮度 5%
+    }
+    PRINT("EN_ESP_UART1_LOG_flag:%d\n",EN_ESP_UART1_LOG_flag);
+}
+
+static uint8_t EN_TEMP_SWITCH_flag = 1; // 默认high电平
+void EN_TEMP_SWITCH(void) {
+    EN_TEMP_SWITCH_flag =!EN_TEMP_SWITCH_flag; // 反转状态
+    if(EN_TEMP_SWITCH_flag) {
+        GPIOB_SetBits(EN_TEMP_SWITCH_Pin); // 设置 PB14 为高电平
+        setDimColor(WHITE, 0.05); // 亮度 5%  
+    }
+    else {
+        GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // 设置 PB14 为低电平
+        setDimColor(GREEN, 0.05); // 亮度 5%
+    }
+    PRINT("EN_TEMP_SWITCH_flag:%d\n",EN_TEMP_SWITCH_flag);
+}
+
 
 /**
  * @brief GPIO_B中断服务函数
@@ -249,19 +365,19 @@ void CHANGE_PB14(void) {
 __attribute__((interrupt("WCH-Interrupt-fast")))
 void GPIOB_IRQHandler(void)
 {
-    if(R16_PB_INT_IF & GPIO_Pin_3) // 检查PB3中断标志
+    if(R16_PB_INT_IF & CH582_PROG_BOOT_Pin) // 检查PB3中断标志
     {
         // 清除中断标志
-        R16_PB_INT_IF |= GPIO_Pin_3;  // 写1清0
+        R16_PB_INT_IF |= CH582_PROG_BOOT_Pin;  // 写1清0
         // 切换触发边沿
         if(currentTriggerMode == GPIO_ITMode_FallEdge)
         {
-            GPIOB_ITModeCfg(GPIO_Pin_3, GPIO_ITMode_RiseEdge);
+            GPIOB_ITModeCfg(CH582_PROG_BOOT_Pin, GPIO_ITMode_RiseEdge);
             currentTriggerMode = GPIO_ITMode_RiseEdge;
         }
         else
         {
-            GPIOB_ITModeCfg(GPIO_Pin_3, GPIO_ITMode_FallEdge);
+            GPIOB_ITModeCfg(CH582_PROG_BOOT_Pin, GPIO_ITMode_FallEdge);
             currentTriggerMode = GPIO_ITMode_FallEdge;
         }
         // 处理按键事件
@@ -278,6 +394,8 @@ void GPIOB_IRQHandler(void)
  * @param events 事件标志
  * @return uint16_t 未处理的事件
  */
+//设置为flash区域
+
 uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
 {
     // 处理单击事件
@@ -285,7 +403,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     {
         PRINT("按键单击事件\n");
         //反转PB5 电平，高电平时候设置显示为红色，低电平设置ws2812显示绿色，显示亮度0.05
-        CHANGE_PB5();
+        BOOT_SWICH();
 
         return (events ^ KEY_EVENT_SINGLE_CLICK);
     }
@@ -297,23 +415,23 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
 
 
         /*
-        GPIOB_ResetBits(GPIO_Pin_5); // 设置 PB5 为低电平
+        GPIOB_ResetBits(CH582_3V3_Pin); // 设置 PB5 为低电平
         setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
         //延迟50ms
         DelayMs(50); // 延迟 50ms
-        GPIOB_SetBits(GPIO_Pin_5); // 设置 PB5 为高电平
+        GPIOB_SetBits(CH582_3V3_Pin); // 设置 PB5 为高电平
         setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
 */
 
 
-        GPIOB_ResetBits(GPIO_Pin_14); // 设置 PB14 为低电平
+        GPIOB_ResetBits(CH582_12V_Pin); // 设置 PB14 为低电平
         DelayMs(100); // 延迟 50ms
 
-        GPIOB_ResetBits(GPIO_Pin_5); // 设置 PB5 为低电平
+        GPIOB_ResetBits(CH582_3V3_Pin); // 设置 PB5 为低电平
         setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
         //延迟50ms
         DelayMs(50); // 延迟 50ms
-        GPIOB_SetBits(GPIO_Pin_5); // 设置 PB5 为高电平
+        GPIOB_SetBits(CH582_3V3_Pin); // 设置 PB5 为高电平
         setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
 
 
@@ -324,9 +442,9 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & KEY_EVENT_LONG_PRESS)
     {
         PRINT("按键长按事件\n");
-        GPIOB_ResetBits(GPIO_Pin_5); // 设置 PB5 为低电平
-        GPIOB_ResetBits(GPIO_Pin_14); // 设置 PB14 为低电平
-        setDimColor(WHITE, 0.05); // 设置 WS2812 为红色，亮度 5%
+        GPIOB_ResetBits(CH582_3V3_Pin); // 设置 PB5 为低电平
+        GPIOB_ResetBits(CH582_12V_Pin); // 设置 PB14 为低电平
+        setDimColor(BLACK, 0.05); // 设置 WS2812 为红色，亮度 5%
         return (events ^ KEY_EVENT_LONG_PRESS);
     }
     
@@ -334,7 +452,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & KEY_DOUBLE_CLICK_CHECK)
     {
         // 双击超时检测
-        uint8_t buttonLevel = (R32_PB_PIN & GPIO_Pin_3) ? 0 : 1; //  // 读取PB3状态（0=高电平未按下，1=低电平按下）
+        uint8_t buttonLevel = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 0 : 1; //  // 读取PB3状态（0=高电平未按下，1=低电平按下）
         
         if(buttonState == BUTTON_DOUBLE_CLICK_WAIT)
         {
@@ -361,7 +479,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     // 长按检测事件
     if(events & KEY_LONG_PRESSED_CHECK)
     {
-        uint8_t buttonLevel = (R32_PB_PIN & GPIO_Pin_3) ? 0 : 1; // 读取当前按键状态
+        uint8_t buttonLevel = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 0 : 1; // 读取当前按键状态
         
         if(buttonState == BUTTON_PRESSED)
         {
@@ -371,7 +489,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
                 tmos_set_event(keyTaskId, KEY_EVENT_LONG_PRESS);
                 
                 // 设置为下降沿触发，准备下一次按下
-                GPIOB_ITModeCfg(GPIO_Pin_3, GPIO_ITMode_FallEdge);
+                GPIOB_ITModeCfg(CH582_PROG_BOOT_Pin, GPIO_ITMode_FallEdge);
                 currentTriggerMode = GPIO_ITMode_FallEdge;
                 
                 // 恢复空闲状态

@@ -77,12 +77,7 @@ int main(void)
     ws2812_ini();
     PRINT("Key_Init()\n");
     Key_Init();
-        // 配置 PB5 为输出模式，初始设置为低电平
-    GPIOB_ModeCfg(GPIO_Pin_5, GPIO_ModeOut_PP_5mA); // 设置 PB5 为推挽输出
-    GPIOB_ResetBits(GPIO_Pin_5); // 默认低电平
-
-    GPIOB_ModeCfg(GPIO_Pin_14, GPIO_ModeOut_PP_5mA); // 设置 PB5 为推挽输出
-    GPIOB_ResetBits(GPIO_Pin_14); // 默认低电平
+    
 
     Main_Circulation();
 }

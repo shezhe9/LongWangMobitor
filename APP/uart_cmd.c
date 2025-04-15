@@ -2,6 +2,8 @@
 #include "uart_cmd.h"
 #include "ws2812.h"
 #include "key.h"
+
+
 void app_uart_init(void)
 {
 
@@ -76,54 +78,55 @@ void UART1_IRQHandler(void)
                 //如果uart_rx_buffer[0]=0x31 则重启CH582M系统
                 if (uart_rx_buffer[0] == 0x31)
                 {
-                    
-                    PRINT("重启3.3V\n");
-                    GPIOB_ResetBits(GPIO_Pin_5); // 设置 PB5 为低电平
-                    setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
-                    //延迟50ms
-                    DelayMs(50); // 延迟 50ms
-                    GPIOB_SetBits(GPIO_Pin_5); // 设置 PB5 为高电平
-                    setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
-
+                    PRINT("EN_CH_SWITCH\n");
+                    EN_CH_SWITCH();
                 }
+
                 if (uart_rx_buffer[0] == 0x32)
                 {
-                    
-                    PRINT("关闭3.3V\n");
-                    GPIOB_ResetBits(GPIO_Pin_5); // 设置 PB5 为低电平
-                    setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
-
-
+                    PRINT("EN_ESP_SWITCH\n");
+                    EN_ESP_SWITCH();
                 }
+
                 if (uart_rx_buffer[0] == 0x33)
                 {
-                    
-                    tmos_set_event(keyTaskId,KEY_EVENT_SINGLE_CLICK);
+                    PRINT("EN_ESP_ME_SWITCH\n");
+                    EN_ESP_ME_SWITCH();
                 }
                 if (uart_rx_buffer[0] == 0x34)
                 {
-                    
-                    GPIOB_ResetBits(GPIO_Pin_5); // 设置 PB5 为低电平
-                    GPIOB_ResetBits(GPIO_Pin_14); // 设置 PB14 为低电平
-                    setDimColor(WHITE, 0.05); // 设置 WS2812 为红色，亮度 5%
+                    PRINT("EN_ESP_UART1_LOG_SWITCH\n");
+                    EN_ESP_UART1_LOG_SWITCH();
                 }
 
                 if (uart_rx_buffer[0] == 0x35)
                 {
+                    PRINT("EN_TEMP_SWITCH\n");
+                    EN_TEMP_SWITCH();
+                }
+
+                if (uart_rx_buffer[0] == 0x36)
+                {
                     
+                }
+
+                if (uart_rx_buffer[0] == 0x38)
+                {
+                    tmos_set_event(keyTaskId, KEY_EVENT_SINGLE_CLICK);
+                }
+               
+                if (uart_rx_buffer[0] == 0x39)
+                {
                     // 使能看门狗
                     R8_SAFE_ACCESS_SIG = SAFE_ACCESS_SIG1;
                     R8_SAFE_ACCESS_SIG = SAFE_ACCESS_SIG2;
                     R8_RST_WDOG_CTRL = RB_WDOG_RST_EN;
-                    
                     // 触发看门狗复位
                     R8_SAFE_ACCESS_SIG = SAFE_ACCESS_SIG1;
                     R8_SAFE_ACCESS_SIG = SAFE_ACCESS_SIG2;
                     R8_RST_WDOG_CTRL |= RB_SOFTWARE_RESET;
-                    
                     // 等待复位发生
                     while(1);
-
                 }
 
             }while(R8_UART1_RFC > 0);
