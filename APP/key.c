@@ -180,21 +180,13 @@ void Key_Init(void)
     keyTaskId = TMOS_ProcessEventRegister(Key_ProcessEvent);
     PRINT("按键初始化: keyTaskId=%d\n", keyTaskId);
     
-    
     //设置为输入模式
     PRINT("设置为输入模式: CH582_Key_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_Key_Pin);
     GPIOB_ModeCfg(CH582_Key_Pin, GPIO_ModeIN_PU);
 
-
     //设置为输入模式
     PRINT("设置为输入模式: CH582_AutoCheck_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_AutoCheck_Pin);
     GPIOB_ModeCfg(CH582_AutoCheck_Pin, GPIO_ModeIN_PU);
-
-    //设置为输出模式
-    ///PRINT("设置为输入模式: CH582_AutoCheck_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_AutoCheck_Pin);
-    //GPIOB_ModeCfg(CH582_AutoCheck_Pin, GPIO_ModeOut_PP_5mA);
-    //GPIOB_SetBits(CH582_AutoCheck_Pin);
-    //DelayMs(200);
 
     // 配置为输入模式，使能上拉 PB0-15才有中断
     PRINT("设置为输入模式: CH582_PROG_BOOT_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_PROG_BOOT_Pin);
@@ -202,8 +194,8 @@ void Key_Init(void)
     
     //RB_PIN_INTX：由于INT24/INT25 功能引脚映射选择位 默认是0,但是1才能：INT24_/25_映射到 PB[22]/PB[23]；
     //中断对应引脚重映射 设置(R16_PIN_ALTERNATE的RB_PIN_INTX位为1
-    PRINT("设置为输入模式: RB_PIN_INTX(0x%x)=1  \n", RB_PIN_INTX);
-    R16_PIN_ALTERNATE |= RB_PIN_INTX;
+    //PRINT("设置为输入模式: RB_PIN_INTX(0x%x)=1  \n", RB_PIN_INTX);
+    //R16_PIN_ALTERNATE |= RB_PIN_INTX;
 
     // 配置中断，初始设置为下降沿触发
     PRINT("初始设置为下降沿触发: CH582_PROG_BOOT_Pin(0x%x)=GPIO_ITMode_FallEdge  \n", CH582_PROG_BOOT_Pin);
@@ -235,13 +227,31 @@ void CH340_CTRL_PIN_INI(void)
     GPIOB_ModeCfg(CH582_3V3_Pin, GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
     GPIOB_ResetBits(CH582_3V3_Pin); // 为低电平
     
-    GPIOB_ModeCfg(CH582_12V_Pin, GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
+    GPIOB_ModeCfg(CH582_12V_Pin,        GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
     GPIOB_SetBits(CH582_12V_Pin); // 为低电平
 
-    GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin, GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
-    GPIOB_SetBits(EN_TEMP_SWITCH_Pin); // 为低电平
-    
+    //GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
+   // GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // 为低电平
+   PRINT("设置为输入模式: EN_TEMP_SWITCH_Pin(0x%x)=GPIO_ModeIN_PU  \n", EN_TEMP_SWITCH_Pin);
+   GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin, GPIO_ModeIN_PU);
+   uint8_t buttonLevel = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 1 : 0; // 读取当前按键状态
+   PRINT("EN_TEMP_SWITCH_Pin:%d\n",buttonLevel);
+}
 
+static uint8_t EN_TEMP_SWITCH_flag = 1; // 默认high电平
+void EN_TEMP_SWITCH(void) {
+    EN_TEMP_SWITCH_flag =!EN_TEMP_SWITCH_flag; // 反转状态
+    if(EN_TEMP_SWITCH_flag) {
+        GPIOB_SetBits(EN_TEMP_SWITCH_Pin); // 设置  为高电平
+        setDimColor(WHITE, 0.05); // 亮度 5%  
+        PRINT("SET 1 EN_TEMP_SWITCH_Pin:%d\n",EN_TEMP_SWITCH_Pin);
+    }
+    else {
+        GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // 设置  为低电平
+        setDimColor(GREEN, 0.05); // 亮度 5%
+        PRINT("reSET 0 EN_TEMP_SWITCH_Pin:%d\n",EN_TEMP_SWITCH_Pin);
+    }
+    PRINT("EN_TEMP_SWITCH_flag:%d\n",EN_TEMP_SWITCH_flag);
 }
 
 // 全局变量记录当前 PB5 的状态
@@ -344,19 +354,7 @@ void EN_ESP_UART1_LOG_SWITCH(void) {
     PRINT("EN_ESP_UART1_LOG_flag:%d\n",EN_ESP_UART1_LOG_flag);
 }
 
-static uint8_t EN_TEMP_SWITCH_flag = 1; // 默认high电平
-void EN_TEMP_SWITCH(void) {
-    EN_TEMP_SWITCH_flag =!EN_TEMP_SWITCH_flag; // 反转状态
-    if(EN_TEMP_SWITCH_flag) {
-        GPIOB_SetBits(EN_TEMP_SWITCH_Pin); // 设置 PB14 为高电平
-        setDimColor(WHITE, 0.05); // 亮度 5%  
-    }
-    else {
-        GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // 设置 PB14 为低电平
-        setDimColor(GREEN, 0.05); // 亮度 5%
-    }
-    PRINT("EN_TEMP_SWITCH_flag:%d\n",EN_TEMP_SWITCH_flag);
-}
+
 
 
 /**
