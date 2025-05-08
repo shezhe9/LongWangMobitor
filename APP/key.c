@@ -230,8 +230,8 @@ void CH340_CTRL_PIN_INI(void)
     GPIOB_ModeCfg(CH582_12V_Pin,        GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
     GPIOB_SetBits(CH582_12V_Pin); // 为低电平
 
-    //GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
-   // GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // 为低电平
+    GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
+    GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // 为低电平
    PRINT("设置为输入模式: EN_TEMP_SWITCH_Pin(0x%x)=GPIO_ModeIN_PU  \n", EN_TEMP_SWITCH_Pin);
    GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin, GPIO_ModeIN_PU);
    uint8_t buttonLevel = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 1 : 0; // 读取当前按键状态
@@ -242,13 +242,15 @@ static uint8_t EN_TEMP_SWITCH_flag = 1; // 默认high电平
 void EN_TEMP_SWITCH(void) {
     EN_TEMP_SWITCH_flag =!EN_TEMP_SWITCH_flag; // 反转状态
     if(EN_TEMP_SWITCH_flag) {
+        GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
         GPIOB_SetBits(EN_TEMP_SWITCH_Pin); // 设置  为高电平
         setDimColor(WHITE, 0.05); // 亮度 5%  
         PRINT("SET 1 EN_TEMP_SWITCH_Pin:%d\n",EN_TEMP_SWITCH_Pin);
     }
     else {
+        GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
         GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // 设置  为低电平
-        setDimColor(GREEN, 0.05); // 亮度 5%
+        setDimColor(GREEN, 0.05); // 亮度 5%  
         PRINT("reSET 0 EN_TEMP_SWITCH_Pin:%d\n",EN_TEMP_SWITCH_Pin);
     }
     PRINT("EN_TEMP_SWITCH_flag:%d\n",EN_TEMP_SWITCH_flag);
