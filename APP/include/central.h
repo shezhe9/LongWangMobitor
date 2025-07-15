@@ -37,6 +37,8 @@ extern "C" {
 
 // 新增：蓝牙发送测试数据事件
 #define START_SEND_TEST_DATA_EVT      0x0400
+// 新增：连接成功后发送初始化数据事件
+#define START_SEND_INIT_DATA_EVT      0x0800
 
 // 新增：目标设备服务和特征UUID定义
 #define TARGET_SERVICE_UUID           0xAE00  // 目标服务UUID

@@ -491,9 +491,30 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 // 填充数据1-20
                 for(uint8_t i = 0; i < 20; i++)
                 {
-                    req.pValue[i] = i + 1;  // 数据内容为1, 2, 3, ..., 20
+                    req.pValue[i] = 0;  // 数据内容为1, 2, 3, ..., 20
                 }
-                
+
+                req.pValue[0] = 0x83;
+                req.pValue[1] = 0x00;
+                req.pValue[2] = 0x02;
+                req.pValue[3] = 0x01;
+                req.pValue[4] = 0x20;
+                req.pValue[5] = 0x02;
+                req.pValue[6] = 0x00;
+                req.pValue[7] = 0x30;
+                req.pValue[8] = 0x00;
+                req.pValue[9] = 0x00;
+                req.pValue[10] = 0x02;
+                req.pValue[11] = 0x00;
+                req.pValue[12] = 0x30;
+                req.pValue[13] = 0x00;
+                req.pValue[14] = 0x00;
+                req.pValue[15] = 0x00;
+                req.pValue[16] = 0x00;
+                req.pValue[17] = 0x00;
+                req.pValue[18] = 0x00;
+                req.pValue[19] = 0x00;
+
                 // 打印要发送的数据
                 PRINT("Sending 20 bytes test data: ");
                 for(uint8_t i = 0; i < 20; i++)
@@ -526,6 +547,66 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
             PRINT("  AE02 WriteHandle: 0x%04X (expected: != 0)\n", centralWriteCharHdl);
         }
         return (events ^ START_SEND_TEST_DATA_EVT);
+    }
+
+    if(events & START_SEND_INIT_DATA_EVT)                            // 如果是发送初始化数据事件
+    {
+        if(centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT && centralWriteCharHdl != 0)
+        {
+            // 检查是否有其他GATT操作正在进行
+            if(centralProcedureInProgress == TRUE)
+            {
+                PRINT("GATT procedure in progress, retrying init data send in 100ms...\n");
+                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 100); // 100ms后重试
+                return (events ^ START_SEND_INIT_DATA_EVT);
+            }
+            
+            // 发送初始化数据：0x76 0x00 0x01 0x01
+            PRINT("Sending initialization data to AE10 write characteristic handle: 0x%04X\n", centralWriteCharHdl);
+            
+            attWriteReq_t req;
+            req.cmd = TRUE;                                           // 使用Write Command（无需响应）
+            req.sig = FALSE;                                          // 不带签名
+            req.handle = centralWriteCharHdl;                         // 设置AE10写特征句柄
+            req.len = 4;                                              // 写入长度为4字节
+            req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0);
+            
+            if(req.pValue != NULL)
+            {
+                // 填充初始化数据：0x75 0x00 0x01 0x01
+                req.pValue[0] = 0x75;
+                req.pValue[1] = 0x00;
+                req.pValue[2] = 0x01;
+                req.pValue[3] = 0x01;
+                
+                // 打印要发送的数据
+                PRINT("Sending init data: 0x%02X 0x%02X 0x%02X 0x%02X\n", 
+                      req.pValue[0], req.pValue[1], req.pValue[2], req.pValue[3]);
+                
+                bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);  // 使用Write Command
+                if(status == SUCCESS)
+                {
+                    PRINT("Initialization data sent successfully to AE10!\n");
+                }
+                else
+                {
+                    PRINT("Failed to send initialization data, status: 0x%02X\n", status);
+                    GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
+                }
+            }
+            else
+            {
+                PRINT("Failed to allocate memory for initialization data\n");
+            }
+        }
+        else
+        {
+            PRINT("Cannot send initialization data:\n");
+            PRINT("  State: %d (expected: %d - BLE_STATE_CONNECTED)\n", centralState, BLE_STATE_CONNECTED);
+            PRINT("  ConnHandle: 0x%04X (expected: != 0xFFFE)\n", centralConnHandle);
+            PRINT("  AE10 WriteHandle: 0x%04X (expected: != 0)\n", centralWriteCharHdl);
+        }
+        return (events ^ START_SEND_INIT_DATA_EVT);
     }
 
     // Discard unknown events                                         // 丢弃未知事件
@@ -624,6 +705,13 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
         {
             // Write success                                         // 写入成功
             PRINT("Write success \n");                              // 打印写入成功
+            
+            // 检查是否是CCCD写入成功，如果是则发送初始化数据
+            if(centralDiscState == BLE_DISC_STATE_IDLE && centralWriteCharHdl != 0)
+            {
+                PRINT("CCCD setup completed, triggering initialization data send...\n");
+                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 500); // 500ms后发送初始化数据
+            }
         }
 
         centralProcedureInProgress = FALSE;                         // 清除操作进行中标志
@@ -1256,12 +1344,22 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             // Display CCCD handle                                // 显示CCCD句柄
             PRINT("Found AE02 CCCD handle: 0x%04X, enabling notifications...\n", centralCCCDHdl);
             PRINT("Ready to receive notifications from AE02 and send data to AE10 (handle: 0x%04X)\n", centralWriteCharHdl);
+            
+            // 准备在CCCD配置完成后发送初始化数据
+            PRINT("Will send initialization data after CCCD setup completes...\n");
         }
         else
         {
-            PRINT("AE10 CCCD not found, notifications not available\n");
+            PRINT("AE02 CCCD not found, notifications not available\n");
             // 即使没有CCCD，连接仍然有效，可以进行写操作
             centralProcedureInProgress = FALSE;
+            
+            // 即使没有CCCD，也触发初始化数据发送
+            if(centralWriteCharHdl != 0)
+            {
+                PRINT("Triggering initialization data send (no CCCD found)...\n");
+                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 1000); // 1s后发送初始化数据
+            }
         }
         centralDiscState = BLE_DISC_STATE_IDLE;                  // 设置状态为空闲
     }
