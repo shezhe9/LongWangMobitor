@@ -2,7 +2,8 @@
 #include "uart_cmd.h"
 #include "ws2812.h"
 #include "key.h"
-#include "central.h"
+#include "central.h"  // 添加central.h头文件以访问centralTaskId和事件定义
+
 
 void app_uart_init(void)
 {
@@ -129,11 +130,11 @@ void UART1_IRQHandler(void)
                     while(1);
                 }
 
-                if (uart_rx_buffer[0] == 0x3A)
+                if (uart_rx_buffer[0] == 0x3a)
                 {
-                    PRINT("发送BLE数据命令\n");
-                    //extern uint8_t centralTaskId;
-                    tmos_set_event(centralTaskId, 0x0400); // START_HID_TEST_DATA_EVT
+                    PRINT("Received 0x3a command - Starting to send 20 test data to BLE device\n");
+                    // 触发发送20个测试数据事件
+                    tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 10); // 10ms后开始发送
                 }
 
             }while(R8_UART1_RFC > 0);

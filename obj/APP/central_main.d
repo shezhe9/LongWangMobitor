@@ -22,9 +22,7 @@ APP/central_main.o: ../APP/central_main.c \
  e:/Code/EXAM/BLE/HAL/include/RTC.h e:/Code/EXAM/BLE/HAL/include/SLEEP.h \
  e:/Code/EXAM/BLE/HAL/include/LED.h e:/Code/EXAM/BLE/HAL/include/KEY.h \
  e:/Code/EXAM/BLE/ch582test/APP/include/central.h \
- e:/Code/EXAM/BLE/ch582test/APP/include/uart_cmd.h \
- e:/Code/EXAM/BLE/ch582test/APP/include/ws2812.h \
- e:/Code/EXAM/BLE/ch582test/APP/include/key.h
+ e:/Code/EXAM/BLE/ch582test/APP/include/uart_cmd.h
 
 e:/Code/EXAM/BLE/HAL/include/CONFIG.h:
 
@@ -79,7 +77,3 @@ e:/Code/EXAM/BLE/HAL/include/KEY.h:
 e:/Code/EXAM/BLE/ch582test/APP/include/central.h:
 
 e:/Code/EXAM/BLE/ch582test/APP/include/uart_cmd.h:
-
-e:/Code/EXAM/BLE/ch582test/APP/include/ws2812.h:
-
-e:/Code/EXAM/BLE/ch582test/APP/include/key.h:

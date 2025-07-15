@@ -234,9 +234,9 @@ void CH340_CTRL_PIN_INI(void)
     GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // 为低电平
    PRINT("设置为输入模式: EN_TEMP_SWITCH_Pin(0x%x)=GPIO_ModeIN_PU  \n", EN_TEMP_SWITCH_Pin);
    GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin, GPIO_ModeIN_PU);
-   EN_TEMP_SWITCH();
    uint8_t buttonLevel = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 1 : 0; // 读取当前按键状态
    PRINT("EN_TEMP_SWITCH_Pin:%d\n",buttonLevel);
+   EN_TEMP_SWITCH();
 }
 
 static uint8_t EN_TEMP_SWITCH_flag = 1; // 默认high电平

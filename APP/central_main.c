@@ -14,8 +14,7 @@
 #include "hal.h"
 #include "central.h"
 #include "uart_cmd.h"
-#include "ws2812.h"
-#include "key.h"
+
 /*********************************************************************
  * GLOBAL TYPEDEFS
  */
