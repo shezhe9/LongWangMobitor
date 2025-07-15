@@ -1,67 +1,66 @@
-APP/central.o: ../APP/central.c \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HAL\include/CONFIG.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\LIB/CH58xBLE_LIB.H \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_common.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH583SFR.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\RVMSIS/core_riscv.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_clk.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_uart.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_gpio.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_i2c.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_flash.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_pwr.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_pwm.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_adc.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_sys.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_timer.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_spi.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_usbdev.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_usbhost.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/ISP583.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\Profile\include/gattprofile.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\APP\include/central.h \
- D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\APP\include/key.h
+APP/central.o: ../APP/central.c e:/Code/EXAM/BLE/HAL/include/CONFIG.h \
+ e:/Code/EXAM/BLE/LIB/CH58xBLE_LIB.H \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_common.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH583SFR.h \
+ e:/Code/EXAM/SRC/RVMSIS/core_riscv.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_clk.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_uart.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_gpio.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_i2c.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_flash.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_pwr.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_pwm.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_adc.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_sys.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_timer.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_spi.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_usbdev.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_usbhost.h \
+ e:/Code/EXAM/SRC/StdPeriphDriver/inc/ISP583.h \
+ e:/Code/EXAM/BLE/ch582test/Profile/include/gattprofile.h \
+ e:/Code/EXAM/BLE/ch582test/APP/include/central.h \
+ e:/Code/EXAM/BLE/ch582test/APP/include/key.h
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HAL\include/CONFIG.h:
+e:/Code/EXAM/BLE/HAL/include/CONFIG.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\LIB/CH58xBLE_LIB.H:
+e:/Code/EXAM/BLE/LIB/CH58xBLE_LIB.H:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_common.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_common.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH583SFR.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH583SFR.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\RVMSIS/core_riscv.h:
+e:/Code/EXAM/SRC/RVMSIS/core_riscv.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_clk.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_clk.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_uart.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_uart.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_gpio.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_gpio.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_i2c.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_i2c.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_flash.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_flash.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_pwr.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_pwr.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_pwm.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_pwm.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_adc.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_adc.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_sys.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_sys.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_timer.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_timer.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_spi.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_spi.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_usbdev.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_usbdev.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/CH58x_usbhost.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/CH58x_usbhost.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc/ISP583.h:
+e:/Code/EXAM/SRC/StdPeriphDriver/inc/ISP583.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\Profile\include/gattprofile.h:
+e:/Code/EXAM/BLE/ch582test/Profile/include/gattprofile.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\APP\include/central.h:
+e:/Code/EXAM/BLE/ch582test/APP/include/central.h:
 
-D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\APP\include/key.h:
+e:/Code/EXAM/BLE/ch582test/APP/include/key.h:

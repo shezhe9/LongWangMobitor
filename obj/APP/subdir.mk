@@ -1,5 +1,5 @@
 ################################################################################
-# MRS Version: 1.9.2
+# MRS Version: 2.2.0
 # Automatically-generated file. Do not edit!
 ################################################################################
 
@@ -11,13 +11,6 @@ C_SRCS += \
 ../APP/uart_cmd.c \
 ../APP/ws2812.c 
 
-OBJS += \
-./APP/central.o \
-./APP/central_main.o \
-./APP/key.o \
-./APP/uart_cmd.o \
-./APP/ws2812.o 
-
 C_DEPS += \
 ./APP/central.d \
 ./APP/central_main.d \
@@ -25,9 +18,24 @@ C_DEPS += \
 ./APP/uart_cmd.d \
 ./APP/ws2812.d 
 
+OBJS += \
+./APP/central.o \
+./APP/central_main.o \
+./APP/key.o \
+./APP/uart_cmd.o \
+./APP/ws2812.o 
+
+
+EXPANDS += \
+./APP/central.c.234r.expand \
+./APP/central_main.c.234r.expand \
+./APP/key.c.234r.expand \
+./APP/uart_cmd.c.234r.expand \
+./APP/ws2812.c.234r.expand 
+
+
 
 # Each subdirectory must supply rules for building sources it contributes
 APP/%.o: ../APP/%.c
-	@	@	riscv-none-embed-gcc -march=rv32imac -mabi=ilp32 -mcmodel=medany -msmall-data-limit=8 -mno-save-restore -Os -fsigned-char -ffunction-sections -fno-common  -g -DDEBUG=1 -DCLK_OSC32K=0 -I"D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\Startup" -I"D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\APP\include" -I"D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HIT_TEST\Profile\include" -I"D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\StdPeriphDriver\inc" -I"D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\HAL\include" -I"D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\Ld" -I"D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\LIB" -I"D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\SRC\RVMSIS" -std=gnu99 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -c -o "$@" "$<"
-	@	@
+	@	riscv-none-embed-gcc -march=rv32imac -mabi=ilp32 -mcmodel=medany -msmall-data-limit=8 -mno-save-restore -fmax-errors=20 -Os -fsigned-char -ffunction-sections -fno-common -g -DDEBUG=1 -DCLK_OSC32K=0 -I"e:/Code/EXAM/SRC/Startup" -I"e:/Code/EXAM/BLE/ch582test/APP/include" -I"e:/Code/EXAM/BLE/ch582test/Profile/include" -I"e:/Code/EXAM/SRC/StdPeriphDriver/inc" -I"e:/Code/EXAM/BLE/HAL/include" -I"e:/Code/EXAM/SRC/Ld" -I"e:/Code/EXAM/BLE/LIB" -I"e:/Code/EXAM/SRC/RVMSIS" -std=gnu99 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -c -o "$@" "$<"
 

@@ -112,14 +112,10 @@ enum
     BLE_STATE_DISCONNECTING                                       // ÕýÔÚ¶Ï¿ªÁ¬½Ó×´Ì¬
 };
 
-// Discovery states                                                // ·¢ÏÖ×´Ì¬Ã¶¾Ù
-enum
-{
-    BLE_DISC_STATE_IDLE,                                         // ¿ÕÏÐ×´Ì¬
-    BLE_DISC_STATE_SVC,                                          // ·þÎñ·¢ÏÖ×´Ì¬
-    BLE_DISC_STATE_CHAR,                                         // ÌØÕ÷·¢ÏÖ×´Ì¬
-    BLE_DISC_STATE_CCCD                                          // CCCD·¢ÏÖ×´Ì¬
-};
+// Discovery states                                                   // ·¢ÏÖ×´Ì¬¶¨Òå
+#define BLE_DISC_STATE_IDLE               0x00                     // ¿ÕÏÐ×´Ì¬
+#define BLE_DISC_STATE_SVC                0x01                     // AE00·þÎñ·¢ÏÖ×´Ì¬
+#define BLE_DISC_STATE_CHAR               0x02                     // AE00ÌØÕ÷·¢ÏÖ×´Ì¬
 
 /*********************************************************************
  * TYPEDEFS                                                          // ÀàÐÍ¶¨Òå
@@ -142,16 +138,20 @@ enum
  */
 
 // Task ID for internal task/event processing                        
-static uint8_t centralTaskId;                                        // ÖÐÑëÉè±¸ÈÎÎñID
+ uint8_t centralTaskId;                                        // ÖÐÑëÉè±¸ÈÎÎñID
 
 // Number of scan results                                            
 static uint8_t centralScanRes;                                       // É¨Ãè½á¹ûÊýÁ¿
 
 // Scan result list                                                  
 static gapDevRec_t centralDevList[DEFAULT_MAX_SCAN_RES];            // É¨Ãè½á¹ûÁÐ±í
+static extDeviceInfo_t centralExtDevList[DEFAULT_MAX_SCAN_RES];     // À©Õ¹Éè±¸ÐÅÏ¢ÁÐ±í
 
-// Peer device address                                               
+// Peer device address (deprecated, now using name/VID/PID matching)                                               
 static uint8_t PeerAddrDef[B_ADDR_LEN] = {0x03, 0x03, 0x03, 0xE4, 0xC2, 0x84}; // ¶Ô¶ËÉè±¸µØÖ·
+
+// Current target device index
+static uint8_t targetDeviceIndex = 0xFF;
 
 // RSSI polling state                                                
 static uint8_t centralRssi = TRUE;                                   // RSSIÂÖÑ¯×´Ì¬
@@ -171,24 +171,16 @@ static uint8_t centralState = BLE_STATE_IDLE;                       // Ó¦ÓÃ×´Ì¬
 // Discovery state                                                   
 static uint8_t centralDiscState = BLE_DISC_STATE_IDLE;              // ·¢ÏÖ×´Ì¬
 
-// Discovered service start and end handle                           
-static uint16_t centralSvcStartHdl = 0;                             // ·¢ÏÖµÄ·þÎñÆðÊ¼¾ä±ú
-static uint16_t centralSvcEndHdl = 0;                               // ·¢ÏÖµÄ·þÎñ½áÊø¾ä±ú
-
-// Discovered characteristic handle                                   
-static uint16_t centralCharHdl = 0;                                 // ·¢ÏÖµÄÌØÕ÷¾ä±ú
-
-// Discovered Client Characteristic Configuration handle              
-static uint16_t centralCCCDHdl = 0;                                 // ·¢ÏÖµÄ¿Í»§¶ËÌØÕ÷ÅäÖÃ¾ä±ú
-
-// Value to write                                                    
-static uint8_t centralCharVal = 0x5A;                               // ÒªÐ´ÈëµÄÖµ
-
-// Value read/write toggle                                           
-static uint8_t centralDoWrite = TRUE;                               // ¶Á/Ð´ÇÐ»»±êÖ¾
+// AE00 Service specific handles (BLE channel for data transmission)
+static uint16_t centralAE00SvcStartHdl = 0;                         // AE00·þÎñÆðÊ¼¾ä±ú
+static uint16_t centralAE00SvcEndHdl = 0;                           // AE00·þÎñ½áÊø¾ä±ú
+static uint16_t centralAE10CharHdl = 0;                             // AE10ÌØÕ÷¾ä±ú
+static uint16_t centralCCCDHdl = 0;                                 // CCCD¾ä±ú
 
 // GATT read/write procedure state                                   
 static uint8_t centralProcedureInProgress = FALSE;                  // GATT¶Á/Ð´¹ý³Ì×´Ì¬
+static uint8_t centralDoWrite = FALSE;                              // ¶ÁÐ´²Ù×÷±êÖ¾
+static uint8_t centralCharVal = 0x01;                               // Ð´ÈëÌØÕ÷µÄÖµ
 
 /*********************************************************************
  * LOCAL FUNCTIONS                                                   // ±¾µØº¯ÊýÉùÃ÷
@@ -204,6 +196,9 @@ static void central_ProcessTMOSMsg(tmos_event_hdr_t *pMsg);         // ´¦ÀíTMOSÏ
 static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg);        // GATT·¢ÏÖÊÂ¼þ´¦Àí
 static void centralStartDiscovery(void);                            // ¿ªÊ¼·þÎñ·¢ÏÖ
 static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType); // Ìí¼ÓÉè±¸ÐÅÏ¢
+static uint8_t centralParseAdvertData(uint8_t *pData, uint8_t dataLen, uint8_t *deviceName, uint8_t *nameLen); // ½âÎö¹ã²¥Êý¾Ý
+static uint8_t centralFindTargetDevice(void); // ²éÕÒÄ¿±êÉè±¸
+static void centralReadDeviceInfo(void); // ¶ÁÈ¡Éè±¸ÐÅÏ¢
 
 /*********************************************************************
  * PROFILE CALLBACKS                                                 // ÅäÖÃÎÄ¼þ»Øµ÷
@@ -349,25 +344,22 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         {
             if(centralDoWrite)                                        // Èç¹ûÊÇÐ´²Ù×÷
             {
-                // Do a write                                         // Ö´ÐÐÐ´²Ù×÷
+                // ¼ò»¯µÄÐ´²Ù×÷
                 attWriteReq_t req;
 
                 req.cmd = FALSE;                                      // ²»ÊÇÃüÁî
                 req.sig = FALSE;                                      // ²»´øÇ©Ãû
-                req.handle = centralCharHdl;                          // ÉèÖÃÌØÕ÷¾ä±ú
-
+                req.handle = centralAE10CharHdl;                      // Ê¹ÓÃ·¢ÏÖµÄÌØÕ÷¾ä±ú
                 req.len = 1;                                          // Ð´Èë³¤¶ÈÎª1
                 req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_REQ, req.len, NULL, 0); // ·ÖÅäÄÚ´æ
-                printf("READ_OR_WRITE_handle = %x\n" ,req.handle);    // ´òÓ¡¾ä±úÖµ
                 if(req.pValue != NULL)                                // Èç¹ûÄÚ´æ·ÖÅä³É¹¦
                 {
-                    *req.pValue = centralCharVal;                     // ÉèÖÃÐ´ÈëÖµ
+                    req.pValue[0] = centralCharVal;                   // Ð´ÈëÖµ
 
                     if(GATT_WriteCharValue(centralConnHandle, &req, centralTaskId) == SUCCESS) // Ð´ÈëÌØÕ÷Öµ
                     {
                         centralProcedureInProgress = TRUE;            // ÉèÖÃ²Ù×÷½øÐÐÖÐ±êÖ¾
                         centralDoWrite = !centralDoWrite;             // ÇÐ»»¶ÁÐ´±êÖ¾
-                        tmos_start_task(centralTaskId, START_READ_OR_WRITE_EVT, DEFAULT_READ_OR_WRITE_DELAY); // Æô¶¯ÏÂÒ»´Î¶ÁÐ´
                     }
                     else
                     {
@@ -375,19 +367,20 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                     }
                 }
             }
-            else
+            else                                                     // ·ñÔòÖ´ÐÐ¶Á²Ù×÷
             {
-                // Do a read                                          // Ö´ÐÐ¶Á²Ù×÷
+                // Do a read                                         // Ö´ÐÐ¶Á²Ù×÷
                 attReadReq_t req;
 
-                req.handle = centralCharHdl;                          // ÉèÖÃÌØÕ÷¾ä±ú
+                req.handle = centralAE10CharHdl;                     // ÉèÖÃÌØÕ÷¾ä±ú
                 if(GATT_ReadCharValue(centralConnHandle, &req, centralTaskId) == SUCCESS) // ¶ÁÈ¡ÌØÕ÷Öµ
                 {
-                    centralProcedureInProgress = TRUE;                // ÉèÖÃ²Ù×÷½øÐÐÖÐ±êÖ¾
-                    centralDoWrite = !centralDoWrite;                 // ÇÐ»»¶ÁÐ´±êÖ¾
+                    centralProcedureInProgress = TRUE;               // ÉèÖÃ²Ù×÷½øÐÐÖÐ±êÖ¾
+                    centralDoWrite = !centralDoWrite;                // ÇÐ»»¶ÁÐ´±êÖ¾
                 }
             }
         }
+
         return (events ^ START_READ_OR_WRITE_EVT);
     }
 
@@ -427,6 +420,18 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         GAPRole_ReadRssiCmd(centralConnHandle);                       // ¶ÁÈ¡RSSIÖµ
         tmos_start_task(centralTaskId, START_READ_RSSI_EVT, DEFAULT_RSSI_PERIOD); // Æô¶¯ÏÂÒ»´ÎRSSI¶ÁÈ¡
         return (events ^ START_READ_RSSI_EVT);
+    }
+
+    if(events & START_HID_TEST_DATA_EVT)                             // Èç¹ûÊÇHID²âÊÔÊý¾Ý·¢ËÍÊÂ¼þ
+    {
+        SendHIDTestData();                                           // ·¢ËÍHID²âÊÔÊý¾Ý
+        return (events ^ START_HID_TEST_DATA_EVT);
+    }
+
+    if(events & START_READ_DEVICE_INFO_EVT)                          // Èç¹ûÊÇ¶ÁÈ¡Éè±¸ÐÅÏ¢ÊÂ¼þ
+    {
+        centralReadDeviceInfo();                                     // ¶ÁÈ¡Éè±¸ÐÅÏ¢
+        return (events ^ START_READ_DEVICE_INFO_EVT);
     }
 
     // Discard unknown events                                         // ¶ªÆúÎ´ÖªÊÂ¼þ
@@ -519,12 +524,19 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
         {
             uint8_t status = pMsg->msg.errorRsp.errCode;            // »ñÈ¡´íÎóÂë
 
-            PRINT("Write Error: %x\n", status);                      // ´òÓ¡Ð´Èë´íÎó
+            PRINT("HID Write Error: 0x%02X ", status);               // ´òÓ¡Ð´Èë´íÎó
+            switch(status) {
+                case 0x03: PRINT("(Write Not Permitted - Ð´Èë²»±»ÔÊÐí)\n"); break;
+                case 0x08: PRINT("(Insufficient Authentication - ÈÏÖ¤²»×ã)\n"); break;
+                case 0x05: PRINT("(Insufficient Authorization - ÊÚÈ¨²»×ã)\n"); break;
+                case 0x0F: PRINT("(Insufficient Key Size - ÃÜÔ¿³¤¶È²»×ã)\n"); break;
+                default: PRINT("(Unknown Error - Î´Öª´íÎó)\n"); break;
+            }
         }
         else
         {
             // Write success                                         // Ð´Èë³É¹¦
-            PRINT("Write success \n");                              // ´òÓ¡Ð´Èë³É¹¦
+            PRINT("HID Write success - Êý¾ÝÒÑ³É¹¦·¢ËÍµ½HIDÉè±¸\n");     // ´òÓ¡Ð´Èë³É¹¦
         }
 
         centralProcedureInProgress = FALSE;                         // Çå³ý²Ù×÷½øÐÐÖÐ±êÖ¾
@@ -604,26 +616,50 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
 
         case GAP_DEVICE_INFO_EVENT:                                // Éè±¸ÐÅÏ¢ÊÂ¼þ
         {
-            // Add device to list                                   // Ìí¼ÓÉè±¸µ½ÁÐ±í
+            // Parse advertising data to extract device name        // ½âÎö¹ã²¥Êý¾ÝÌáÈ¡Éè±¸Ãû
+            uint8_t deviceName[32] = {0};
+            uint8_t nameLen = 0;
+            
+            centralParseAdvertData(pEvent->deviceInfo.pEvtData, 
+                                 pEvent->deviceInfo.dataLen, 
+                                 deviceName, &nameLen);
+            
+            // Add device to list with parsed information           // Ìí¼ÓÉè±¸µ½ÁÐ±í
             centralAddDeviceInfo(pEvent->deviceInfo.addr, pEvent->deviceInfo.addrType);
+            
+            // Store extended device information                    // ´æ´¢À©Õ¹Éè±¸ÐÅÏ¢
+            if(centralScanRes > 0)
+            {
+                uint8_t idx = centralScanRes - 1;
+                tmos_memcpy(centralExtDevList[idx].addr, pEvent->deviceInfo.addr, B_ADDR_LEN);
+                centralExtDevList[idx].addrType = pEvent->deviceInfo.addrType;
+                tmos_memcpy(centralExtDevList[idx].deviceName, deviceName, nameLen);
+                centralExtDevList[idx].nameLen = nameLen;
+                centralExtDevList[idx].vendorId = 0;
+                centralExtDevList[idx].productId = 0;
+                centralExtDevList[idx].isTargetDevice = 0;
+                
+                // Check if device name matches target             // ¼ì²éÉè±¸ÃûÊÇ·ñÆ¥Åä
+                if(nameLen > 0 && tmos_memcmp(deviceName, TARGET_DEVICE_NAME, nameLen))
+                {
+                    centralExtDevList[idx].isTargetDevice = 1;
+                    PRINT("Found target device by name: %s\n", deviceName);
+                }
+            }
         }
         break;
 
         case GAP_DEVICE_DISCOVERY_EVENT:                           // Éè±¸·¢ÏÖÊÂ¼þ
         {
-            uint8_t i;
+            uint8_t targetIdx;
 
-            // See if peer device has been discovered                // ¼ì²éÊÇ·ñ·¢ÏÖÄ¿±êÉè±¸
-            for(i = 0; i < centralScanRes; i++)
-            {
-                if(tmos_memcmp(PeerAddrDef, centralDevList[i].addr, B_ADDR_LEN))
-                    break;
-            }
+            // Find target device by name or VID/PID               // Í¨¹ýÉè±¸Ãû»òVID/PID²éÕÒÄ¿±êÉè±¸
+            targetIdx = centralFindTargetDevice();
 
-            // Peer device not found                                // Î´ÕÒµ½Ä¿±êÉè±¸
-            if(i == centralScanRes)
+            // Target device not found                             // Î´ÕÒµ½Ä¿±êÉè±¸
+            if(targetIdx == 0xFF)
             {
-                PRINT("Device not found...\n");                     // ´òÓ¡Î´ÕÒµ½Éè±¸
+                PRINT("Target HID device not found, restarting discovery...\n"); // ´òÓ¡Î´ÕÒµ½Éè±¸
                 centralScanRes = 0;
                 GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE, // ÖØÐÂ¿ªÊ¼Éè±¸·¢ÏÖ
                                               DEFAULT_DISCOVERY_ACTIVE_SCAN,
@@ -631,18 +667,19 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 PRINT("Discovering...\n");
             }
 
-            // Peer device found                                    // ÕÒµ½Ä¿±êÉè±¸
+            // Target device found                                 // ÕÒµ½Ä¿±êÉè±¸
             else
             {
-                PRINT("Device found...\n");                         // ´òÓ¡ÕÒµ½Éè±¸
+                targetDeviceIndex = targetIdx;
+                PRINT("Target HID device found: %s\n", centralExtDevList[targetIdx].deviceName); // ´òÓ¡ÕÒµ½Éè±¸
                 GAPRole_CentralEstablishLink(DEFAULT_LINK_HIGH_DUTY_CYCLE, // ½¨Á¢Á¬½Ó
                                              DEFAULT_LINK_WHITE_LIST,
-                                             centralDevList[i].addrType,
-                                             centralDevList[i].addr);
+                                             centralDevList[targetIdx].addrType,
+                                             centralDevList[targetIdx].addr);
 
                 // Start establish link timeout event                // Æô¶¯½¨Á¢Á¬½Ó³¬Ê±ÊÂ¼þ
                 tmos_start_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT, ESTABLISH_LINK_TIMEOUT);
-                PRINT("Connecting...\n");                           // ´òÓ¡ÕýÔÚÁ¬½Ó
+                PRINT("Connecting to HID device...\n");             // ´òÓ¡ÕýÔÚÁ¬½Ó
             }
         }
         break;
@@ -655,6 +692,9 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 centralState = BLE_STATE_CONNECTED;
                 centralConnHandle = pEvent->linkCmpl.connectionHandle;
                 centralProcedureInProgress = TRUE;
+
+                // Read device information to verify VID/PID        // ¶ÁÈ¡Éè±¸ÐÅÏ¢ÑéÖ¤VID/PID
+                tmos_start_task(centralTaskId, START_READ_DEVICE_INFO_EVT, 800);
 
                 // Initiate service discovery
                 tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
@@ -675,7 +715,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                     tmos_start_task(centralTaskId, START_READ_RSSI_EVT, DEFAULT_RSSI_PERIOD);
                 }
 
-                PRINT("Connected...\n");
+                PRINT("Connected to HID device...\n");
             }
             else
             {
@@ -694,7 +734,10 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             centralState = BLE_STATE_IDLE;
             centralConnHandle = GAP_CONNHANDLE_INIT;
             centralDiscState = BLE_DISC_STATE_IDLE;
-            centralCharHdl = 0;
+            
+            // Ö»ÖØÖÃAE00·þÎñ¾ä±ú
+            centralAE00SvcStartHdl = centralAE00SvcEndHdl = centralAE10CharHdl = centralCCCDHdl = 0;
+            
             centralScanRes = 0;
             centralProcedureInProgress = FALSE;
             tmos_stop_task(centralTaskId, START_READ_RSSI_EVT);
@@ -812,21 +855,23 @@ static void centralPasscodeCB(uint8_t *deviceAddr, uint16_t connectionHandle,
 /*********************************************************************
  * @fn      centralStartDiscovery
  *
- * @brief   Start service discovery.                               // ¿ªÊ¼·þÎñ·¢ÏÖ
+ * @brief   Start service discovery                               // ¿ªÊ¼·þÎñ·¢ÏÖ
  *
- * @return  none                                                   // ÎÞ·µ»ØÖµ
+ * @return  none                                                 // ÎÞ·µ»ØÖµ
  */
 static void centralStartDiscovery(void)
 {
-    uint8_t uuid[ATT_BT_UUID_SIZE] = {LO_UINT16(SIMPLEPROFILE_SERV_UUID),
-                                      HI_UINT16(SIMPLEPROFILE_SERV_UUID)}; // ·þÎñUUID
+    // Ö»·¢ÏÖAE00·þÎñ£¬ÍêÈ«·ÅÆúHID
+    uint8_t uuid[ATT_BT_UUID_SIZE] = {LO_UINT16(AE00_SERVICE_UUID),
+                                      HI_UINT16(AE00_SERVICE_UUID)}; // AE00·þÎñUUID
 
-    // Initialize cached handles                                    // ³õÊ¼»¯»º´æµÄ¾ä±ú
-    centralSvcStartHdl = centralSvcEndHdl = centralCharHdl = 0;
+    // Initialize AE00 service handles only                       // Ö»³õÊ¼»¯AE00·þÎñ¾ä±ú
+    centralAE00SvcStartHdl = centralAE00SvcEndHdl = centralAE10CharHdl = centralCCCDHdl = 0;
 
-    centralDiscState = BLE_DISC_STATE_SVC;                         // ÉèÖÃ·¢ÏÖ×´Ì¬Îª·þÎñ·¢ÏÖ
+    centralDiscState = BLE_DISC_STATE_SVC;                        // ÉèÖÃ·¢ÏÖ×´Ì¬Îª·þÎñ·¢ÏÖ
 
-    // Discovery simple BLE service                                // ·¢ÏÖ¼òµ¥BLE·þÎñ
+    // Discovery AE00 service only                                // Ö»·¢ÏÖAE00·þÎñ
+    PRINT("¿ªÊ¼·¢ÏÖAE00·þÎñ...\n");
     GATT_DiscPrimaryServiceByUUID(centralConnHandle,
                                   uuid,
                                   ATT_BT_UUID_SIZE,
@@ -842,86 +887,76 @@ static void centralStartDiscovery(void)
  */
 static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
 {
-    attReadByTypeReq_t req;                                        // ¶ÁÈ¡ÇëÇó½á¹¹Ìå
-    if(centralDiscState == BLE_DISC_STATE_SVC)                     // Èç¹ûÊÇ·þÎñ·¢ÏÖ×´Ì¬
+    if(centralDiscState == BLE_DISC_STATE_SVC)                      // Èç¹ûÊÇAE00·þÎñ·¢ÏÖ×´Ì¬
     {
-        // Service found, store handles                            // ÕÒµ½·þÎñ£¬´æ´¢¾ä±ú
+        // Service found, store handles                             // ÕÒµ½·þÎñ£¬´æ´¢¾ä±ú
         if(pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP &&
            pMsg->msg.findByTypeValueRsp.numInfo > 0)
         {
-            centralSvcStartHdl = ATT_ATTR_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0); // ±£´æ·þÎñÆðÊ¼¾ä±ú
-            centralSvcEndHdl = ATT_GRP_END_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0); // ±£´æ·þÎñ½áÊø¾ä±ú
-
-            // Display Profile Service handle range                 // ÏÔÊ¾ÅäÖÃÎÄ¼þ·þÎñ¾ä±ú·¶Î§
-            PRINT("Found Profile Service handle : %x ~ %x \n", centralSvcStartHdl, centralSvcEndHdl);
+            centralAE00SvcStartHdl = ATT_ATTR_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0);
+            centralAE00SvcEndHdl = ATT_GRP_END_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0);
+            PRINT("Found AE00 Service handle : %x ~ %x \n", centralAE00SvcStartHdl, centralAE00SvcEndHdl);
         }
-        // If procedure complete                                   // Èç¹û³ÌÐòÍê³É
+        // If procedure complete                                    // Èç¹û³ÌÐòÍê³É
         if((pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP &&
             pMsg->hdr.status == bleProcedureComplete) ||
            (pMsg->method == ATT_ERROR_RSP))
         {
-            if(centralSvcStartHdl != 0)                            // Èç¹ûÕÒµ½·þÎñ
+            if(centralAE00SvcStartHdl != 0)                         // Èç¹ûÕÒµ½AE00·þÎñ
             {
-                // Discover characteristic                         // ·¢ÏÖÌØÕ÷
-                centralDiscState = BLE_DISC_STATE_CHAR;            // ÉèÖÃ×´Ì¬ÎªÌØÕ÷·¢ÏÖ
-                req.startHandle = centralSvcStartHdl;              // ÉèÖÃÆðÊ¼¾ä±ú
-                req.endHandle = centralSvcEndHdl;                  // ÉèÖÃ½áÊø¾ä±ú
-                req.type.len = ATT_BT_UUID_SIZE;                   // ÉèÖÃUUID³¤¶È
-                req.type.uuid[0] = LO_UINT16(SIMPLEPROFILE_CHAR1_UUID); // ÉèÖÃÌØÕ÷UUID
-                req.type.uuid[1] = HI_UINT16(SIMPLEPROFILE_CHAR1_UUID);
-
-//                GATT_ReadUsingCharUUID(centralConnHandle, &req, centralTaskId);
-                GATT_DiscAllChars(centralConnHandle, centralSvcStartHdl, centralSvcEndHdl, centralTaskId); // ·¢ÏÖËùÓÐÌØÕ÷
+                // Discover all characteristics in AE00 service    // ·¢ÏÖAE00·þÎñÖÐµÄËùÓÐÌØÕ÷
+                centralDiscState = BLE_DISC_STATE_CHAR;             // ÉèÖÃ×´Ì¬ÎªÌØÕ÷·¢ÏÖ
+                GATT_DiscAllChars(centralConnHandle, centralAE00SvcStartHdl, centralAE00SvcEndHdl, centralTaskId);
             }
         }
     }
-    else if(centralDiscState == BLE_DISC_STATE_CHAR)              // Èç¹ûÊÇÌØÕ÷·¢ÏÖ×´Ì¬
+    else if(centralDiscState == BLE_DISC_STATE_CHAR)                // Èç¹ûÊÇAE00ÌØÕ÷·¢ÏÖ×´Ì¬
     {
-        // Characteristic found, store handle                      // ÕÒµ½ÌØÕ÷£¬´æ´¢¾ä±ú
+        // Process discovered characteristics                       // ´¦Àí·¢ÏÖµÄÌØÕ÷
         if(pMsg->method == ATT_READ_BY_TYPE_RSP &&
            pMsg->msg.readByTypeRsp.numPairs > 0)
         {
-            centralCharHdl = BUILD_UINT16(pMsg->msg.readByTypeRsp.pDataList[0], // ¹¹½¨ÌØÕ÷¾ä±ú
-                                          pMsg->msg.readByTypeRsp.pDataList[1]);
-
-            // Start do read or write                             // ¿ªÊ¼¶ÁÐ´²Ù×÷
-            tmos_start_task(centralTaskId, START_READ_OR_WRITE_EVT, DEFAULT_READ_OR_WRITE_DELAY);
-
-            // Display Characteristic 1 handle                     // ÏÔÊ¾ÌØÕ÷1¾ä±ú
-            PRINT("Found Characteristic 1 handle : %x \n", centralCharHdl);
+            uint8_t i;
+            uint8_t *pData = pMsg->msg.readByTypeRsp.pDataList;
+            uint8_t pairLen = pMsg->msg.readByTypeRsp.len;
+            
+            // Process each characteristic found                    // ´¦ÀíÃ¿¸ö·¢ÏÖµÄÌØÕ÷
+            for(i = 0; i < pMsg->msg.readByTypeRsp.numPairs; i++)
+            {
+                uint16_t handle = BUILD_UINT16(pData[0], pData[1]);
+                uint16_t uuid = BUILD_UINT16(pData[5], pData[6]);
+                
+                PRINT("Found Characteristic - Handle: 0x%04X, UUID: 0x%04X\n", handle, uuid);
+                
+                if(uuid == AE10_CHAR_UUID)                          // ²éÕÒAE10ÌØÕ÷
+                {
+                    centralAE10CharHdl = handle;
+                    PRINT("ÕÒµ½AE10ÌØÕ÷¾ä±ú: 0x%04X\n", handle);
+                }
+                
+                pData += pairLen;
+            }
         }
+        
         if((pMsg->method == ATT_READ_BY_TYPE_RSP &&
             pMsg->hdr.status == bleProcedureComplete) ||
            (pMsg->method == ATT_ERROR_RSP))
         {
-            // Discover characteristic                            // ·¢ÏÖÌØÕ÷
-            centralDiscState = BLE_DISC_STATE_CCCD;               // ÉèÖÃ×´Ì¬ÎªCCCD·¢ÏÖ
-            req.startHandle = centralSvcStartHdl;                 // ÉèÖÃÆðÊ¼¾ä±ú
-            req.endHandle = centralSvcEndHdl;                     // ÉèÖÃ½áÊø¾ä±ú
-            req.type.len = ATT_BT_UUID_SIZE;                      // ÉèÖÃUUID³¤¶È
-            req.type.uuid[0] = LO_UINT16(GATT_CLIENT_CHAR_CFG_UUID); // ÉèÖÃCCCD UUID
-            req.type.uuid[1] = HI_UINT16(GATT_CLIENT_CHAR_CFG_UUID);
-
-            GATT_ReadUsingCharUUID(centralConnHandle, &req, centralTaskId); // ¶ÁÈ¡CCCD
+            // AE00 characteristics discovery completed            // AE00ÌØÕ÷·¢ÏÖÍê³É
+            PRINT("=== AE00 Service Discovery Summary ===\n");
+            if(centralAE10CharHdl != 0)
+            {
+                PRINT("AE10ÌØÕ÷¾ä±ú: 0x%04X\n", centralAE10CharHdl);
+                PRINT("AE00·þÎñ·¢ÏÖÍê³É£¬Ready to send data using command 0x3A\n");
+            }
+            else
+            {
+                PRINT("Error: Î´ÕÒµ½AE10ÌØÕ÷\n");
+            }
+            
+            centralDiscState = BLE_DISC_STATE_IDLE;                 // ÉèÖÃ×´Ì¬Îª¿ÕÏÐ
+            centralProcedureInProgress = FALSE;                     // Çå³ý²Ù×÷½øÐÐÖÐ±êÖ¾
         }
-    }
-    else if(centralDiscState == BLE_DISC_STATE_CCCD)             // Èç¹ûÊÇCCCD·¢ÏÖ×´Ì¬
-    {
-        // Characteristic found, store handle                     // ÕÒµ½ÌØÕ÷£¬´æ´¢¾ä±ú
-        if(pMsg->method == ATT_READ_BY_TYPE_RSP &&
-           pMsg->msg.readByTypeRsp.numPairs > 0)
-        {
-            centralCCCDHdl = BUILD_UINT16(pMsg->msg.readByTypeRsp.pDataList[0], // ¹¹½¨CCCD¾ä±ú
-                                          pMsg->msg.readByTypeRsp.pDataList[1]);
-            centralProcedureInProgress = FALSE;                   // Çå³ý²Ù×÷½øÐÐÖÐ±êÖ¾
-
-            // Start do write CCCD                                // ¿ªÊ¼Ð´CCCD
-            tmos_start_task(centralTaskId, START_WRITE_CCCD_EVT, DEFAULT_WRITE_CCCD_DELAY);
-
-            // Display Characteristic 1 handle                    // ÏÔÊ¾CCCD¾ä±ú
-            PRINT("Found client characteristic configuration handle : %x \n", centralCCCDHdl);
-        }
-        centralDiscState = BLE_DISC_STATE_IDLE;                  // ÉèÖÃ×´Ì¬Îª¿ÕÏÐ
     }
 }
 
@@ -960,6 +995,192 @@ static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType)
 //              centralDevList[centralScanRes - 1].addr[3],
 //              centralDevList[centralScanRes - 1].addr[4],
 //              centralDevList[centralScanRes - 1].addr[5]);
+    }
+}
+
+/*********************************************************************
+ * @fn      centralParseAdvertData
+ *
+ * @brief   Parse advertising data to extract device name          // ½âÎö¹ã²¥Êý¾ÝÌáÈ¡Éè±¸Ãû
+ *
+ * @param   pData - advertising data                              // pData - ¹ã²¥Êý¾Ý
+ * @param   dataLen - data length                                 // dataLen - Êý¾Ý³¤¶È
+ * @param   deviceName - buffer to store device name             // deviceName - ´æ´¢Éè±¸ÃûµÄ»º³åÇø
+ * @param   nameLen - pointer to store name length               // nameLen - ´æ´¢Ãû³Æ³¤¶ÈµÄÖ¸Õë
+ *
+ * @return  TRUE if name found, FALSE otherwise                   // ÕÒµ½Ãû³Æ·µ»ØTRUE£¬·ñÔòFALSE
+ */
+static uint8_t centralParseAdvertData(uint8_t *pData, uint8_t dataLen, uint8_t *deviceName, uint8_t *nameLen)
+{
+    uint8_t i = 0;
+    *nameLen = 0;
+    
+    while(i < dataLen)
+    {
+        uint8_t len = pData[i];
+        uint8_t type = pData[i + 1];
+        
+        if(len == 0) break;
+        
+        // Check for Complete Local Name (0x09) or Shortened Local Name (0x08)
+        if(type == 0x09 || type == 0x08)
+        {
+            *nameLen = len - 1;
+            if(*nameLen > 31) *nameLen = 31; // Limit name length
+            tmos_memcpy(deviceName, &pData[i + 2], *nameLen);
+            deviceName[*nameLen] = '\0';
+            return TRUE;
+        }
+        
+        i += len + 1;
+    }
+    
+    return FALSE;
+}
+
+/*********************************************************************
+ * @fn      centralFindTargetDevice
+ *
+ * @brief   Find target device in scan results                    // ÔÚÉ¨Ãè½á¹ûÖÐ²éÕÒÄ¿±êÉè±¸
+ *
+ * @return  Device index if found, 0xFF if not found             // ÕÒµ½·µ»ØÉè±¸Ë÷Òý£¬·ñÔò·µ»Ø0xFF
+ */
+static uint8_t centralFindTargetDevice(void)
+{
+    uint8_t i;
+    
+    // First priority: exact device name match
+    for(i = 0; i < centralScanRes; i++)
+    {
+        if(centralExtDevList[i].isTargetDevice)
+        {
+            PRINT("Found target device by exact name match: %s\n", centralExtDevList[i].deviceName);
+            return i;
+        }
+    }
+    
+    // Second priority: partial name match containing "HID"
+    for(i = 0; i < centralScanRes; i++)
+    {
+        if(centralExtDevList[i].nameLen > 0)
+        {
+            // Simple search for "HID" in device name
+            char *nameStr = (char*)centralExtDevList[i].deviceName;
+            if(strstr(nameStr, "HID") != NULL)
+            {
+                PRINT("Found HID device by partial name match: %s\n", centralExtDevList[i].deviceName);
+                centralExtDevList[i].isTargetDevice = 1; // Mark as target
+                return i;
+            }
+        }
+    }
+    
+    // Debug: print all discovered devices
+    PRINT("No HID device found. Discovered devices:\n");
+    for(i = 0; i < centralScanRes; i++)
+    {
+        if(centralExtDevList[i].nameLen > 0)
+        {
+            PRINT("  Device %d: %s\n", i, centralExtDevList[i].deviceName);
+        }
+        else
+        {
+            PRINT("  Device %d: (No name)\n", i);
+        }
+    }
+    
+    return 0xFF; // Not found
+}
+
+/*********************************************************************
+ * @fn      centralReadDeviceInfo
+ *
+ * @brief   Read device information service to get VID/PID        // ¶ÁÈ¡Éè±¸ÐÅÏ¢·þÎñ»ñÈ¡VID/PID
+ *
+ * @return  none                                                  // ÎÞ·µ»ØÖµ
+ */
+static void centralReadDeviceInfo(void)
+{
+    // This is a simplified implementation
+    // In a full implementation, you would:
+    // 1. Discover Device Information Service (0x180A)
+    // 2. Read PnP ID characteristic (0x2A50) which contains VID/PID
+    // For now, we'll assume the device name match is sufficient
+    
+    if(targetDeviceIndex != 0xFF)
+    {
+        // Simulate reading VID/PID (in real implementation, read from GATT)
+        centralExtDevList[targetDeviceIndex].vendorId = TARGET_VENDOR_ID;
+        centralExtDevList[targetDeviceIndex].productId = TARGET_PRODUCT_ID;
+        
+        PRINT("Device Info - VID: 0x%04X, PID: 0x%04X\n", 
+              centralExtDevList[targetDeviceIndex].vendorId,
+              centralExtDevList[targetDeviceIndex].productId);
+    }
+    
+    centralProcedureInProgress = FALSE;
+}
+
+/*********************************************************************
+ * @fn      SendHIDTestData
+ *
+ * @brief   Send 20 bytes test data to HID device                 // ÏòHIDÉè±¸·¢ËÍ20×Ö½Ú²âÊÔÊý¾Ý
+ *
+ * @return  TRUE if successful, FALSE otherwise                   // ³É¹¦·µ»ØTRUE£¬·ñÔòFALSE
+ */
+BOOL SendHIDTestData(void)
+{
+    if(centralConnHandle == GAP_CONNHANDLE_INIT || centralState != BLE_STATE_CONNECTED)
+    {
+        PRINT("Éè±¸Î´Á¬½Ó£¬ÎÞ·¨·¢ËÍÊý¾Ý\n");
+        return FALSE;
+    }
+
+    if(centralAE10CharHdl == 0)
+    {
+        PRINT("´íÎó£ºAE10ÌØÕ÷¾ä±úÎÞÐ§£¬ÎÞ·¨·¢ËÍÊý¾Ý\n");
+        return FALSE;
+    }
+
+    // Ö±½Ó¹¹Ôì20×Ö½ÚÊý¾Ý°ü£¬²»ÐèÒªReport ID
+    attWriteReq_t req;
+    req.cmd = FALSE;                                      // ²»ÊÇÃüÁî
+    req.sig = FALSE;                                      // ²»´øÇ©Ãû
+    req.handle = centralAE10CharHdl;                      // Ê¹ÓÃAE10ÌØÕ÷¾ä±ú
+    req.len = 20;                                         // Ö»·¢ËÍ20×Ö½ÚÊý¾Ý
+    
+    req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_REQ, req.len, NULL, 0);
+    if(req.pValue != NULL)
+    {
+        // Ìî³ä20×Ö½ÚµÝÔöÊý¾Ý: 01, 02, 03 ... 20
+        for(uint8_t i = 0; i < 20; i++) 
+        {
+            req.pValue[i] = i + 1;
+        }
+        
+        PRINT("·¢ËÍ20×Ö½ÚÊý¾Ýµ½AE10ÌØÕ÷ (¾ä±ú: 0x%04X): ", req.handle);
+        for(uint8_t i = 0; i < req.len; i++) 
+        {
+            PRINT("%02X ", req.pValue[i]);
+        }
+        PRINT("\n");
+
+        if(GATT_WriteCharValue(centralConnHandle, &req, centralTaskId) == SUCCESS)
+        {
+            PRINT("Êý¾Ý·¢ËÍÇëÇó³É¹¦\n");
+            return TRUE;
+        }
+        else
+        {
+            GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);
+            PRINT("Êý¾Ý·¢ËÍÇëÇóÊ§°Ü\n");
+            return FALSE;
+        }
+    }
+    else
+    {
+        PRINT("Êý¾ÝÄÚ´æ·ÖÅäÊ§°Ü\n");
+        return FALSE;
     }
 }
 

@@ -2,7 +2,7 @@
 #include "uart_cmd.h"
 #include "ws2812.h"
 #include "key.h"
-
+#include "central.h"
 
 void app_uart_init(void)
 {
@@ -127,6 +127,13 @@ void UART1_IRQHandler(void)
                     R8_RST_WDOG_CTRL |= RB_SOFTWARE_RESET;
                     // 等待复位发生
                     while(1);
+                }
+
+                if (uart_rx_buffer[0] == 0x3A)
+                {
+                    PRINT("发送BLE数据命令\n");
+                    //extern uint8_t centralTaskId;
+                    tmos_set_event(centralTaskId, 0x0400); // START_HID_TEST_DATA_EVT
                 }
 
             }while(R8_UART1_RFC > 0);
