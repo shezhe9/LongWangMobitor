@@ -137,6 +137,20 @@ void UART1_IRQHandler(void)
                     tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 10); // 10ms后开始发送
                 }
 
+                if (uart_rx_buffer[0] == 0x3b)
+                {
+                    PRINT("Received 0x3b command - Disconnect BLE and stop auto reconnect\n");
+                    // 断开BLE连接并停止自动重连
+                    Central_DisconnectAndStopAutoReconnect();
+                }
+
+                if (uart_rx_buffer[0] == 0x3c)
+                {
+                    PRINT("Received 0x3c command - Start auto reconnect\n");
+                    // 启动自动搜索和连接
+                    Central_StartAutoReconnect();
+                }
+
             }while(R8_UART1_RFC > 0);
             //uart_rx_flag = true;
             break;

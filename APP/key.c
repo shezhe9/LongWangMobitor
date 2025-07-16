@@ -261,6 +261,25 @@ void EN_TEMP_SWITCH(void) {
 // 全局变量记录当前 PB5 的状态
 static uint8_t BootState = 0; // 默认低电平
 
+
+static BOOL sann_State = FALSE; // 默认扫描=0
+void sann_change(void)
+{
+    if(sann_State==FALSE)
+    {
+        PRINT("Disconnect BLE and stop auto reconnect\n");
+        Central_DisconnectAndStopAutoReconnect();
+        setDimColor(RED_COLOR, 0.1); // 设置LED为红色表示断开状态
+    }else 
+    {
+        PRINT("Start auto reconnect\n");
+        setDimColor(BLUE, 0.1); // 设置LED为蓝色表示搜索状态
+        Central_StartAutoReconnect();
+    }
+    sann_State=!sann_State;
+
+}
+
 void BOOT_SWICH(void) {
     // 反转  的电平
     BootState = !BootState; // 反转状态
@@ -272,7 +291,7 @@ void BOOT_SWICH(void) {
         DelayMs(200); // 延迟 200ms
         //  为高电平，设置显示为红色
         GPIOB_SetBits(CH582_3V3_Pin); // 设置  为高电平
-        setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
+        setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
         GPIOB_ResetBits(EN_CH_Pin); // 低电平打开
         PRINT("3V3 EN\n");
 
@@ -435,10 +454,22 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & KEY_EVENT_LONG_PRESS)
     {
         PRINT("按键长按事件\n");
-        //GPIOB_ResetBits(CH582_3V3_Pin); // 设置 PB5 为低电平
-        //GPIOB_ResetBits(CH582_12V_Pin); // 设置 PB14 为低电平
-        //setDimColor(BLACK, 0.05); // 设置 WS2812 为红色，亮度 5%
-
+        
+        sann_change();
+        /*
+        // 检查当前BLE连接状态并执行相应操作
+        if(Central_IsConnected())
+        {
+            PRINT("长按：当前有BLE连接，断开连接并停止自动重连\n");
+            Central_DisconnectAndStopAutoReconnect();
+            setDimColor(RED_COLOR, 0.1); // 设置LED为红色表示断开状态
+        }
+        else
+        {
+            PRINT("长按：当前无BLE连接，启动自动搜索和连接\n");
+            Central_StartAutoReconnect();
+            setDimColor(BLUE, 0.1); // 设置LED为蓝色表示搜索状态
+        }*/
         
         return (events ^ KEY_EVENT_LONG_PRESS);
     }

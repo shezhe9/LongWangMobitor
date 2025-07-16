@@ -15,6 +15,7 @@
 #include "gattprofile.h"                                             // 包含GATT配置文件头文件
 #include "central.h"                                                 // 包含central主机头文件
 #include "key.h"   
+#include "ws2812.h"  
 /*********************************************************************
  * MACROS                                                            // 宏定义
  */
@@ -155,6 +156,9 @@ static uint8_t targetDeviceName[] = TARGET_DEVICE_NAME; // 目标设备名称
 static uint8_t targetDeviceFound = FALSE;                // 是否找到目标设备
 static uint8_t connectionFailCount = 0;                  // 连接失败计数器
 
+// 新增：自动重连控制变量
+static uint8_t autoReconnectEnabled = TRUE;              // 是否启用自动重连功能
+
 // RSSI polling state                                                
 static uint8_t centralRssi = TRUE;                                   // RSSI轮询状态
 
@@ -261,6 +265,7 @@ void Central_Init()
     centralWriteCharHdl = 0;
     centralCharHdl = 0;
     centralCCCDHdl = 0;
+    autoReconnectEnabled = TRUE;  // 默认启用自动重连
     
     PRINT("Central_Init: Initializing BLE Central with target device: %s\n", TARGET_DEVICE_NAME);
     
@@ -330,25 +335,33 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ START_DEVICE_EVT);
     }
 
-    if(events & ESTABLISH_LINK_TIMEOUT_EVT)                              // 如果是建立连接超时事件
-    {
-        PRINT("Connection timeout! Terminating connection attempt...\n");
-        GAPRole_TerminateLink(INVALID_CONNHANDLE);                    // 终止连接
-        
-        // 重置状态并重新开始搜索
-        centralState = BLE_STATE_IDLE;
-        centralConnHandle = GAP_CONNHANDLE_INIT;
-        centralScanRes = 0;
-        targetDeviceFound = FALSE;
-        centralProcedureInProgress = FALSE;
-        
-        PRINT("Restarting device discovery after timeout...\n");
-        GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
-                                      DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                      DEFAULT_DISCOVERY_WHITE_LIST);
-        
-        return (events ^ ESTABLISH_LINK_TIMEOUT_EVT);
-    }
+            if(events & ESTABLISH_LINK_TIMEOUT_EVT)                              // 如果是建立连接超时事件
+        {
+            PRINT("Connection timeout! Terminating connection attempt...\n");
+            GAPRole_TerminateLink(INVALID_CONNHANDLE);                    // 终止连接
+            
+            // 重置状态并重新开始搜索
+            centralState = BLE_STATE_IDLE;
+            centralConnHandle = GAP_CONNHANDLE_INIT;
+            centralScanRes = 0;
+            targetDeviceFound = FALSE;
+            centralProcedureInProgress = FALSE;
+            
+            // 只有在启用自动重连时才重新开始搜索
+            if(autoReconnectEnabled == TRUE)
+            {
+                PRINT("Restarting device discovery after timeout...\n");
+                GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
+                                              DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                              DEFAULT_DISCOVERY_WHITE_LIST);
+            }
+            else
+            {
+                PRINT("Auto reconnect disabled, not restarting discovery after timeout.\n");
+            }
+            
+            return (events ^ ESTABLISH_LINK_TIMEOUT_EVT);
+        }
 
     if(events & START_SVC_DISCOVERY_EVT)                              // 如果是开始服务发现事件
     {
@@ -659,6 +672,63 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ START_SEND_INIT_DATA_EVT);
     }
 
+    if(events & STOP_AUTO_RECONNECT_EVT)                             // 如果是停止自动重连事件
+    {
+        setDimColor(WHITE, 0.05); // 亮度 5% 
+        PRINT("Stopping auto reconnect functionality...\n");
+        autoReconnectEnabled = FALSE;                                // 禁用自动重连
+        
+        // 如果当前有连接，断开连接
+        if(centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT)
+        {
+            PRINT("Disconnecting current BLE connection...\n");
+            GAPRole_TerminateLink(centralConnHandle);
+        }
+        
+        // 停止当前的扫描
+        if(centralState == BLE_STATE_IDLE || centralState == BLE_STATE_CONNECTING)
+        {
+            PRINT("Stopping BLE discovery...\n");
+            GAPRole_CentralCancelDiscovery();
+        }
+        
+        // 停止所有相关的定时任务
+        tmos_stop_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT);
+        tmos_stop_task(centralTaskId, START_READ_RSSI_EVT);
+        
+        PRINT("Auto reconnect stopped. Device will not automatically search for BLE devices.\n");
+        return (events ^ STOP_AUTO_RECONNECT_EVT);
+    }
+
+    if(events & START_AUTO_RECONNECT_EVT)                            // 如果是启动自动重连事件
+    {
+        PRINT("Starting auto reconnect functionality...\n");
+        setDimColor(Purple, 0.05); // 亮度 5% 
+        autoReconnectEnabled = TRUE;                                 // 启用自动重连
+        
+        // 重置连接状态
+        centralState = BLE_STATE_IDLE;
+        centralConnHandle = GAP_CONNHANDLE_INIT;
+        centralDiscState = BLE_DISC_STATE_IDLE;
+        centralScanRes = 0;
+        targetDeviceFound = FALSE;
+        centralProcedureInProgress = FALSE;
+        connectionFailCount = 0;
+        
+        // 重置特征句柄
+        centralNotifyCharHdl = 0;
+        centralWriteCharHdl = 0;
+        centralCharHdl = 0;
+        centralCCCDHdl = 0;
+        
+        PRINT("Restarting device discovery for target device: '%s'...\n", TARGET_DEVICE_NAME);
+        GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
+                                      DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                      DEFAULT_DISCOVERY_WHITE_LIST);
+        
+        return (events ^ START_AUTO_RECONNECT_EVT);
+    }
+
     // Discard unknown events                                         // 丢弃未知事件
     return 0;
 }
@@ -847,10 +917,19 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
         {
             PRINT("BLE Central initialized. Searching for device: '%s' (length=%d)\n", 
                   TARGET_DEVICE_NAME, TARGET_DEVICE_NAME_LEN);      // 打印目标设备信息
-            PRINT("Discovering...\n");                              // 打印开始发现设备
-            GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,   // 开始设备发现
-                                          DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                          DEFAULT_DISCOVERY_WHITE_LIST);
+            
+            // 只有在启用自动重连时才开始发现
+            if(autoReconnectEnabled == TRUE)
+            {
+                PRINT("Auto reconnect enabled. Starting discovery...\n");
+                GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,   // 开始设备发现
+                                              DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                              DEFAULT_DISCOVERY_WHITE_LIST);
+            }
+            else
+            {
+                PRINT("Auto reconnect disabled. Not starting discovery.\n");
+            }
         }
         break;
 
@@ -995,11 +1074,19 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                             // 延迟更长时间再重启
                                             DelayMs(2000);
                                             
-                                            // 重新开始发现
-                                            GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
-                                                                          DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                                                          DEFAULT_DISCOVERY_WHITE_LIST);
-                                            PRINT("Restarted device discovery\n");
+                                            // 只有在启用自动重连时才重新开始发现
+                                            if(autoReconnectEnabled == TRUE)
+                                            {
+                                                // 重新开始发现
+                                                GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
+                                                                              DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                                                              DEFAULT_DISCOVERY_WHITE_LIST);
+                                                PRINT("Restarted device discovery\n");
+                                            }
+                                            else
+                                            {
+                                                PRINT("Auto reconnect disabled, not restarting discovery after failures.\n");
+                                            }
                                         }
                                         else
                                         {
@@ -1007,10 +1094,18 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                             DelayMs(1000);
                                             PRINT("Will retry discovery in next scan cycle...\n");
                                             
-                                            // 重新开始发现
-                                            GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
-                                                                          DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                                                          DEFAULT_DISCOVERY_WHITE_LIST);
+                                            // 只有在启用自动重连时才重新开始发现
+                                            if(autoReconnectEnabled == TRUE)
+                                            {
+                                                // 重新开始发现
+                                                GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
+                                                                              DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                                                              DEFAULT_DISCOVERY_WHITE_LIST);
+                                            }
+                                            else
+                                            {
+                                                PRINT("Auto reconnect disabled, not retrying discovery.\n");
+                                            }
                                         }
                                     }
                                 }
@@ -1043,10 +1138,19 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 PRINT("Target device '%s' not found during discovery...\n", TARGET_DEVICE_NAME);  // 打印未找到目标设备
                 centralScanRes = 0;
                 targetDeviceFound = FALSE;  // 重置标志
-                GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE, // 重新开始设备发现
-                                              DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                              DEFAULT_DISCOVERY_WHITE_LIST);
-                PRINT("Discovering...\n");
+                
+                // 只有在启用自动重连时才重新开始搜索
+                if(autoReconnectEnabled == TRUE)
+                {
+                    GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE, // 重新开始设备发现
+                                                  DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                                  DEFAULT_DISCOVERY_WHITE_LIST);
+                    PRINT("Discovering...\n");
+                }
+                else
+                {
+                    PRINT("Auto reconnect disabled, stopping discovery.\n");
+                }
             }
         }
         break;
@@ -1087,12 +1191,21 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             else
             {
                 PRINT("Connection failed! Reason: 0x%02X\n", pEvent->gap.hdr.status);
-                PRINT("Restarting device discovery...\n");
                 centralScanRes = 0;
                 targetDeviceFound = FALSE;  // 重置目标设备标志
-                GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
-                                              DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                              DEFAULT_DISCOVERY_WHITE_LIST);
+                
+                // 只有在启用自动重连时才重新开始搜索
+                if(autoReconnectEnabled == TRUE)
+                {
+                    PRINT("Restarting device discovery...\n");
+                    GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
+                                                  DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                                  DEFAULT_DISCOVERY_WHITE_LIST);
+                }
+                else
+                {
+                    PRINT("Auto reconnect disabled, not restarting discovery.\n");
+                }
             }
         }
         break;
@@ -1111,10 +1224,19 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             targetDeviceFound = FALSE;  // 重置目标设备找到标志
             tmos_stop_task(centralTaskId, START_READ_RSSI_EVT);
             PRINT("Disconnected...Reason:%x\n", pEvent->linkTerminate.reason);
-            PRINT("Re-discovering target device '%s'...\n", TARGET_DEVICE_NAME);
-            GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
-                                          DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                          DEFAULT_DISCOVERY_WHITE_LIST);
+            
+            // 只有在启用自动重连时才重新搜索
+            if(autoReconnectEnabled == TRUE)
+            {
+                PRINT("Re-discovering target device '%s'...\n", TARGET_DEVICE_NAME);
+                GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
+                                              DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                              DEFAULT_DISCOVERY_WHITE_LIST);
+            }
+            else
+            {
+                PRINT("Auto reconnect disabled, not restarting discovery after disconnect.\n");
+            }
         }
         break;
 
@@ -1407,7 +1529,7 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             // Display CCCD handle                                // 显示CCCD句柄
             PRINT("Found AE02 CCCD handle: 0x%04X, enabling notifications...\n", centralCCCDHdl);
             PRINT("Ready to receive notifications from AE02 and send data to AE10 (handle: 0x%04X)\n", centralWriteCharHdl);
-            
+            setDimColor(RED, 0.05); // 亮度 5% 
             // 准备在CCCD配置完成后发送初始化数据
             PRINT("Will send initialization data after CCCD setup completes...\n");
         }
@@ -1464,6 +1586,46 @@ static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType)
 //              centralDevList[centralScanRes - 1].addr[4],
 //              centralDevList[centralScanRes - 1].addr[5]);
     }
+}
+
+/*********************************************************************
+ * @fn      Central_DisconnectAndStopAutoReconnect
+ *
+ * @brief   断开当前连接并停止自动重连功能
+ *
+ * @return  none
+ */
+void Central_DisconnectAndStopAutoReconnect(void)
+{
+    PRINT("User triggered: Disconnect and stop auto reconnect\n");
+    // 触发停止自动重连事件
+    tmos_set_event(centralTaskId, STOP_AUTO_RECONNECT_EVT);
+}
+
+/*********************************************************************
+ * @fn      Central_StartAutoReconnect
+ *
+ * @brief   启动自动搜索和连接功能
+ *
+ * @return  none
+ */
+void Central_StartAutoReconnect(void)
+{
+    PRINT("User triggered: Start auto reconnect\n");
+    // 触发启动自动重连事件
+    tmos_set_event(centralTaskId, START_AUTO_RECONNECT_EVT);
+}
+
+/*********************************************************************
+ * @fn      Central_IsConnected
+ *
+ * @brief   检查是否当前有BLE连接
+ *
+ * @return  TRUE if connected, FALSE otherwise
+ */
+uint8_t Central_IsConnected(void)
+{
+    return (centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT);
 }
 
 /************************ endfile @ central **************************/

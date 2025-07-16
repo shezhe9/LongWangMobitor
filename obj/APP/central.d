@@ -19,7 +19,8 @@ APP/central.o: ../APP/central.c e:/Code/EXAM/BLE/HAL/include/CONFIG.h \
  e:/Code/EXAM/SRC/StdPeriphDriver/inc/ISP583.h \
  e:/Code/EXAM/BLE/ch582test/Profile/include/gattprofile.h \
  e:/Code/EXAM/BLE/ch582test/APP/include/central.h \
- e:/Code/EXAM/BLE/ch582test/APP/include/key.h
+ e:/Code/EXAM/BLE/ch582test/APP/include/key.h \
+ e:/Code/EXAM/BLE/ch582test/APP/include/ws2812.h
 
 e:/Code/EXAM/BLE/HAL/include/CONFIG.h:
 
@@ -64,3 +65,5 @@ e:/Code/EXAM/BLE/ch582test/Profile/include/gattprofile.h:
 e:/Code/EXAM/BLE/ch582test/APP/include/central.h:
 
 e:/Code/EXAM/BLE/ch582test/APP/include/key.h:
+
+e:/Code/EXAM/BLE/ch582test/APP/include/ws2812.h:

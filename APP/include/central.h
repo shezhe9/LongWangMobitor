@@ -40,6 +40,10 @@ extern "C" {
 // 新增：连接成功后发送初始化数据事件
 #define START_SEND_INIT_DATA_EVT      0x0800
 
+// 新增：连接控制事件
+#define STOP_AUTO_RECONNECT_EVT       0x1000  // 停止自动重连事件
+#define START_AUTO_RECONNECT_EVT      0x2000  // 启动自动重连事件
+
 // 新增：目标设备服务和特征UUID定义
 #define TARGET_SERVICE_UUID           0xAE00  // 目标服务UUID
 #define TARGET_WRITE_CHAR_UUID        0xAE10  // 写特征UUID (用于发送数据)
@@ -75,6 +79,13 @@ extern uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events);
  * External variables for accessing central task ID
  */
 extern uint8_t centralTaskId;  // Central任务ID，供外部模块使用
+
+/*
+ * 新增：连接控制函数声明
+ */
+extern void Central_DisconnectAndStopAutoReconnect(void);  // 断开连接并停止自动重连
+extern void Central_StartAutoReconnect(void);              // 开始自动搜索和连接
+extern uint8_t Central_IsConnected(void);                  // 检查是否已连接
 
 /*********************************************************************
 *********************************************************************/
