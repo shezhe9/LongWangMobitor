@@ -1,6 +1,7 @@
 #include "CONFIG.h"
 #include "key.h"
 #include "ws2812.h"
+#include "central.h"  
 // 注意：需要确保包含以下头文件，它包含CH582M定时器相关定义
 // #include "CH58x_common.h"  
 
@@ -413,17 +414,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & KEY_EVENT_DOUBLE_CLICK)
     {
         PRINT("按键双击事件\n");
-
-
-        /*
-        GPIOB_ResetBits(CH582_3V3_Pin); // 设置 PB5 为低电平
-        setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
-        //延迟50ms
-        DelayMs(50); // 延迟 50ms
-        GPIOB_SetBits(CH582_3V3_Pin); // 设置 PB5 为高电平
-        setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
-*/
-
+/*
 
         GPIOB_ResetBits(CH582_12V_Pin); // 设置 PB14 为低电平
         DelayMs(100); // 延迟 50ms
@@ -434,8 +425,9 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
         DelayMs(50); // 延迟 50ms
         GPIOB_SetBits(CH582_3V3_Pin); // 设置 PB5 为高电平
         setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
+*/
 
-
+        tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 10); // 10ms后开始发送
         return (events ^ KEY_EVENT_DOUBLE_CLICK);
     }
     
@@ -443,9 +435,11 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & KEY_EVENT_LONG_PRESS)
     {
         PRINT("按键长按事件\n");
-        GPIOB_ResetBits(CH582_3V3_Pin); // 设置 PB5 为低电平
-        GPIOB_ResetBits(CH582_12V_Pin); // 设置 PB14 为低电平
-        setDimColor(BLACK, 0.05); // 设置 WS2812 为红色，亮度 5%
+        //GPIOB_ResetBits(CH582_3V3_Pin); // 设置 PB5 为低电平
+        //GPIOB_ResetBits(CH582_12V_Pin); // 设置 PB14 为低电平
+        //setDimColor(BLACK, 0.05); // 设置 WS2812 为红色，亮度 5%
+
+        
         return (events ^ KEY_EVENT_LONG_PRESS);
     }
     

@@ -292,7 +292,7 @@ void Central_Init()
     // Setup a delayed profile startup                               // 设置延迟的配置文件启动
     tmos_set_event(centralTaskId, START_DEVICE_EVT);
 }
-
+uint8_t send_data_index = 1;
 /*********************************************************************
  * @fn      Central_ProcessEvent
  *
@@ -493,28 +493,78 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 {
                     req.pValue[i] = 0;  // 数据内容为1, 2, 3, ..., 20
                 }
-
-                req.pValue[0] = 0x83;
-                req.pValue[1] = 0x00;
-                req.pValue[2] = 0x02;
-                req.pValue[3] = 0x01;
-                req.pValue[4] = 0x20;
-                req.pValue[5] = 0x02;
-                req.pValue[6] = 0x00;
-                req.pValue[7] = 0x30;
-                req.pValue[8] = 0x00;
-                req.pValue[9] = 0x00;
-                req.pValue[10] = 0x02;
-                req.pValue[11] = 0x00;
-                req.pValue[12] = 0x30;
-                req.pValue[13] = 0x00;
-                req.pValue[14] = 0x00;
-                req.pValue[15] = 0x00;
-                req.pValue[16] = 0x00;
-                req.pValue[17] = 0x00;
-                req.pValue[18] = 0x00;
-                req.pValue[19] = 0x00;
-
+                if(send_data_index == 0)
+                {
+                    req.pValue[0] = 0x81;
+                    req.pValue[1] = 0x00;
+                    req.pValue[2] = 0x02;
+                    req.pValue[3] = 0x01;
+                    req.pValue[4] = 0x00;
+                    req.pValue[5] = 0x02;
+                    req.pValue[6] = 0x00;
+                    req.pValue[7] = 0x30;
+                    req.pValue[8] = 0x00;
+                    req.pValue[9] = 0x00;
+                    req.pValue[10] = 0x02;
+                    req.pValue[11] = 0x00;
+                    req.pValue[12] = 0x30;
+                    req.pValue[13] = 0x00;
+                    req.pValue[14] = 0x00;
+                    req.pValue[15] = 0x00;
+                    req.pValue[16] = 0x00;
+                    req.pValue[17] = 0x00;
+                    req.pValue[18] = 0x00;
+                    req.pValue[19] = 0x00;
+                }else if(send_data_index == 1)
+                {
+                    req.pValue[0] = 0x82;
+                    req.pValue[1] = 0x00;
+                    req.pValue[2] = 0x02;
+                    req.pValue[3] = 0x01;
+                    req.pValue[4] = 0x03;
+                    req.pValue[5] = 0x02;
+                    req.pValue[6] = 0x00;
+                    req.pValue[7] = 0x30;
+                    req.pValue[8] = 0x00;
+                    req.pValue[9] = 0x00;
+                    req.pValue[10] = 0x02;
+                    req.pValue[11] = 0x00;
+                    req.pValue[12] = 0x30;
+                    req.pValue[13] = 0x00;
+                    req.pValue[14] = 0x00;
+                    req.pValue[15] = 0x00;
+                    req.pValue[16] = 0x00;
+                    req.pValue[17] = 0x00;
+                    req.pValue[18] = 0x00;
+                    req.pValue[19] = 0x00;
+                }
+                else
+                {
+                    req.pValue[0] = 0x83;
+                    req.pValue[1] = 0x00;
+                    req.pValue[2] = 0x02;
+                    req.pValue[3] = 0x01;
+                    req.pValue[4] = 0x20;
+                    req.pValue[5] = 0x02;
+                    req.pValue[6] = 0x00;
+                    req.pValue[7] = 0x30;
+                    req.pValue[8] = 0x00;
+                    req.pValue[9] = 0x00;
+                    req.pValue[10] = 0x02;
+                    req.pValue[11] = 0x00;
+                    req.pValue[12] = 0x30;
+                    req.pValue[13] = 0x00;
+                    req.pValue[14] = 0x00;
+                    req.pValue[15] = 0x00;
+                    req.pValue[16] = 0x00;
+                    req.pValue[17] = 0x00;
+                    req.pValue[18] = 0x00;
+                    req.pValue[19] = 0x00;
+                }
+                
+                send_data_index +=1;
+                if(send_data_index>2)
+                  send_data_index=0;
                 // 打印要发送的数据
                 PRINT("Sending 20 bytes test data: ");
                 for(uint8_t i = 0; i < 20; i++)
@@ -723,7 +773,20 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
       for( i = 0; i < pMsg->msg.handleValueNoti.len; i++){         // 循环打印每个字节
         PRINT("%02x ", pMsg->msg.handleValueNoti.pValue[i]);       // 以16进制格式打印
       }PRINT("\n");
-
+        if(pMsg->msg.handleValueNoti.pValue[0]==0xc0)
+        {
+            uint8_t modetype = pMsg->msg.handleValueNoti.pValue[3];
+            uint8_t leftTemp = pMsg->msg.handleValueNoti.pValue[4];
+            uint8_t rightTemp = pMsg->msg.handleValueNoti.pValue[5];
+            uint8_t tempDelta = pMsg->msg.handleValueNoti.pValue[7];
+           uint8_t  tempEnv =pMsg->msg.handleValueNoti.pValue[8];
+           uint8_t  tempWater=pMsg->msg.handleValueNoti.pValue[9];
+            uint8_t pwm_cold=pMsg->msg.handleValueNoti.pValue[11];
+            uint8_t pwm_bump =pMsg->msg.handleValueNoti.pValue[13];
+            uint8_t pwm_fan =pMsg->msg.handleValueNoti.pValue[14];
+            PRINT("md=%d rightTemp=%d rightTemp=%d tempDelta=%d tempEnv=%d tempWater=%d pwm_cold=%d pwm_bump=%d pwm_fan=%d "  , modetype,leftTemp,rightTemp,tempDelta,tempEnv,tempWater,pwm_cold,pwm_bump,pwm_fan); 
+        }
+        
     }
     else if(centralDiscState != BLE_DISC_STATE_IDLE)               // 如果不是发现空闲状态
     {
