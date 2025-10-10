@@ -4,13 +4,12 @@
 			"path": "."
 		},
 		{
-			"name": "HID-TEST",
+			"name": "LongWangMonitor",
 			"path": "../"
 		}
 	],
 	"settings": {
 		"mrs.workspace.type": "project",
-		"mrs.init.arg": "",
 		"files.associations": {
 			"*.c": "c",
 			"*.h": "cpp",

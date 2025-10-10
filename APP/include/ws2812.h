@@ -5,30 +5,31 @@
  *      Author: Lee
  */
 
-#ifndef INCLUDE_WS2812_H_
-#define INCLUDE_WS2812_H_
-
-#include "CH58x_common.h"
-
-// ¶¨ÒåÑÕÉ«
-#define RED_COLOR   0xFF0000  // ºìÉ«
-#define GREEN_COLOR 0x00FF00  // ÂÌÉ«
-
-
-#define RED     0xFF0000  // ºìÉ«
-#define GREEN   0x00FF00  // ÂÌÉ«
-#define BLUE    0x0000FF  // À¶É«
-#define WHITE   0xFFFFFF  // °×É«
-#define BLACK   0x000000  // ¹Ø±Õ
-#define Purple   0x800080  // ×ÏÉ«
-#define LightPink  0xFFB6C1  // Ç³·Ûºì http://pauli.cn/tool/color.htm
-
-#define DarkBlue   0x00008B  // ÉîÀ¶É«
-
-
-#define INI_STATE  GREEN  
-
-
-void ws2812_ini(void);
-void setDimColor(uint32_t color, float brightness);
-#endif /* INCLUDE_WS2812_H_ */
+ #ifndef INCLUDE_WS2812_H_
+ #define INCLUDE_WS2812_H_
+ 
+ #include "CH58x_common.h"
+ 
+ // å®šä¹‰é¢œè‰²
+ #define RED_COLOR   0xFF0000  // çº¢è‰²
+ #define GREEN_COLOR 0x00FF00  // ç»¿è‰²
+ 
+ 
+ #define RED     0xFF0000  // çº¢è‰²
+ #define GREEN   0x00FF00  // ç»¿è‰²
+ #define BLUE    0x0000FF  // è“è‰²
+ #define WHITE   0xFFFFFF  // ç™½è‰²
+ #define BLACK   0x000000  // å…³é—­
+ #define Purple   0x800080  // ç´«è‰²
+ #define LightPink  0xFFB6C1  // æµ…ç²‰çº¢ http://pauli.cn/tool/color.htm
+ 
+ #define DarkBlue   0x00008B  // æ·±è“è‰²
+ 
+ 
+ #define INI_STATE  GREEN  
+ 
+ 
+ void ws2812_ini(void);
+ void setDimColor(uint32_t color, float brightness);
+ #endif /* INCLUDE_WS2812_H_ */
+ 

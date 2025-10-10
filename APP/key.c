@@ -2,44 +2,44 @@
 #include "key.h"
 #include "ws2812.h"
 #include "central.h"  
-// ×¢Òâ£ºĞèÒªÈ·±£°üº¬ÒÔÏÂÍ·ÎÄ¼ş£¬Ëü°üº¬CH582M¶¨Ê±Æ÷Ïà¹Ø¶¨Òå
+// æ³¨æ„ï¼šéœ€è¦ç¡®ä¿åŒ…å«ä»¥ä¸‹å¤´æ–‡ä»¶ï¼Œå®ƒåŒ…å«CH582Må®šæ—¶å™¨ç›¸å…³å®šä¹‰
 // #include "CH58x_common.h"  
 
-#define SINGLE_CLICK_TIME    300  // µ¥»÷×î´óÊ±¼ä¼ä¸ô£¨ms£©
-#define DOUBLE_CLICK_TIME    600  // Ë«»÷×î´óÊ±¼ä¼ä¸ô£¨ms£©
-#define LONG_PRESS_TIME      1500 // ³¤°´Ê±¼ä£¨ms£©
+#define SINGLE_CLICK_TIME    300  // å•å‡»æœ€å¤§æ—¶é—´é—´éš”ï¼ˆmsï¼‰
+#define DOUBLE_CLICK_TIME    600  // åŒå‡»æœ€å¤§æ—¶é—´é—´éš”ï¼ˆmsï¼‰
+#define LONG_PRESS_TIME      1500 // é•¿æŒ‰æ—¶é—´ï¼ˆmsï¼‰
 
 
 
 typedef enum {
-    BUTTON_IDLE,              // ¿ÕÏĞÌ¬
-    BUTTON_PRESSED,           // °´ÏÂÌ¬
-    BUTTON_DOUBLE_CLICK_WAIT  // µÈ´ıË«»÷Ì¬
+    BUTTON_IDLE,              // ç©ºé—²æ€
+    BUTTON_PRESSED,           // æŒ‰ä¸‹æ€
+    BUTTON_DOUBLE_CLICK_WAIT  // ç­‰å¾…åŒå‡»æ€
 } ButtonState;
 
-volatile ButtonState buttonState = BUTTON_IDLE;  // °´Å¥×´Ì¬»ú
-volatile KeyEvent keyEvent = KEY_EVENT_NONE;     // µ±Ç°°´¼üÊÂ¼ş
- uint8_t keyTaskId = 0xFF;                 // TMOSÈÎÎñID£¬ÓÃÓÚ·¢ËÍ°´¼üÊÂ¼ş
+volatile ButtonState buttonState = BUTTON_IDLE;  // æŒ‰é’®çŠ¶æ€æœº
+volatile KeyEvent keyEvent = KEY_EVENT_NONE;     // å½“å‰æŒ‰é”®äº‹ä»¶
+ uint8_t keyTaskId = 0xFF;                 // TMOSä»»åŠ¡IDï¼Œç”¨äºå‘é€æŒ‰é”®äº‹ä»¶
 
-// Ê±¼ä´Á½á¹¹Ìå£¨Ê¹ÓÃRTC¼Ä´æÆ÷£©
+// æ—¶é—´æˆ³ç»“æ„ä½“ï¼ˆä½¿ç”¨RTCå¯„å­˜å™¨ï¼‰
 typedef struct {
-    uint16_t day;     // ÌìÊıÀÛ¼Æ£¨0~65535Ìì£©
-    uint16_t sec2;    // °ëÃë¼ÆÊı
-    uint16_t t32k;    // 32KHzÊ±ÖÓ¼ÆÊı
+    uint16_t day;     // å¤©æ•°ç´¯è®¡ï¼ˆ0~65535å¤©ï¼‰
+    uint16_t sec2;    // åŠç§’è®¡æ•°
+    uint16_t t32k;    // 32KHzæ—¶é’Ÿè®¡æ•°
 } TimeStamp32;
 
-// ÉùÃ÷È«¾ÖÊ±¼ä±äÁ¿
-volatile TimeStamp32 buttonPressTime = {0};    // °´¼ü°´ÏÂÊ±¼ä´Á
-volatile TimeStamp32 buttonReleaseTime = {0};  // °´¼üÊÍ·ÅÊ±¼ä´Á
-volatile TimeStamp32 currentTime = {0};        // µ±Ç°ÏµÍ³Ê±¼ä´Á
+// å£°æ˜å…¨å±€æ—¶é—´å˜é‡
+volatile TimeStamp32 buttonPressTime = {0};    // æŒ‰é”®æŒ‰ä¸‹æ—¶é—´æˆ³
+volatile TimeStamp32 buttonReleaseTime = {0};  // æŒ‰é”®é‡Šæ”¾æ—¶é—´æˆ³
+volatile TimeStamp32 currentTime = {0};        // å½“å‰ç³»ç»Ÿæ—¶é—´æˆ³
 
-// È«¾Ö±äÁ¿¼ÇÂ¼µ±Ç°´¥·¢Ä£Ê½
+// å…¨å±€å˜é‡è®°å½•å½“å‰è§¦å‘æ¨¡å¼
 static uint8_t currentTriggerMode = GPIO_ITMode_FallEdge;
 
 /**
- * @brief »ñÈ¡µ±Ç°RTCÊ±¼ä´Á
+ * @brief è·å–å½“å‰RTCæ—¶é—´æˆ³
  * 
- * @param timestamp Ê±¼ä´Á½á¹¹ÌåÖ¸Õë
+ * @param timestamp æ—¶é—´æˆ³ç»“æ„ä½“æŒ‡é’ˆ
  */
 void GetTimeStamp(volatile TimeStamp32 *timestamp)
 {
@@ -49,18 +49,18 @@ void GetTimeStamp(volatile TimeStamp32 *timestamp)
 }
 
 /**
- * @brief ¼ÆËãÁ½¸öÊ±¼ä´ÁµÄ²îÖµ£¨µ¥Î»£ººÁÃë£©
+ * @brief è®¡ç®—ä¸¤ä¸ªæ—¶é—´æˆ³çš„å·®å€¼ï¼ˆå•ä½ï¼šæ¯«ç§’ï¼‰
  * 
- * @param new ĞÂÊ±¼ä´Á
- * @param old ¾ÉÊ±¼ä´Á
- * @return int32_t Ê±¼ä²î£¨ºÁÃë£©
+ * @param new æ–°æ—¶é—´æˆ³
+ * @param old æ—§æ—¶é—´æˆ³
+ * @return int32_t æ—¶é—´å·®ï¼ˆæ¯«ç§’ï¼‰
  */
 int32_t TimeDiff(volatile TimeStamp32 *new, volatile TimeStamp32 *old)
 {
     int32_t diff = 0;
-    diff += (new->day - old->day) * 86400000L;    // Ìì×ªºÁÃë
-    diff += (new->sec2 - old->sec2) * 2000;       // 2Ãë×ªºÁÃë
-    diff += (new->t32k - old->t32k) * 30/1000;         // 32K¼ÆÊı×ªºÁÃë£¨Ô¼30.5usÃ¿¸ö¼ÆÊı£©
+    diff += (new->day - old->day) * 86400000L;    // å¤©è½¬æ¯«ç§’
+    diff += (new->sec2 - old->sec2) * 2000;       // 2ç§’è½¬æ¯«ç§’
+    diff += (new->t32k - old->t32k) * 30/1000;         // 32Kè®¡æ•°è½¬æ¯«ç§’ï¼ˆçº¦30.5usæ¯ä¸ªè®¡æ•°ï¼‰
     return diff;
 }
 
@@ -73,54 +73,54 @@ void print_timestamp(TimeStamp32 *time)
 int32_t pressDuration=0;
 int8_t  unkonw_sate=0;
 /**
- * @brief °´¼üÖĞ¶Ï´¦Àíº¯Êı
+ * @brief æŒ‰é”®ä¸­æ–­å¤„ç†å‡½æ•°
  * 
- * @note ´Ëº¯ÊıÔÚPB3Òı½Å×´Ì¬±ä»¯Ê±±»µ÷ÓÃ
+ * @note æ­¤å‡½æ•°åœ¨PB3å¼•è„šçŠ¶æ€å˜åŒ–æ—¶è¢«è°ƒç”¨
  */
 void ButtonHandler(void) 
 {
-    uint32_t buttonPressed = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 0 : 1;  // ¶ÁÈ¡PB3×´Ì¬£¨0=¸ßµçÆ½Î´°´ÏÂ£¬1=µÍµçÆ½°´ÏÂ£©
+    uint32_t buttonPressed = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 0 : 1;  // è¯»å–PB3çŠ¶æ€ï¼ˆ0=é«˜ç”µå¹³æœªæŒ‰ä¸‹ï¼Œ1=ä½ç”µå¹³æŒ‰ä¸‹ï¼‰
     
     //PRINT("ButtonHandler(), state=%d, pressed=%d\n", buttonState, buttonPressed);
 
-    // ¸ù¾İ°´¼ü×´Ì¬ºÍ´¥·¢·½Ê½´¦Àí
+    // æ ¹æ®æŒ‰é”®çŠ¶æ€å’Œè§¦å‘æ–¹å¼å¤„ç†
    
-    if((buttonState == BUTTON_IDLE)&&(buttonPressed == 1)) // ¿ÕÏĞÌ¬ÏÂ°´ÏÂ
+    if((buttonState == BUTTON_IDLE)&&(buttonPressed == 1)) // ç©ºé—²æ€ä¸‹æŒ‰ä¸‹
     {
         GetTimeStamp(&buttonPressTime);
         buttonState = BUTTON_PRESSED;
-        // Æô¶¯³¤°´¼ì²â¶¨Ê±Æ÷(1.5s)
+        // å¯åŠ¨é•¿æŒ‰æ£€æµ‹å®šæ—¶å™¨(1.5s)
         //tmos_start_task(keyTaskId, KEY_LONG_PRESSED_CHECK, LONG_PRESS_TIME*1600/1000);
         tmos_start_task(keyTaskId, KEY_LONG_PRESSED_CHECK, 2400);
     }
-    else if((buttonState == BUTTON_PRESSED)&&(buttonPressed == 0)) // °´ÏÂÌ¬µÈÊÍ·Å
+    else if((buttonState == BUTTON_PRESSED)&&(buttonPressed == 0)) // æŒ‰ä¸‹æ€ç­‰é‡Šæ”¾
     {
-        // È¡Ïû³¤°´¼ì²âÊÂ¼ş
+        // å–æ¶ˆé•¿æŒ‰æ£€æµ‹äº‹ä»¶
         tmos_stop_task(keyTaskId, KEY_LONG_PRESSED_CHECK);
 
         GetTimeStamp(&buttonReleaseTime);
         pressDuration = TimeDiff(&buttonReleaseTime, &buttonPressTime);
         
-        if(pressDuration < KEY_DEBOUNCE_TIME) // °´¼ü¶¶¶¯£¬ºöÂÔ
+        if(pressDuration < KEY_DEBOUNCE_TIME) // æŒ‰é”®æŠ–åŠ¨ï¼Œå¿½ç•¥
         {
             tmos_set_event(keyTaskId, KEY_NOISE_PRESSED);
             buttonState = BUTTON_IDLE;
         }
-        else if(pressDuration < SINGLE_CLICK_TIME) // ¿ÉÄÜÊÇµ¥»÷»òË«»÷
+        else if(pressDuration < SINGLE_CLICK_TIME) // å¯èƒ½æ˜¯å•å‡»æˆ–åŒå‡»
         {
-            // ½øÈëµÈ´ıË«»÷Ì¬
+            // è¿›å…¥ç­‰å¾…åŒå‡»æ€
             buttonState = BUTTON_DOUBLE_CLICK_WAIT;
-            // Æô¶¯Ë«»÷¼ì²âÊÂ¼ş (600ms³¬Ê±)
-            //tmos_start_task(keyTaskId, KEY_DOUBLE_CLICK_CHECK, DOUBLE_CLICK_TIME*1600/1000); // 600ms ¡Â 0.625ms = 960
-            tmos_start_task(keyTaskId, KEY_DOUBLE_CLICK_CHECK, 960); // 600ms ¡Â 0.625ms = 960
+            // å¯åŠ¨åŒå‡»æ£€æµ‹äº‹ä»¶ (600msè¶…æ—¶)
+            //tmos_start_task(keyTaskId, KEY_DOUBLE_CLICK_CHECK, DOUBLE_CLICK_TIME*1600/1000); // 600ms Ã· 0.625ms = 960
+            tmos_start_task(keyTaskId, KEY_DOUBLE_CLICK_CHECK, 960); // 600ms Ã· 0.625ms = 960
         
         }
-        else if(pressDuration < LONG_PRESS_TIME) // µ¥»÷
+        else if(pressDuration < LONG_PRESS_TIME) // å•å‡»
         {
             tmos_set_event(keyTaskId, KEY_EVENT_SINGLE_CLICK);
             buttonState = BUTTON_IDLE;
         }
-        else // ³¤°´ÒÑÓÉ¶¨Ê±Æ÷´¦Àí
+        else // é•¿æŒ‰å·²ç”±å®šæ—¶å™¨å¤„ç†
         {
             
             tmos_stop_task(keyTaskId, KEY_LONG_PRESSED_CHECK);
@@ -129,22 +129,22 @@ void ButtonHandler(void)
             buttonState = BUTTON_IDLE;
         }
     }
-    else if((buttonState == BUTTON_DOUBLE_CLICK_WAIT)&&(buttonPressed == 1)) // µÈ´ıË«»÷Ì¬ÏÂÓÖ°´ÏÂ
+    else if((buttonState == BUTTON_DOUBLE_CLICK_WAIT)&&(buttonPressed == 1)) // ç­‰å¾…åŒå‡»æ€ä¸‹åˆæŒ‰ä¸‹
     {
-        // È¡ÏûË«»÷¼ì²âÊÂ¼ş
+        // å–æ¶ˆåŒå‡»æ£€æµ‹äº‹ä»¶
         tmos_stop_task(keyTaskId, KEY_DOUBLE_CLICK_CHECK);
 
         GetTimeStamp(&currentTime);
         int32_t timeSinceRelease = TimeDiff(&currentTime, &buttonReleaseTime);
         
-        if(timeSinceRelease < DOUBLE_CLICK_TIME) // Ë«»÷³ÉÁ¢
+        if(timeSinceRelease < DOUBLE_CLICK_TIME) // åŒå‡»æˆç«‹
         {
-            // ´¥·¢Ë«»÷ÊÂ¼ş
+            // è§¦å‘åŒå‡»äº‹ä»¶
             tmos_set_event(keyTaskId, KEY_EVENT_DOUBLE_CLICK);
-            // »Øµ½¿ÕÏĞÌ¬
+            // å›åˆ°ç©ºé—²æ€
             buttonState = BUTTON_IDLE;
         }
-        else // ³¬Ê±£¬±¨´í ÀíÓ¦ÔÚË«»÷¸´²âÊÂ¼şË«»÷´¦Àí³Éµ¥»÷
+        else // è¶…æ—¶ï¼ŒæŠ¥é”™ ç†åº”åœ¨åŒå‡»å¤æµ‹äº‹ä»¶åŒå‡»å¤„ç†æˆå•å‡»
         {
             tmos_set_event(keyTaskId, DOUBULE_PRESSED_OVERTIME_ERR);
             buttonState = BUTTON_IDLE;
@@ -153,9 +153,9 @@ void ButtonHandler(void)
     else
     {
         unkonw_sate=KEY_STATE_UNKOWN;
-        if((buttonState == BUTTON_IDLE)&&(buttonPressed == 0))//¿ÕÏĞÌ¬ °´Å¥ÊÍ·Å½øÈë£¬³¤°´³¬Ê±µ¯Æğ
+        if((buttonState == BUTTON_IDLE)&&(buttonPressed == 0))//ç©ºé—²æ€ æŒ‰é’®é‡Šæ”¾è¿›å…¥ï¼Œé•¿æŒ‰è¶…æ—¶å¼¹èµ·
             unkonw_sate= SINGLE_PRESSED_RELASE;
-        if((buttonState == BUTTON_DOUBLE_CLICK_WAIT)&&(buttonPressed == 0))//Ë«»÷ºóÊÍ·Å°´Å¥
+        if((buttonState == BUTTON_DOUBLE_CLICK_WAIT)&&(buttonPressed == 0))//åŒå‡»åé‡Šæ”¾æŒ‰é’®
             unkonw_sate= DOUBULE_PRESSED_RELASE;
         tmos_set_event(keyTaskId, unkonw_sate);
         buttonState = BUTTON_IDLE;
@@ -165,48 +165,48 @@ void ButtonHandler(void)
 
 void GPIOB_ITCmd(uint8_t pin, FunctionalState state) {
     if (state == ENABLE) {
-        // ÆôÓÃÖĞ¶Ï
-        R16_PB_INT_EN |= pin; // ¼ÙÉèÕâÊÇÆôÓÃÖĞ¶ÏµÄ¼Ä´æÆ÷
+        // å¯ç”¨ä¸­æ–­
+        R16_PB_INT_EN |= pin; // å‡è®¾è¿™æ˜¯å¯ç”¨ä¸­æ–­çš„å¯„å­˜å™¨
     } else {
-        // ½ûÓÃÖĞ¶Ï
-        R16_PB_INT_EN &= ~pin; // ¼ÙÉèÕâÊÇ½ûÓÃÖĞ¶ÏµÄ¼Ä´æÆ÷
+        // ç¦ç”¨ä¸­æ–­
+        R16_PB_INT_EN &= ~pin; // å‡è®¾è¿™æ˜¯ç¦ç”¨ä¸­æ–­çš„å¯„å­˜å™¨
     }
 }
 /**
- * @brief ³õÊ¼»¯°´¼ü
+ * @brief åˆå§‹åŒ–æŒ‰é”®
  */
 void Key_Init(void)
 {
-    // ×¢²á°´¼üÊÂ¼ş´¦Àíº¯Êı
+    // æ³¨å†ŒæŒ‰é”®äº‹ä»¶å¤„ç†å‡½æ•°
     keyTaskId = TMOS_ProcessEventRegister(Key_ProcessEvent);
-    PRINT("°´¼ü³õÊ¼»¯: keyTaskId=%d\n", keyTaskId);
+    PRINT("æŒ‰é”®åˆå§‹åŒ–: keyTaskId=%d\n", keyTaskId);
     
-    //ÉèÖÃÎªÊäÈëÄ£Ê½
-    PRINT("ÉèÖÃÎªÊäÈëÄ£Ê½: CH582_Key_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_Key_Pin);
+    //è®¾ç½®ä¸ºè¾“å…¥æ¨¡å¼
+    PRINT("è®¾ç½®ä¸ºè¾“å…¥æ¨¡å¼: CH582_Key_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_Key_Pin);
     GPIOB_ModeCfg(CH582_Key_Pin, GPIO_ModeIN_PU);
 
-    //ÉèÖÃÎªÊäÈëÄ£Ê½
-    PRINT("ÉèÖÃÎªÊäÈëÄ£Ê½: CH582_AutoCheck_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_AutoCheck_Pin);
+    //è®¾ç½®ä¸ºè¾“å…¥æ¨¡å¼
+    PRINT("è®¾ç½®ä¸ºè¾“å…¥æ¨¡å¼: CH582_AutoCheck_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_AutoCheck_Pin);
     GPIOB_ModeCfg(CH582_AutoCheck_Pin, GPIO_ModeIN_PU);
 
-    // ÅäÖÃÎªÊäÈëÄ£Ê½£¬Ê¹ÄÜÉÏÀ­ PB0-15²ÅÓĞÖĞ¶Ï
-    PRINT("ÉèÖÃÎªÊäÈëÄ£Ê½: CH582_PROG_BOOT_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_PROG_BOOT_Pin);
+    // é…ç½®ä¸ºè¾“å…¥æ¨¡å¼ï¼Œä½¿èƒ½ä¸Šæ‹‰ PB0-15æ‰æœ‰ä¸­æ–­
+    PRINT("è®¾ç½®ä¸ºè¾“å…¥æ¨¡å¼: CH582_PROG_BOOT_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_PROG_BOOT_Pin);
     GPIOB_ModeCfg(CH582_PROG_BOOT_Pin, GPIO_ModeIN_PU);
     
-    //RB_PIN_INTX£ºÓÉÓÚINT24/INT25 ¹¦ÄÜÒı½ÅÓ³ÉäÑ¡ÔñÎ» Ä¬ÈÏÊÇ0,µ«ÊÇ1²ÅÄÜ£ºINT24_/25_Ó³Éäµ½ PB[22]/PB[23]£»
-    //ÖĞ¶Ï¶ÔÓ¦Òı½ÅÖØÓ³Éä ÉèÖÃ(R16_PIN_ALTERNATEµÄRB_PIN_INTXÎ»Îª1
-    //PRINT("ÉèÖÃÎªÊäÈëÄ£Ê½: RB_PIN_INTX(0x%x)=1  \n", RB_PIN_INTX);
+    //RB_PIN_INTXï¼šç”±äºINT24/INT25 åŠŸèƒ½å¼•è„šæ˜ å°„é€‰æ‹©ä½ é»˜è®¤æ˜¯0,ä½†æ˜¯1æ‰èƒ½ï¼šINT24_/25_æ˜ å°„åˆ° PB[22]/PB[23]ï¼›
+    //ä¸­æ–­å¯¹åº”å¼•è„šé‡æ˜ å°„ è®¾ç½®(R16_PIN_ALTERNATEçš„RB_PIN_INTXä½ä¸º1
+    //PRINT("è®¾ç½®ä¸ºè¾“å…¥æ¨¡å¼: RB_PIN_INTX(0x%x)=1  \n", RB_PIN_INTX);
     //R16_PIN_ALTERNATE |= RB_PIN_INTX;
 
-    // ÅäÖÃÖĞ¶Ï£¬³õÊ¼ÉèÖÃÎªÏÂ½µÑØ´¥·¢
-    PRINT("³õÊ¼ÉèÖÃÎªÏÂ½µÑØ´¥·¢: CH582_PROG_BOOT_Pin(0x%x)=GPIO_ITMode_FallEdge  \n", CH582_PROG_BOOT_Pin);
+    // é…ç½®ä¸­æ–­ï¼Œåˆå§‹è®¾ç½®ä¸ºä¸‹é™æ²¿è§¦å‘
+    PRINT("åˆå§‹è®¾ç½®ä¸ºä¸‹é™æ²¿è§¦å‘: CH582_PROG_BOOT_Pin(0x%x)=GPIO_ITMode_FallEdge  \n", CH582_PROG_BOOT_Pin);
     GPIOB_ITModeCfg(CH582_PROG_BOOT_Pin, GPIO_ITMode_FallEdge);
-    //GPIOB_ITCmd(CH582_PROG_BOOT_Pin, ENABLE); cfgÒÑ¾­ÆôÓÃ
-    // ÉèÖÃÄ¬ÈÏ´¥·¢Ä£Ê½ÎªÏÂ½µÑØ
+    //GPIOB_ITCmd(CH582_PROG_BOOT_Pin, ENABLE); cfgå·²ç»å¯ç”¨
+    // è®¾ç½®é»˜è®¤è§¦å‘æ¨¡å¼ä¸ºä¸‹é™æ²¿
     currentTriggerMode = GPIO_ITMode_FallEdge;
-    // ÆôÓÃGPIOÖĞ¶Ï
+    // å¯ç”¨GPIOä¸­æ–­
     PFIC_EnableIRQ(GPIO_B_IRQn);
-    // ÉèÖÃ³õÊ¼×´Ì¬
+    // è®¾ç½®åˆå§‹çŠ¶æ€
     buttonState = BUTTON_IDLE;
     CH340_CTRL_PIN_INI();
 }
@@ -216,64 +216,64 @@ void Key_Init(void)
 
 void CH340_CTRL_PIN_INI(void)
 {
-    GPIOB_ModeCfg(EN_CH_Pin, GPIO_ModeOut_PP_5mA); // ÉèÖÃ  ÎªÍÆÍìÊä³ö
-    GPIOB_SetBits(EN_CH_Pin); // Ä¬ÈÏ¸ßµçÆ½
-    GPIOB_ModeCfg(EN_ESP_Pin, GPIO_ModeOut_PP_5mA); // ÉèÖÃ  ÎªÍÆÍìÊä³ö
-    GPIOB_SetBits(EN_ESP_Pin); // Ä¬ÈÏ¸ßµçÆ½
-    GPIOA_ModeCfg(EN_ESP_ME_Pin, GPIO_ModeOut_PP_5mA); // ÉèÖÃ  ÎªÍÆÍìÊä³ö
-    GPIOA_SetBits(EN_ESP_ME_Pin); // Ä¬ÈÏ¸ßµçÆ½
-    GPIOB_ModeCfg(EN_ESP_UART1_LOG_Pin, GPIO_ModeOut_PP_5mA); // ÉèÖÃ  ÎªÍÆÍìÊä³ö
-    GPIOB_SetBits(EN_ESP_UART1_LOG_Pin); // Ä¬ÈÏ¸ßµçÆ½
+    GPIOB_ModeCfg(EN_CH_Pin, GPIO_ModeOut_PP_5mA); // è®¾ç½®  ä¸ºæ¨æŒ½è¾“å‡º
+    GPIOB_SetBits(EN_CH_Pin); // é»˜è®¤é«˜ç”µå¹³
+    GPIOB_ModeCfg(EN_ESP_Pin, GPIO_ModeOut_PP_5mA); // è®¾ç½®  ä¸ºæ¨æŒ½è¾“å‡º
+    GPIOB_SetBits(EN_ESP_Pin); // é»˜è®¤é«˜ç”µå¹³
+    GPIOA_ModeCfg(EN_ESP_ME_Pin, GPIO_ModeOut_PP_5mA); // è®¾ç½®  ä¸ºæ¨æŒ½è¾“å‡º
+    GPIOA_SetBits(EN_ESP_ME_Pin); // é»˜è®¤é«˜ç”µå¹³
+    GPIOB_ModeCfg(EN_ESP_UART1_LOG_Pin, GPIO_ModeOut_PP_5mA); // è®¾ç½®  ä¸ºæ¨æŒ½è¾“å‡º
+    GPIOB_SetBits(EN_ESP_UART1_LOG_Pin); // é»˜è®¤é«˜ç”µå¹³
 
-    GPIOB_ModeCfg(CH582_3V3_Pin, GPIO_ModeOut_PP_5mA); // ÉèÖÃ  ÎªÍÆÍìÊä³ö
-    GPIOB_ResetBits(CH582_3V3_Pin); // ÎªµÍµçÆ½
+    GPIOB_ModeCfg(CH582_3V3_Pin, GPIO_ModeOut_PP_5mA); // è®¾ç½®  ä¸ºæ¨æŒ½è¾“å‡º
+    GPIOB_ResetBits(CH582_3V3_Pin); // ä¸ºä½ç”µå¹³
     
-    GPIOB_ModeCfg(CH582_12V_Pin,        GPIO_ModeOut_PP_5mA); // ÉèÖÃ  ÎªÍÆÍìÊä³ö
-    GPIOB_SetBits(CH582_12V_Pin); // ÎªµÍµçÆ½
+    GPIOB_ModeCfg(CH582_12V_Pin,        GPIO_ModeOut_PP_5mA); // è®¾ç½®  ä¸ºæ¨æŒ½è¾“å‡º
+    GPIOB_SetBits(CH582_12V_Pin); // ä¸ºä½ç”µå¹³
 
-    GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // ÉèÖÃ  ÎªÍÆÍìÊä³ö
-    GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // ÎªµÍµçÆ½
-   PRINT("ÉèÖÃÎªÊäÈëÄ£Ê½: EN_TEMP_SWITCH_Pin(0x%x)=GPIO_ModeIN_PU  \n", EN_TEMP_SWITCH_Pin);
+    GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // è®¾ç½®  ä¸ºæ¨æŒ½è¾“å‡º
+    GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // ä¸ºä½ç”µå¹³
+   PRINT("è®¾ç½®ä¸ºè¾“å…¥æ¨¡å¼: EN_TEMP_SWITCH_Pin(0x%x)=GPIO_ModeIN_PU  \n", EN_TEMP_SWITCH_Pin);
    GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin, GPIO_ModeIN_PU);
-   uint8_t buttonLevel = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 1 : 0; // ¶ÁÈ¡µ±Ç°°´¼ü×´Ì¬
+   uint8_t buttonLevel = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 1 : 0; // è¯»å–å½“å‰æŒ‰é”®çŠ¶æ€
    PRINT("EN_TEMP_SWITCH_Pin:%d\n",buttonLevel);
    EN_TEMP_SWITCH();
 }
 
-static uint8_t EN_TEMP_SWITCH_flag = 1; // Ä¬ÈÏhighµçÆ½
+static uint8_t EN_TEMP_SWITCH_flag = 1; // é»˜è®¤highç”µå¹³
 void EN_TEMP_SWITCH(void) {
-    EN_TEMP_SWITCH_flag =!EN_TEMP_SWITCH_flag; // ·´×ª×´Ì¬
+    EN_TEMP_SWITCH_flag =!EN_TEMP_SWITCH_flag; // åè½¬çŠ¶æ€
     if(EN_TEMP_SWITCH_flag) {
-        GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // ÉèÖÃ  ÎªÍÆÍìÊä³ö
-        GPIOB_SetBits(EN_TEMP_SWITCH_Pin); // ÉèÖÃ  Îª¸ßµçÆ½
-        setDimColor(WHITE, 0.05); // ÁÁ¶È 5%  
+        GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // è®¾ç½®  ä¸ºæ¨æŒ½è¾“å‡º
+        GPIOB_SetBits(EN_TEMP_SWITCH_Pin); // è®¾ç½®  ä¸ºé«˜ç”µå¹³
+        setDimColor(WHITE, 0.05); // äº®åº¦ 5%  
         PRINT("SET 1 EN_TEMP_SWITCH_Pin:%d\n",EN_TEMP_SWITCH_Pin);
     }
     else {
-        GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // ÉèÖÃ  ÎªÍÆÍìÊä³ö
-        GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // ÉèÖÃ  ÎªµÍµçÆ½
-        setDimColor(GREEN, 0.05); // ÁÁ¶È 5%  
+        GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // è®¾ç½®  ä¸ºæ¨æŒ½è¾“å‡º
+        GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // è®¾ç½®  ä¸ºä½ç”µå¹³
+        setDimColor(GREEN, 0.05); // äº®åº¦ 5%  
         PRINT("reSET 0 EN_TEMP_SWITCH_Pin:%d\n",EN_TEMP_SWITCH_Pin);
     }
     PRINT("EN_TEMP_SWITCH_flag:%d\n",EN_TEMP_SWITCH_flag);
 }
 
-// È«¾Ö±äÁ¿¼ÇÂ¼µ±Ç° PB5 µÄ×´Ì¬
-static uint8_t BootState = 0; // Ä¬ÈÏµÍµçÆ½
+// å…¨å±€å˜é‡è®°å½•å½“å‰ PB5 çš„çŠ¶æ€
+static uint8_t BootState = 0; // é»˜è®¤ä½ç”µå¹³
 
 
-static BOOL sann_State = FALSE; // Ä¬ÈÏÉ¨Ãè=0
+static BOOL sann_State = FALSE; // é»˜è®¤æ‰«æ=0
 void sann_change(void)
 {
     if(sann_State==FALSE)
     {
         PRINT("Disconnect BLE and stop auto reconnect\n");
         Central_DisconnectAndStopAutoReconnect();
-        setDimColor(RED_COLOR, 0.1); // ÉèÖÃLEDÎªºìÉ«±íÊ¾¶Ï¿ª×´Ì¬
+        setDimColor(RED_COLOR, 0.1); // è®¾ç½®LEDä¸ºçº¢è‰²è¡¨ç¤ºæ–­å¼€çŠ¶æ€
     }else 
     {
         PRINT("Start auto reconnect\n");
-        setDimColor(BLUE, 0.1); // ÉèÖÃLEDÎªÀ¶É«±íÊ¾ËÑË÷×´Ì¬
+        setDimColor(BLUE, 0.1); // è®¾ç½®LEDä¸ºè“è‰²è¡¨ç¤ºæœç´¢çŠ¶æ€
         Central_StartAutoReconnect();
     }
     sann_State=!sann_State;
@@ -281,98 +281,98 @@ void sann_change(void)
 }
 
 void BOOT_SWICH(void) {
-    // ·´×ª  µÄµçÆ½
-    BootState = !BootState; // ·´×ª×´Ì¬
-    // ÉèÖÃ  µÄµçÆ½
+    // åè½¬  çš„ç”µå¹³
+    BootState = !BootState; // åè½¬çŠ¶æ€
+    // è®¾ç½®  çš„ç”µå¹³
     if (BootState) {
-        GPIOB_SetBits(EN_CH_Pin); // ¸ßµçÆ½¹Ø±Õ
-        GPIOB_ResetBits(CH582_12V_Pin); // ÉèÖÃ  ÎªµÍµçÆ½
-        GPIOB_ResetBits(CH582_3V3_Pin); // ÉèÖÃ  ÎªµÍµçÆ½
-        DelayMs(200); // ÑÓ³Ù 200ms
-        //  Îª¸ßµçÆ½£¬ÉèÖÃÏÔÊ¾ÎªºìÉ«
-        GPIOB_SetBits(CH582_3V3_Pin); // ÉèÖÃ  Îª¸ßµçÆ½
-        setDimColor(GREEN_COLOR, 0.05); // ÉèÖÃ WS2812 ÎªÂÌÉ«£¬ÁÁ¶È 5%
-        GPIOB_ResetBits(EN_CH_Pin); // µÍµçÆ½´ò¿ª
+        GPIOB_SetBits(EN_CH_Pin); // é«˜ç”µå¹³å…³é—­
+        GPIOB_ResetBits(CH582_12V_Pin); // è®¾ç½®  ä¸ºä½ç”µå¹³
+        GPIOB_ResetBits(CH582_3V3_Pin); // è®¾ç½®  ä¸ºä½ç”µå¹³
+        DelayMs(200); // å»¶è¿Ÿ 200ms
+        //  ä¸ºé«˜ç”µå¹³ï¼Œè®¾ç½®æ˜¾ç¤ºä¸ºçº¢è‰²
+        GPIOB_SetBits(CH582_3V3_Pin); // è®¾ç½®  ä¸ºé«˜ç”µå¹³
+        setDimColor(GREEN_COLOR, 0.05); // è®¾ç½® WS2812 ä¸ºç»¿è‰²ï¼Œäº®åº¦ 5%
+        GPIOB_ResetBits(EN_CH_Pin); // ä½ç”µå¹³æ‰“å¼€
         PRINT("3V3 EN\n");
 
-        // ÑÓ³Ù50ms
-        DelayMs(50); // ÑÓ³Ù 50ms
+        // å»¶è¿Ÿ50ms
+        DelayMs(50); // å»¶è¿Ÿ 50ms
     } else {
-        //  ÎªµÍµçÆ½£¬ÉèÖÃÏÔÊ¾ÎªÂÌÉ«
-        GPIOB_SetBits(EN_CH_Pin); // ¸ßµçÆ½¹Ø±Õ
-        GPIOB_ResetBits(CH582_12V_Pin); // ÉèÖÃ  ÎªµÍµçÆ½
-        GPIOB_ResetBits(CH582_3V3_Pin); // ÉèÖÃ  ÎªµÍµçÆ½
-        //setDimColor(GREEN_COLOR, 0.05); // ÉèÖÃ WS2812 ÎªÂÌÉ«£¬ÁÁ¶È 5%
-        DelayMs(200); // ÑÓ³Ù 200ms
-        GPIOB_SetBits(CH582_12V_Pin); // ÉèÖÃ  Îª¸ßµçÆ½
-        setDimColor(BLUE, 0.1); // ÉèÖÃ WS2812 ÎªºìÉ«£¬ÁÁ¶È 5%
-        GPIOB_ResetBits(EN_CH_Pin); // µÍµçÆ½´ò¿ª
+        //  ä¸ºä½ç”µå¹³ï¼Œè®¾ç½®æ˜¾ç¤ºä¸ºç»¿è‰²
+        GPIOB_SetBits(EN_CH_Pin); // é«˜ç”µå¹³å…³é—­
+        GPIOB_ResetBits(CH582_12V_Pin); // è®¾ç½®  ä¸ºä½ç”µå¹³
+        GPIOB_ResetBits(CH582_3V3_Pin); // è®¾ç½®  ä¸ºä½ç”µå¹³
+        //setDimColor(GREEN_COLOR, 0.05); // è®¾ç½® WS2812 ä¸ºç»¿è‰²ï¼Œäº®åº¦ 5%
+        DelayMs(200); // å»¶è¿Ÿ 200ms
+        GPIOB_SetBits(CH582_12V_Pin); // è®¾ç½®  ä¸ºé«˜ç”µå¹³
+        setDimColor(BLUE, 0.1); // è®¾ç½® WS2812 ä¸ºçº¢è‰²ï¼Œäº®åº¦ 5%
+        GPIOB_ResetBits(EN_CH_Pin); // ä½ç”µå¹³æ‰“å¼€
         PRINT("12V EN\n");
         
-        // ÑÓ³Ù50ms
-        DelayMs(50); // ÑÓ³Ù 50ms
+        // å»¶è¿Ÿ50ms
+        DelayMs(50); // å»¶è¿Ÿ 50ms
     }
     
 }
 
 
-static uint8_t EN_CH_flag = 1; // Ä¬ÈÏhighµçÆ½
+static uint8_t EN_CH_flag = 1; // é»˜è®¤highç”µå¹³
 void EN_CH_SWITCH(void) {
     if(EN_CH_flag)
     {
-        GPIOB_SetBits(EN_CH_Pin); // ÉèÖÃ  Îª¸ßµçÆ½
-        setDimColor(WHITE, 0.05); // ÁÁ¶È 5%
+        GPIOB_SetBits(EN_CH_Pin); // è®¾ç½®  ä¸ºé«˜ç”µå¹³
+        setDimColor(WHITE, 0.05); // äº®åº¦ 5%
         
     }else
     {
-        GPIOB_ResetBits(EN_CH_Pin); // ÉèÖÃ  ÎªµÍµçÆ½
-        setDimColor(GREEN, 0.05); // ÁÁ¶È 5% 
+        GPIOB_ResetBits(EN_CH_Pin); // è®¾ç½®  ä¸ºä½ç”µå¹³
+        setDimColor(GREEN, 0.05); // äº®åº¦ 5% 
     }
-    EN_CH_flag =!EN_CH_flag; // ·´×ª×´Ì¬ 
+    EN_CH_flag =!EN_CH_flag; // åè½¬çŠ¶æ€ 
     PRINT("EN_CH_flag:%d\n",EN_CH_flag);
 }
 
 
-static uint8_t EN_ESP_flag = 1; // Ä¬ÈÏhighµçÆ½
+static uint8_t EN_ESP_flag = 1; // é»˜è®¤highç”µå¹³
 void EN_ESP_SWITCH(void) {
-    EN_ESP_flag =!EN_ESP_flag; // ·´×ª×´Ì¬
+    EN_ESP_flag =!EN_ESP_flag; // åè½¬çŠ¶æ€
     if(EN_ESP_flag) 
     {
-        GPIOB_SetBits(EN_ESP_Pin); // ÉèÖÃ  Îª¸ßµçÆ½
-        setDimColor(WHITE, 0.05); // ÁÁ¶È 5% 
+        GPIOB_SetBits(EN_ESP_Pin); // è®¾ç½®  ä¸ºé«˜ç”µå¹³
+        setDimColor(WHITE, 0.05); // äº®åº¦ 5% 
     }else
     {
-        GPIOB_ResetBits(EN_ESP_Pin); // ÉèÖÃ  ÎªµÍµçÆ½
-        setDimColor(GREEN, 0.05); // ÁÁ¶È 5%
+        GPIOB_ResetBits(EN_ESP_Pin); // è®¾ç½®  ä¸ºä½ç”µå¹³
+        setDimColor(GREEN, 0.05); // äº®åº¦ 5%
     }
     PRINT("EN_ESP_flag:%d\n",EN_ESP_flag);
 }
 
 
-static uint8_t EN_ESP_ME_flag = 1; // Ä¬ÈÏhighµçÆ½
+static uint8_t EN_ESP_ME_flag = 1; // é»˜è®¤highç”µå¹³
 void EN_ESP_ME_SWITCH(void) {
-    EN_ESP_ME_flag =!EN_ESP_ME_flag; // ·´×ª×´Ì¬
+    EN_ESP_ME_flag =!EN_ESP_ME_flag; // åè½¬çŠ¶æ€
     if(EN_ESP_ME_flag) {
-        GPIOA_SetBits(EN_ESP_ME_Pin); // ÉèÖÃ  Îª¸ßµçÆ½
-        setDimColor(WHITE, 0.05); // ÁÁ¶È 5%  
+        GPIOA_SetBits(EN_ESP_ME_Pin); // è®¾ç½®  ä¸ºé«˜ç”µå¹³
+        setDimColor(WHITE, 0.05); // äº®åº¦ 5%  
     } 
     else {
-        GPIOA_ResetBits(EN_ESP_ME_Pin); // ÉèÖÃ  ÎªµÍµçÆ½
-        setDimColor(GREEN, 0.05); // ÁÁ¶È 5% 
+        GPIOA_ResetBits(EN_ESP_ME_Pin); // è®¾ç½®  ä¸ºä½ç”µå¹³
+        setDimColor(GREEN, 0.05); // äº®åº¦ 5% 
     }
     PRINT("EN_ESP_ME_flag:%d\n",EN_ESP_ME_flag);
 }
 
-static uint8_t EN_ESP_UART1_LOG_flag = 1; // Ä¬ÈÏhighµçÆ½
+static uint8_t EN_ESP_UART1_LOG_flag = 1; // é»˜è®¤highç”µå¹³
 void EN_ESP_UART1_LOG_SWITCH(void) {
-    EN_ESP_UART1_LOG_flag =!EN_ESP_UART1_LOG_flag; // ·´×ª×´Ì¬
+    EN_ESP_UART1_LOG_flag =!EN_ESP_UART1_LOG_flag; // åè½¬çŠ¶æ€
     if(EN_ESP_UART1_LOG_flag) {
-        GPIOB_SetBits(EN_ESP_UART1_LOG_Pin); // ÉèÖÃ PB14 Îª¸ßµçÆ½
-        setDimColor(WHITE, 0.05); // ÁÁ¶È 5%  
+        GPIOB_SetBits(EN_ESP_UART1_LOG_Pin); // è®¾ç½® PB14 ä¸ºé«˜ç”µå¹³
+        setDimColor(WHITE, 0.05); // äº®åº¦ 5%  
     }
     else {  
-        GPIOB_ResetBits(EN_ESP_UART1_LOG_Pin); // ÉèÖÃ PB14 ÎªµÍµçÆ½
-        setDimColor(GREEN, 0.05); // ÁÁ¶È 5%
+        GPIOB_ResetBits(EN_ESP_UART1_LOG_Pin); // è®¾ç½® PB14 ä¸ºä½ç”µå¹³
+        setDimColor(GREEN, 0.05); // äº®åº¦ 5%
     }
     PRINT("EN_ESP_UART1_LOG_flag:%d\n",EN_ESP_UART1_LOG_flag);
 }
@@ -381,16 +381,16 @@ void EN_ESP_UART1_LOG_SWITCH(void) {
 
 
 /**
- * @brief GPIO_BÖĞ¶Ï·şÎñº¯Êı
+ * @brief GPIO_Bä¸­æ–­æœåŠ¡å‡½æ•°
  */
 __attribute__((interrupt("WCH-Interrupt-fast")))
 void GPIOB_IRQHandler(void)
 {
-    if(R16_PB_INT_IF & CH582_PROG_BOOT_Pin) // ¼ì²éPB3ÖĞ¶Ï±êÖ¾
+    if(R16_PB_INT_IF & CH582_PROG_BOOT_Pin) // æ£€æŸ¥PB3ä¸­æ–­æ ‡å¿—
     {
-        // Çå³ıÖĞ¶Ï±êÖ¾
-        R16_PB_INT_IF |= CH582_PROG_BOOT_Pin;  // Ğ´1Çå0
-        // ÇĞ»»´¥·¢±ßÑØ
+        // æ¸…é™¤ä¸­æ–­æ ‡å¿—
+        R16_PB_INT_IF |= CH582_PROG_BOOT_Pin;  // å†™1æ¸…0
+        // åˆ‡æ¢è§¦å‘è¾¹æ²¿
         if(currentTriggerMode == GPIO_ITMode_FallEdge)
         {
             GPIOB_ITModeCfg(CH582_PROG_BOOT_Pin, GPIO_ITMode_RiseEdge);
@@ -401,7 +401,7 @@ void GPIOB_IRQHandler(void)
             GPIOB_ITModeCfg(CH582_PROG_BOOT_Pin, GPIO_ITMode_FallEdge);
             currentTriggerMode = GPIO_ITMode_FallEdge;
         }
-        // ´¦Àí°´¼üÊÂ¼ş
+        // å¤„ç†æŒ‰é”®äº‹ä»¶
         ButtonHandler();
     }
 }
@@ -409,133 +409,133 @@ void GPIOB_IRQHandler(void)
 
 
 /**
- * @brief TMOSÈÎÎñ´¦Àí°´¼üÊÂ¼ş
+ * @brief TMOSä»»åŠ¡å¤„ç†æŒ‰é”®äº‹ä»¶
  * 
- * @param taskId ÈÎÎñID
- * @param events ÊÂ¼ş±êÖ¾
- * @return uint16_t Î´´¦ÀíµÄÊÂ¼ş
+ * @param taskId ä»»åŠ¡ID
+ * @param events äº‹ä»¶æ ‡å¿—
+ * @return uint16_t æœªå¤„ç†çš„äº‹ä»¶
  */
-//ÉèÖÃÎªflashÇøÓò
+//è®¾ç½®ä¸ºflashåŒºåŸŸ
 
 uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
 {
-    // ´¦Àíµ¥»÷ÊÂ¼ş
+    // å¤„ç†å•å‡»äº‹ä»¶
     if(events & KEY_EVENT_SINGLE_CLICK)
     {
-        PRINT("°´¼üµ¥»÷ÊÂ¼ş\n");
-        //·´×ªPB5 µçÆ½£¬¸ßµçÆ½Ê±ºòÉèÖÃÏÔÊ¾ÎªºìÉ«£¬µÍµçÆ½ÉèÖÃws2812ÏÔÊ¾ÂÌÉ«£¬ÏÔÊ¾ÁÁ¶È0.05
+        PRINT("æŒ‰é”®å•å‡»äº‹ä»¶\n");
+        //åè½¬PB5 ç”µå¹³ï¼Œé«˜ç”µå¹³æ—¶å€™è®¾ç½®æ˜¾ç¤ºä¸ºçº¢è‰²ï¼Œä½ç”µå¹³è®¾ç½®ws2812æ˜¾ç¤ºç»¿è‰²ï¼Œæ˜¾ç¤ºäº®åº¦0.05
         BOOT_SWICH();
 
         return (events ^ KEY_EVENT_SINGLE_CLICK);
     }
     
-    // ´¦ÀíË«»÷ÊÂ¼ş
+    // å¤„ç†åŒå‡»äº‹ä»¶
     if(events & KEY_EVENT_DOUBLE_CLICK)
     {
-        PRINT("°´¼üË«»÷ÊÂ¼ş\n");
+        PRINT("æŒ‰é”®åŒå‡»äº‹ä»¶\n");
 /*
 
-        GPIOB_ResetBits(CH582_12V_Pin); // ÉèÖÃ PB14 ÎªµÍµçÆ½
-        DelayMs(100); // ÑÓ³Ù 50ms
+        GPIOB_ResetBits(CH582_12V_Pin); // è®¾ç½® PB14 ä¸ºä½ç”µå¹³
+        DelayMs(100); // å»¶è¿Ÿ 50ms
 
-        GPIOB_ResetBits(CH582_3V3_Pin); // ÉèÖÃ PB5 ÎªµÍµçÆ½
-        setDimColor(GREEN_COLOR, 0.05); // ÉèÖÃ WS2812 ÎªÂÌÉ«£¬ÁÁ¶È 5%
-        //ÑÓ³Ù50ms
-        DelayMs(50); // ÑÓ³Ù 50ms
-        GPIOB_SetBits(CH582_3V3_Pin); // ÉèÖÃ PB5 Îª¸ßµçÆ½
-        setDimColor(RED_COLOR, 0.05); // ÉèÖÃ WS2812 ÎªºìÉ«£¬ÁÁ¶È 5%
+        GPIOB_ResetBits(CH582_3V3_Pin); // è®¾ç½® PB5 ä¸ºä½ç”µå¹³
+        setDimColor(GREEN_COLOR, 0.05); // è®¾ç½® WS2812 ä¸ºç»¿è‰²ï¼Œäº®åº¦ 5%
+        //å»¶è¿Ÿ50ms
+        DelayMs(50); // å»¶è¿Ÿ 50ms
+        GPIOB_SetBits(CH582_3V3_Pin); // è®¾ç½® PB5 ä¸ºé«˜ç”µå¹³
+        setDimColor(RED_COLOR, 0.05); // è®¾ç½® WS2812 ä¸ºçº¢è‰²ï¼Œäº®åº¦ 5%
 */
 
-        tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 10); // 10msºó¿ªÊ¼·¢ËÍ
+        tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 10); // 10msåå¼€å§‹å‘é€
         return (events ^ KEY_EVENT_DOUBLE_CLICK);
     }
     
-    // ´¦Àí³¤°´ÊÂ¼ş
+    // å¤„ç†é•¿æŒ‰äº‹ä»¶
     if(events & KEY_EVENT_LONG_PRESS)
     {
-        PRINT("°´¼ü³¤°´ÊÂ¼ş\n");
+        PRINT("æŒ‰é”®é•¿æŒ‰äº‹ä»¶\n");
         
         sann_change();
         /*
-        // ¼ì²éµ±Ç°BLEÁ¬½Ó×´Ì¬²¢Ö´ĞĞÏàÓ¦²Ù×÷
+        // æ£€æŸ¥å½“å‰BLEè¿æ¥çŠ¶æ€å¹¶æ‰§è¡Œç›¸åº”æ“ä½œ
         if(Central_IsConnected())
         {
-            PRINT("³¤°´£ºµ±Ç°ÓĞBLEÁ¬½Ó£¬¶Ï¿ªÁ¬½Ó²¢Í£Ö¹×Ô¶¯ÖØÁ¬\n");
+            PRINT("é•¿æŒ‰ï¼šå½“å‰æœ‰BLEè¿æ¥ï¼Œæ–­å¼€è¿æ¥å¹¶åœæ­¢è‡ªåŠ¨é‡è¿\n");
             Central_DisconnectAndStopAutoReconnect();
-            setDimColor(RED_COLOR, 0.1); // ÉèÖÃLEDÎªºìÉ«±íÊ¾¶Ï¿ª×´Ì¬
+            setDimColor(RED_COLOR, 0.1); // è®¾ç½®LEDä¸ºçº¢è‰²è¡¨ç¤ºæ–­å¼€çŠ¶æ€
         }
         else
         {
-            PRINT("³¤°´£ºµ±Ç°ÎŞBLEÁ¬½Ó£¬Æô¶¯×Ô¶¯ËÑË÷ºÍÁ¬½Ó\n");
+            PRINT("é•¿æŒ‰ï¼šå½“å‰æ— BLEè¿æ¥ï¼Œå¯åŠ¨è‡ªåŠ¨æœç´¢å’Œè¿æ¥\n");
             Central_StartAutoReconnect();
-            setDimColor(BLUE, 0.1); // ÉèÖÃLEDÎªÀ¶É«±íÊ¾ËÑË÷×´Ì¬
+            setDimColor(BLUE, 0.1); // è®¾ç½®LEDä¸ºè“è‰²è¡¨ç¤ºæœç´¢çŠ¶æ€
         }*/
         
         return (events ^ KEY_EVENT_LONG_PRESS);
     }
     
-    // Ë«»÷¼ì²âÊÂ¼ş
+    // åŒå‡»æ£€æµ‹äº‹ä»¶
     if(events & KEY_DOUBLE_CLICK_CHECK)
     {
-        // Ë«»÷³¬Ê±¼ì²â
-        uint8_t buttonLevel = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 0 : 1; //  // ¶ÁÈ¡PB3×´Ì¬£¨0=¸ßµçÆ½Î´°´ÏÂ£¬1=µÍµçÆ½°´ÏÂ£©
+        // åŒå‡»è¶…æ—¶æ£€æµ‹
+        uint8_t buttonLevel = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 0 : 1; //  // è¯»å–PB3çŠ¶æ€ï¼ˆ0=é«˜ç”µå¹³æœªæŒ‰ä¸‹ï¼Œ1=ä½ç”µå¹³æŒ‰ä¸‹ï¼‰
         
         if(buttonState == BUTTON_DOUBLE_CLICK_WAIT)
         {
-            if(buttonLevel == 0) // °´¼üÎ´°´ÏÂ£¬È·ÈÏÎªµ¥»÷
+            if(buttonLevel == 0) // æŒ‰é”®æœªæŒ‰ä¸‹ï¼Œç¡®è®¤ä¸ºå•å‡»
             {
                 
                 tmos_set_event(keyTaskId, KEY_EVENT_SINGLE_CLICK);
                 buttonState = BUTTON_IDLE;
             }
-            else // °´¼üÒÑ°´ÏÂ£¬±¨´í
+            else // æŒ‰é”®å·²æŒ‰ä¸‹ï¼ŒæŠ¥é”™
             {
-                PRINT("Error in KEY_DOUBLE_CLICK_CHECK: °´¼üÒÑ°´ÏÂµ«ÖĞ¶ÏÎ´´¥·¢\n");
+                PRINT("Error in KEY_DOUBLE_CLICK_CHECK: æŒ‰é”®å·²æŒ‰ä¸‹ä½†ä¸­æ–­æœªè§¦å‘\n");
                 buttonState = BUTTON_IDLE;
             }
         }
         else
         {
-            PRINT("Error in KEY_DOUBLE_CLICK_CHECK: ·ÇµÈ´ıË«»÷×´Ì¬ %d\n", buttonState);
+            PRINT("Error in KEY_DOUBLE_CLICK_CHECK: éç­‰å¾…åŒå‡»çŠ¶æ€ %d\n", buttonState);
         }
         
         return (events ^ KEY_DOUBLE_CLICK_CHECK);
     }
     
-    // ³¤°´¼ì²âÊÂ¼ş
+    // é•¿æŒ‰æ£€æµ‹äº‹ä»¶
     if(events & KEY_LONG_PRESSED_CHECK)
     {
-        uint8_t buttonLevel = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 0 : 1; // ¶ÁÈ¡µ±Ç°°´¼ü×´Ì¬
+        uint8_t buttonLevel = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 0 : 1; // è¯»å–å½“å‰æŒ‰é”®çŠ¶æ€
         
         if(buttonState == BUTTON_PRESSED)
         {
-            if(buttonLevel == 1) // °´¼üÈÔ´¦ÓÚ°´ÏÂ×´Ì¬
+            if(buttonLevel == 1) // æŒ‰é”®ä»å¤„äºæŒ‰ä¸‹çŠ¶æ€
             {
-                // ´¥·¢³¤°´ÊÂ¼ş
+                // è§¦å‘é•¿æŒ‰äº‹ä»¶
                 tmos_set_event(keyTaskId, KEY_EVENT_LONG_PRESS);
                 
-                // ÉèÖÃÎªÏÂ½µÑØ´¥·¢£¬×¼±¸ÏÂÒ»´Î°´ÏÂ
+                // è®¾ç½®ä¸ºä¸‹é™æ²¿è§¦å‘ï¼Œå‡†å¤‡ä¸‹ä¸€æ¬¡æŒ‰ä¸‹
                 GPIOB_ITModeCfg(CH582_PROG_BOOT_Pin, GPIO_ITMode_FallEdge);
                 currentTriggerMode = GPIO_ITMode_FallEdge;
                 
-                // »Ö¸´¿ÕÏĞ×´Ì¬
+                // æ¢å¤ç©ºé—²çŠ¶æ€
                 buttonState = BUTTON_IDLE;
             }
-            else // °´¼üÒÑÊÍ·Åµ«Ã»ÓĞ´¥·¢ÖĞ¶Ï
+            else // æŒ‰é”®å·²é‡Šæ”¾ä½†æ²¡æœ‰è§¦å‘ä¸­æ–­
             {
-                PRINT("Error in KEY_LONG_PRESSED_CHECK: °´¼üÒÑÊÍ·Åµ«ÖĞ¶ÏÎ´´¥·¢\n");
+                PRINT("Error in KEY_LONG_PRESSED_CHECK: æŒ‰é”®å·²é‡Šæ”¾ä½†ä¸­æ–­æœªè§¦å‘\n");
                 buttonState = BUTTON_IDLE;
             }
         }
         else
         {
-            PRINT("Error in KEY_LONG_PRESSED_CHECK: ·Ç°´ÏÂ×´Ì¬ %d\n", buttonState);
+            PRINT("Error in KEY_LONG_PRESSED_CHECK: éæŒ‰ä¸‹çŠ¶æ€ %d\n", buttonState);
         }
         
         return (events ^ KEY_LONG_PRESSED_CHECK);
     }
     
-    // ²âÊÔÊÂ¼ş£¨¿ÉÑ¡£©
+    // æµ‹è¯•äº‹ä»¶ï¼ˆå¯é€‰ï¼‰
     if(events & KEY_TEST_SECOND)
     {
         uint16_t t32k = R16_RTC_CNT_32K;
@@ -543,26 +543,26 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
         uint16_t day = R32_RTC_CNT_DAY & 0x3FFF;
         
         uint8_t i = (t32k > 16384) ? 1 : 0;
-        PRINT("Ê±¼ä: %dÌì %dÃë ×´Ì¬: %d\n", day, sec2*2+i, buttonState);
+        PRINT("æ—¶é—´: %då¤© %dç§’ çŠ¶æ€: %d\n", day, sec2*2+i, buttonState);
         
-        tmos_start_task(keyTaskId, KEY_TEST_SECOND, 1600); // 1s ¶¨Ê±
+        tmos_start_task(keyTaskId, KEY_TEST_SECOND, 1600); // 1s å®šæ—¶
         return (events ^ KEY_TEST_SECOND);
     }
     if(events & KEY_NOISE_PRESSED)
     { 
-        PRINT("°´¼ü¶¶¶¯£¬ºöÂÔ´Ë´ÎÊÂ¼ş\n");
+        PRINT("æŒ‰é”®æŠ–åŠ¨ï¼Œå¿½ç•¥æ­¤æ¬¡äº‹ä»¶\n");
         return (events ^ KEY_NOISE_PRESSED);
     }
 
     if(events & KEY_STATE_UNKOWN)
     { 
-        PRINT("°´¼ü×´Ì¬Òì³££¬»Øµ½¿ÕÏĞÌ¬\n");
+        PRINT("æŒ‰é”®çŠ¶æ€å¼‚å¸¸ï¼Œå›åˆ°ç©ºé—²æ€\n");
         return (events ^ KEY_STATE_UNKOWN);
     }
 
     if(events & BUTTON_PRESSED_OVERTIME_ERR)
     { 
-        PRINT("°´ÏÂ µÈµ¯ÆğÀ´ µ«ÊÇµ¯ÆğÀ´ÊÂ¼ş³¬¹ı³¤°´Ê±¼ä Ã»ÈË´¦Àí´íÎó Ó¦¸ÃÊÇ³¤°´ÊÂ¼ş±»ÆäËûÈÎÎñµ¢ÎóÁË£¬ÕâÀïÈ¡Ïû³¤°´¸´²âÈÎÎñ£¬Ö±½ÓÊä³ö³¤°´ÊÂ¼ş£¬²¢»Øµ½³õÊ¼Ì¬\n");
+        PRINT("æŒ‰ä¸‹ ç­‰å¼¹èµ·æ¥ ä½†æ˜¯å¼¹èµ·æ¥äº‹ä»¶è¶…è¿‡é•¿æŒ‰æ—¶é—´ æ²¡äººå¤„ç†é”™è¯¯ åº”è¯¥æ˜¯é•¿æŒ‰äº‹ä»¶è¢«å…¶ä»–ä»»åŠ¡è€½è¯¯äº†ï¼Œè¿™é‡Œå–æ¶ˆé•¿æŒ‰å¤æµ‹ä»»åŠ¡ï¼Œç›´æ¥è¾“å‡ºé•¿æŒ‰äº‹ä»¶ï¼Œå¹¶å›åˆ°åˆå§‹æ€\n");
 
         print_timestamp(&buttonPressTime);
         print_timestamp(&buttonReleaseTime);
@@ -571,12 +571,12 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     }
     if(events & DOUBULE_PRESSED_OVERTIME_ERR)
     { 
-        PRINT("Ë«»÷µÄµÚ¶ş´Î°´ÏÂ³¬¹ıÁËË«»÷µÈ´ıÊ±¼äÏµÍ³Ã»ÓĞ´¦Àí£¬±¨´í£¬Ó¦ÎªÁíÍâÒ»´Îµ¥»÷\n");
+        PRINT("åŒå‡»çš„ç¬¬äºŒæ¬¡æŒ‰ä¸‹è¶…è¿‡äº†åŒå‡»ç­‰å¾…æ—¶é—´ç³»ç»Ÿæ²¡æœ‰å¤„ç†ï¼ŒæŠ¥é”™ï¼Œåº”ä¸ºå¦å¤–ä¸€æ¬¡å•å‡»\n");
         return (events ^ DOUBULE_PRESSED_OVERTIME_ERR);
     }
 
 
 
-    // ·µ»ØÎ´´¦ÀíµÄÊÂ¼ş
+    // è¿”å›æœªå¤„ç†çš„äº‹ä»¶
     return 0;
 }

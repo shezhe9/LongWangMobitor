@@ -3,95 +3,96 @@
  * Author             : WCH
  * Version            : V1.0
  * Date               : 2018/11/12
- * Description        : ¹Û²ìÓ¦ÓÃÖ÷º¯Êı¼°ÈÎÎñÏµÍ³³õÊ¼»¯
+ * Description        : è§‚å¯Ÿåº”ç”¨ä¸»å‡½æ•°åŠä»»åŠ¡ç³»ç»Ÿåˆå§‹åŒ–
  * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
  * SPDX-License-Identifier: Apache-2.0
  *******************************************************************************/
 
-#ifndef CENTRAL_H
-#define CENTRAL_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/*********************************************************************
- * INCLUDES
- */
-
-/*********************************************************************
- * CONSTANTS
- */
-
-// Simple BLE Observer Task Events
-#define START_DEVICE_EVT              0x0001
-#define START_DISCOVERY_EVT           0x0002
-#define START_SCAN_EVT                0x0004
-#define START_SVC_DISCOVERY_EVT       0x0008
-#define START_PARAM_UPDATE_EVT        0x0010
-#define START_PHY_UPDATE_EVT          0x0020
-#define START_READ_OR_WRITE_EVT       0x0040
-#define START_WRITE_CCCD_EVT          0x0080
-#define START_READ_RSSI_EVT           0x0100
-#define ESTABLISH_LINK_TIMEOUT_EVT    0x0200
-
-// ĞÂÔö£ºÀ¶ÑÀ·¢ËÍ²âÊÔÊı¾İÊÂ¼ş
-#define START_SEND_TEST_DATA_EVT      0x0400
-// ĞÂÔö£ºÁ¬½Ó³É¹¦ºó·¢ËÍ³õÊ¼»¯Êı¾İÊÂ¼ş
-#define START_SEND_INIT_DATA_EVT      0x0800
-
-// ĞÂÔö£ºÁ¬½Ó¿ØÖÆÊÂ¼ş
-#define STOP_AUTO_RECONNECT_EVT       0x1000  // Í£Ö¹×Ô¶¯ÖØÁ¬ÊÂ¼ş
-#define START_AUTO_RECONNECT_EVT      0x2000  // Æô¶¯×Ô¶¯ÖØÁ¬ÊÂ¼ş
-
-// ĞÂÔö£ºÄ¿±êÉè±¸·şÎñºÍÌØÕ÷UUID¶¨Òå
-#define TARGET_SERVICE_UUID           0xAE00  // Ä¿±ê·şÎñUUID
-#define TARGET_WRITE_CHAR_UUID        0xAE10  // Ğ´ÌØÕ÷UUID (ÓÃÓÚ·¢ËÍÊı¾İ)
-#define TARGET_NOTIFY_CHAR_UUID       0xAE02  // Í¨ÖªÌØÕ÷UUID (ÓÃÓÚ½ÓÊÕÊı¾İ)
-
-// ĞÂÔö£ºÄ¿±êÉè±¸Ãû³Æ
-#define TARGET_DEVICE_NAME            "HID-LongWang"
-#define TARGET_DEVICE_NAME_LEN        (sizeof(TARGET_DEVICE_NAME) - 1)  // ¼õÈ¥nullÖÕÖ¹·û
-
-// ĞÂÔö£º²âÊÔÊı¾İÏà¹Ø³£Á¿
-#define TEST_DATA_COUNT               20     // ·¢ËÍµÄ²âÊÔÊı¾İÊıÁ¿
-#define TEST_DATA_VALUE               0xAA   // ²âÊÔÊı¾İÖµ
-
-/*********************************************************************
- * MACROS
- */
-
-/*********************************************************************
- * FUNCTIONS
- */
-
-/*
- * Task Initialization for the BLE Application
- */
-extern void Central_Init(void);
-
-/*
- * Task Event Processor for the BLE Application
- */
-extern uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events);
-
-/*
- * External variables for accessing central task ID
- */
-extern uint8_t centralTaskId;  // CentralÈÎÎñID£¬¹©Íâ²¿Ä£¿éÊ¹ÓÃ
-
-/*
- * ĞÂÔö£ºÁ¬½Ó¿ØÖÆº¯ÊıÉùÃ÷
- */
-extern void Central_DisconnectAndStopAutoReconnect(void);  // ¶Ï¿ªÁ¬½Ó²¢Í£Ö¹×Ô¶¯ÖØÁ¬
-extern void Central_StartAutoReconnect(void);              // ¿ªÊ¼×Ô¶¯ËÑË÷ºÍÁ¬½Ó
-extern uint8_t Central_IsConnected(void);                  // ¼ì²éÊÇ·ñÒÑÁ¬½Ó
-
-/*********************************************************************
-*********************************************************************/
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+ #ifndef CENTRAL_H
+ #define CENTRAL_H
+ 
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+ 
+ /*********************************************************************
+  * INCLUDES
+  */
+ 
+ /*********************************************************************
+  * CONSTANTS
+  */
+ 
+ // Simple BLE Observer Task Events
+ #define START_DEVICE_EVT              0x0001
+ #define START_DISCOVERY_EVT           0x0002
+ #define START_SCAN_EVT                0x0004
+ #define START_SVC_DISCOVERY_EVT       0x0008
+ #define START_PARAM_UPDATE_EVT        0x0010
+ #define START_PHY_UPDATE_EVT          0x0020
+ #define START_READ_OR_WRITE_EVT       0x0040
+ #define START_WRITE_CCCD_EVT          0x0080
+ #define START_READ_RSSI_EVT           0x0100
+ #define ESTABLISH_LINK_TIMEOUT_EVT    0x0200
+ 
+ // æ–°å¢ï¼šè“ç‰™å‘é€æµ‹è¯•æ•°æ®äº‹ä»¶
+ #define START_SEND_TEST_DATA_EVT      0x0400
+ // æ–°å¢ï¼šè¿æ¥æˆåŠŸåå‘é€åˆå§‹åŒ–æ•°æ®äº‹ä»¶
+ #define START_SEND_INIT_DATA_EVT      0x0800
+ 
+ // æ–°å¢ï¼šè¿æ¥æ§åˆ¶äº‹ä»¶
+ #define STOP_AUTO_RECONNECT_EVT       0x1000  // åœæ­¢è‡ªåŠ¨é‡è¿äº‹ä»¶
+ #define START_AUTO_RECONNECT_EVT      0x2000  // å¯åŠ¨è‡ªåŠ¨é‡è¿äº‹ä»¶
+ 
+ // æ–°å¢ï¼šç›®æ ‡è®¾å¤‡æœåŠ¡å’Œç‰¹å¾UUIDå®šä¹‰
+ #define TARGET_SERVICE_UUID           0xAE00  // ç›®æ ‡æœåŠ¡UUID
+ #define TARGET_WRITE_CHAR_UUID        0xAE10  // å†™ç‰¹å¾UUID (ç”¨äºå‘é€æ•°æ®)
+ #define TARGET_NOTIFY_CHAR_UUID       0xAE02  // é€šçŸ¥ç‰¹å¾UUID (ç”¨äºæ¥æ”¶æ•°æ®)
+ 
+ // æ–°å¢ï¼šç›®æ ‡è®¾å¤‡åç§°
+ #define TARGET_DEVICE_NAME            "HID-LongWang"
+ #define TARGET_DEVICE_NAME_LEN        (sizeof(TARGET_DEVICE_NAME) - 1)  // å‡å»nullç»ˆæ­¢ç¬¦
+ 
+ // æ–°å¢ï¼šæµ‹è¯•æ•°æ®ç›¸å…³å¸¸é‡
+ #define TEST_DATA_COUNT               20     // å‘é€çš„æµ‹è¯•æ•°æ®æ•°é‡
+ #define TEST_DATA_VALUE               0xAA   // æµ‹è¯•æ•°æ®å€¼
+ 
+ /*********************************************************************
+  * MACROS
+  */
+ 
+ /*********************************************************************
+  * FUNCTIONS
+  */
+ 
+ /*
+  * Task Initialization for the BLE Application
+  */
+ extern void Central_Init(void);
+ 
+ /*
+  * Task Event Processor for the BLE Application
+  */
+ extern uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events);
+ 
+ /*
+  * External variables for accessing central task ID
+  */
+ extern uint8_t centralTaskId;  // Centralä»»åŠ¡IDï¼Œä¾›å¤–éƒ¨æ¨¡å—ä½¿ç”¨
+ 
+ /*
+  * æ–°å¢ï¼šè¿æ¥æ§åˆ¶å‡½æ•°å£°æ˜
+  */
+ extern void Central_DisconnectAndStopAutoReconnect(void);  // æ–­å¼€è¿æ¥å¹¶åœæ­¢è‡ªåŠ¨é‡è¿
+ extern void Central_StartAutoReconnect(void);              // å¼€å§‹è‡ªåŠ¨æœç´¢å’Œè¿æ¥
+ extern uint8_t Central_IsConnected(void);                  // æ£€æŸ¥æ˜¯å¦å·²è¿æ¥
+ 
+ /*********************************************************************
+ *********************************************************************/
+ 
+ #ifdef __cplusplus
+ }
+ #endif
+ 
+ #endif
+ 

@@ -1,260 +1,260 @@
 /********************************** (C) COPYRIGHT *******************************
-* File Name          : central.c                                                // ÎÄ¼şÃû£ºcentral.c
-* Author             : WCH                                                      // ×÷Õß£ºWCH
-* Version            : V1.1                                                     // °æ±¾£ºV1.1
-* Date               : 2020/08/06                                              // ÈÕÆÚ£º2020/08/06
-* Description        : Ö÷»úÀı³Ì£¬Ö÷¶¯É¨ÃèÖÜÎ§Éè±¸£¬Á¬½ÓÖÁ¸ø¶¨µÄ´Ó»úÉè±¸µØÖ·£¬           // ÃèÊö£ºÖ÷»úÊ¾Àı³ÌĞò
-*                      Ñ°ÕÒ×Ô¶¨Òå·şÎñ¼°ÌØÕ÷£¬Ö´ĞĞ¶ÁĞ´ÃüÁî£¬ĞèÓë´Ó»úÀı³ÌÅäºÏÊ¹ÓÃ,        //      É¨Ãè²¢Á¬½ÓÖ¸¶¨´Ó»ú
-                       ²¢½«´Ó»úÉè±¸µØÖ·ĞŞ¸ÄÎª¸ÃÀı³ÌÄ¿±êµØÖ·£¬Ä¬ÈÏÎª(84:C2:E4:03:02:02)  //      Ä¬ÈÏÄ¿±êµØÖ·
+* File Name          : central.c                                                // æ–‡ä»¶åï¼šcentral.c
+* Author             : WCH                                                      // ä½œè€…ï¼šWCH
+* Version            : V1.1                                                     // ç‰ˆæœ¬ï¼šV1.1
+* Date               : 2020/08/06                                              // æ—¥æœŸï¼š2020/08/06
+* Description        : ä¸»æœºä¾‹ç¨‹ï¼Œä¸»åŠ¨æ‰«æå‘¨å›´è®¾å¤‡ï¼Œè¿æ¥è‡³ç»™å®šçš„ä»æœºè®¾å¤‡åœ°å€ï¼Œ           // æè¿°ï¼šä¸»æœºç¤ºä¾‹ç¨‹åº
+*                      å¯»æ‰¾è‡ªå®šä¹‰æœåŠ¡åŠç‰¹å¾ï¼Œæ‰§è¡Œè¯»å†™å‘½ä»¤ï¼Œéœ€ä¸ä»æœºä¾‹ç¨‹é…åˆä½¿ç”¨,        //      æ‰«æå¹¶è¿æ¥æŒ‡å®šä»æœº
+                       å¹¶å°†ä»æœºè®¾å¤‡åœ°å€ä¿®æ”¹ä¸ºè¯¥ä¾‹ç¨‹ç›®æ ‡åœ°å€ï¼Œé»˜è®¤ä¸º(84:C2:E4:03:02:02)  //      é»˜è®¤ç›®æ ‡åœ°å€
 *******************************************************************************/
 
 /*********************************************************************
- * INCLUDES                                                           // °üº¬Í·ÎÄ¼ş
+ * INCLUDES                                                           // åŒ…å«å¤´æ–‡ä»¶
  */
-#include "CONFIG.h"                                                   // °üº¬ÅäÖÃÍ·ÎÄ¼ş
-#include "gattprofile.h"                                             // °üº¬GATTÅäÖÃÎÄ¼şÍ·ÎÄ¼ş
-#include "central.h"                                                 // °üº¬centralÖ÷»úÍ·ÎÄ¼ş
+#include "CONFIG.h"                                                   // åŒ…å«é…ç½®å¤´æ–‡ä»¶
+#include "gattprofile.h"                                             // åŒ…å«GATTé…ç½®æ–‡ä»¶å¤´æ–‡ä»¶
+#include "central.h"                                                 // åŒ…å«centralä¸»æœºå¤´æ–‡ä»¶
 #include "key.h"   
 #include "ws2812.h"  
 /*********************************************************************
- * MACROS                                                            // ºê¶¨Òå
+ * MACROS                                                            // å®å®šä¹‰
  */
 
 // Length of bd addr as a string                                     
-#define B_ADDR_STR_LEN                      15                       // À¶ÑÀµØÖ·×Ö·û´®³¤¶È¶¨ÒåÎª15
+#define B_ADDR_STR_LEN                      15                       // è“ç‰™åœ°å€å­—ç¬¦ä¸²é•¿åº¦å®šä¹‰ä¸º15
 
 /*********************************************************************
- * CONSTANTS                                                         // ³£Á¿¶¨Òå
+ * CONSTANTS                                                         // å¸¸é‡å®šä¹‰
  */
 // Maximum number of scan responses                                  
-#define DEFAULT_MAX_SCAN_RES                50                       // ×î´óÉ¨ÃèÏìÓ¦ÊıÁ¿Îª50
+#define DEFAULT_MAX_SCAN_RES                50                       // æœ€å¤§æ‰«æå“åº”æ•°é‡ä¸º50
 
 // Scan duration in 0.625ms                                         
-#define DEFAULT_SCAN_DURATION               2400                     // É¨Ãè³ÖĞøÊ±¼ä£¬µ¥Î»0.625ms
+#define DEFAULT_SCAN_DURATION               2400                     // æ‰«ææŒç»­æ—¶é—´ï¼Œå•ä½0.625ms
 
 // Connection min interval in 1.25ms                                
-#define DEFAULT_MIN_CONNECTION_INTERVAL     20                       // ×îĞ¡Á¬½Ó¼ä¸ô£¬µ¥Î»1.25ms
+#define DEFAULT_MIN_CONNECTION_INTERVAL     20                       // æœ€å°è¿æ¥é—´éš”ï¼Œå•ä½1.25ms
 
 // Connection max interval in 1.25ms                                
-#define DEFAULT_MAX_CONNECTION_INTERVAL     100                      // ×î´óÁ¬½Ó¼ä¸ô£¬µ¥Î»1.25ms
+#define DEFAULT_MAX_CONNECTION_INTERVAL     100                      // æœ€å¤§è¿æ¥é—´éš”ï¼Œå•ä½1.25ms
 
 // Connection supervision timeout in 10ms                           
-#define DEFAULT_CONNECTION_TIMEOUT          100                      // Á¬½Ó¼à¶½³¬Ê±£¬µ¥Î»10ms
+#define DEFAULT_CONNECTION_TIMEOUT          100                      // è¿æ¥ç›‘ç£è¶…æ—¶ï¼Œå•ä½10ms
 
 // Discovey mode (limited, general, all)                            
-#define DEFAULT_DISCOVERY_MODE              DEVDISC_MODE_ALL         // ·¢ÏÖÄ£Ê½ÉèÖÃÎªÈ«²¿·¢ÏÖ
+#define DEFAULT_DISCOVERY_MODE              DEVDISC_MODE_ALL         // å‘ç°æ¨¡å¼è®¾ç½®ä¸ºå…¨éƒ¨å‘ç°
 
 // TRUE to use active scan                                          
-#define DEFAULT_DISCOVERY_ACTIVE_SCAN       TRUE                     // Ê¹ÓÃÖ÷¶¯É¨Ãè
+#define DEFAULT_DISCOVERY_ACTIVE_SCAN       TRUE                     // ä½¿ç”¨ä¸»åŠ¨æ‰«æ
 
 // TRUE to use white list during discovery                          
-#define DEFAULT_DISCOVERY_WHITE_LIST        FALSE                    // ²»Ê¹ÓÃ°×Ãûµ¥½øĞĞ·¢ÏÖ
+#define DEFAULT_DISCOVERY_WHITE_LIST        FALSE                    // ä¸ä½¿ç”¨ç™½åå•è¿›è¡Œå‘ç°
 
 // TRUE to use high scan duty cycle when creating link              
-#define DEFAULT_LINK_HIGH_DUTY_CYCLE        FALSE                   // ´´½¨Á¬½ÓÊ±²»Ê¹ÓÃ¸ßÕ¼¿Õ±ÈÉ¨Ãè
+#define DEFAULT_LINK_HIGH_DUTY_CYCLE        FALSE                   // åˆ›å»ºè¿æ¥æ—¶ä¸ä½¿ç”¨é«˜å ç©ºæ¯”æ‰«æ
 
 // TRUE to use white list when creating link                        
-#define DEFAULT_LINK_WHITE_LIST             FALSE                   // ´´½¨Á¬½ÓÊ±²»Ê¹ÓÃ°×Ãûµ¥
+#define DEFAULT_LINK_WHITE_LIST             FALSE                   // åˆ›å»ºè¿æ¥æ—¶ä¸ä½¿ç”¨ç™½åå•
 
 // Default read RSSI period in 0.625ms                             
-#define DEFAULT_RSSI_PERIOD                 2400                    // Ä¬ÈÏRSSI¶ÁÈ¡ÖÜÆÚ£¬µ¥Î»0.625ms
+#define DEFAULT_RSSI_PERIOD                 2400                    // é»˜è®¤RSSIè¯»å–å‘¨æœŸï¼Œå•ä½0.625ms
 
 // Minimum connection interval (units of 1.25ms)                    
-#define DEFAULT_UPDATE_MIN_CONN_INTERVAL    20                      // ¸üĞÂÁ¬½Ó²ÎÊıµÄ×îĞ¡¼ä¸ô
+#define DEFAULT_UPDATE_MIN_CONN_INTERVAL    20                      // æ›´æ–°è¿æ¥å‚æ•°çš„æœ€å°é—´éš”
 
 // Maximum connection interval (units of 1.25ms)                    
-#define DEFAULT_UPDATE_MAX_CONN_INTERVAL    100                     // ¸üĞÂÁ¬½Ó²ÎÊıµÄ×î´ó¼ä¸ô
+#define DEFAULT_UPDATE_MAX_CONN_INTERVAL    100                     // æ›´æ–°è¿æ¥å‚æ•°çš„æœ€å¤§é—´éš”
 
 // Slave latency to use parameter update                            
-#define DEFAULT_UPDATE_SLAVE_LATENCY        0                       // ´Ó»úÑÓ³Ù²ÎÊı
+#define DEFAULT_UPDATE_SLAVE_LATENCY        0                       // ä»æœºå»¶è¿Ÿå‚æ•°
 
 // Supervision timeout value (units of 10ms)                        
-#define DEFAULT_UPDATE_CONN_TIMEOUT         600                     // Á¬½Ó³¬Ê±Öµ£¬µ¥Î»10ms
+#define DEFAULT_UPDATE_CONN_TIMEOUT         600                     // è¿æ¥è¶…æ—¶å€¼ï¼Œå•ä½10ms
 
 // Default passcode                                                 
-#define DEFAULT_PASSCODE                    0                       // Ä¬ÈÏÅä¶ÔÃÜÂë
+#define DEFAULT_PASSCODE                    0                       // é»˜è®¤é…å¯¹å¯†ç 
 
 // Default GAP pairing mode                                         
-#define DEFAULT_PAIRING_MODE                GAPBOND_PAIRING_MODE_INITIATE // Ä¬ÈÏGAPÅä¶ÔÄ£Ê½Îª·¢ÆğÅä¶Ô
+#define DEFAULT_PAIRING_MODE                GAPBOND_PAIRING_MODE_INITIATE // é»˜è®¤GAPé…å¯¹æ¨¡å¼ä¸ºå‘èµ·é…å¯¹
 
 // Default MITM mode (TRUE to require passcode or OOB when pairing) 
-#define DEFAULT_MITM_MODE                   TRUE                    // Ä¬ÈÏÆôÓÃMITM±£»¤
+#define DEFAULT_MITM_MODE                   TRUE                    // é»˜è®¤å¯ç”¨MITMä¿æŠ¤
 
 // Default bonding mode, TRUE to bond, max bonding 6 devices        
-#define DEFAULT_BONDING_MODE                TRUE                    // Ä¬ÈÏÆôÓÃ°ó¶¨Ä£Ê½£¬×î¶à°ó¶¨6¸öÉè±¸
+#define DEFAULT_BONDING_MODE                TRUE                    // é»˜è®¤å¯ç”¨ç»‘å®šæ¨¡å¼ï¼Œæœ€å¤šç»‘å®š6ä¸ªè®¾å¤‡
 
 // Default GAP bonding I/O capabilities                             
-#define DEFAULT_IO_CAPABILITIES             GAPBOND_IO_CAP_DISPLAY_ONLY // Ä¬ÈÏGAP°ó¶¨I/OÄÜÁ¦Îª½öÏÔÊ¾
+#define DEFAULT_IO_CAPABILITIES             GAPBOND_IO_CAP_DISPLAY_ONLY // é»˜è®¤GAPç»‘å®šI/Oèƒ½åŠ›ä¸ºä»…æ˜¾ç¤º
 
 // Default service discovery timer delay in 0.625ms                 
-#define DEFAULT_SVC_DISCOVERY_DELAY         1600                    // Ä¬ÈÏ·şÎñ·¢ÏÖÑÓÊ±
+#define DEFAULT_SVC_DISCOVERY_DELAY         1600                    // é»˜è®¤æœåŠ¡å‘ç°å»¶æ—¶
 
 // Default parameter update delay in 0.625ms                        
-#define DEFAULT_PARAM_UPDATE_DELAY          3200                    // Ä¬ÈÏ²ÎÊı¸üĞÂÑÓÊ±
+#define DEFAULT_PARAM_UPDATE_DELAY          3200                    // é»˜è®¤å‚æ•°æ›´æ–°å»¶æ—¶
 
 // Default phy update delay in 0.625ms                              
-#define DEFAULT_PHY_UPDATE_DELAY            2400                    // Ä¬ÈÏPHY¸üĞÂÑÓÊ±
+#define DEFAULT_PHY_UPDATE_DELAY            2400                    // é»˜è®¤PHYæ›´æ–°å»¶æ—¶
 
 // Default read or write timer delay in 0.625ms                     
-#define DEFAULT_READ_OR_WRITE_DELAY         1600                    // Ä¬ÈÏ¶ÁĞ´²Ù×÷ÑÓÊ±
+#define DEFAULT_READ_OR_WRITE_DELAY         1600                    // é»˜è®¤è¯»å†™æ“ä½œå»¶æ—¶
 
 // Default write CCCD delay in 0.625ms                              
-#define DEFAULT_WRITE_CCCD_DELAY            1600                    // Ä¬ÈÏĞ´CCCDÑÓÊ±
+#define DEFAULT_WRITE_CCCD_DELAY            1600                    // é»˜è®¤å†™CCCDå»¶æ—¶
 
 // Establish link timeout in 0.625ms                                
-#define ESTABLISH_LINK_TIMEOUT              3200                    // ½¨Á¢Á¬½Ó³¬Ê±Ê±¼ä
+#define ESTABLISH_LINK_TIMEOUT              3200                    // å»ºç«‹è¿æ¥è¶…æ—¶æ—¶é—´
 
-// Application states                                               // Ó¦ÓÃ×´Ì¬Ã¶¾Ù
+// Application states                                               // åº”ç”¨çŠ¶æ€æšä¸¾
 enum
 {
-    BLE_STATE_IDLE,                                                // ¿ÕÏĞ×´Ì¬
-    BLE_STATE_CONNECTING,                                          // ÕıÔÚÁ¬½Ó×´Ì¬
-    BLE_STATE_CONNECTED,                                          // ÒÑÁ¬½Ó×´Ì¬
-    BLE_STATE_DISCONNECTING                                       // ÕıÔÚ¶Ï¿ªÁ¬½Ó×´Ì¬
+    BLE_STATE_IDLE,                                                // ç©ºé—²çŠ¶æ€
+    BLE_STATE_CONNECTING,                                          // æ­£åœ¨è¿æ¥çŠ¶æ€
+    BLE_STATE_CONNECTED,                                          // å·²è¿æ¥çŠ¶æ€
+    BLE_STATE_DISCONNECTING                                       // æ­£åœ¨æ–­å¼€è¿æ¥çŠ¶æ€
 };
 
-// Discovery states                                                // ·¢ÏÖ×´Ì¬Ã¶¾Ù
+// Discovery states                                                // å‘ç°çŠ¶æ€æšä¸¾
 enum
 {
-    BLE_DISC_STATE_IDLE,                                         // ¿ÕÏĞ×´Ì¬
-    BLE_DISC_STATE_SVC,                                          // ·şÎñ·¢ÏÖ×´Ì¬
-    BLE_DISC_STATE_CHAR,                                         // ÌØÕ÷·¢ÏÖ×´Ì¬
-    BLE_DISC_STATE_CCCD                                          // CCCD·¢ÏÖ×´Ì¬
+    BLE_DISC_STATE_IDLE,                                         // ç©ºé—²çŠ¶æ€
+    BLE_DISC_STATE_SVC,                                          // æœåŠ¡å‘ç°çŠ¶æ€
+    BLE_DISC_STATE_CHAR,                                         // ç‰¹å¾å‘ç°çŠ¶æ€
+    BLE_DISC_STATE_CCCD                                          // CCCDå‘ç°çŠ¶æ€
 };
 
 /*********************************************************************
- * TYPEDEFS                                                          // ÀàĞÍ¶¨Òå
+ * TYPEDEFS                                                          // ç±»å‹å®šä¹‰
  */
 
 /*********************************************************************
- * GLOBAL VARIABLES                                                  // È«¾Ö±äÁ¿
+ * GLOBAL VARIABLES                                                  // å…¨å±€å˜é‡
  */
 
 /*********************************************************************
- * EXTERNAL VARIABLES                                                // Íâ²¿±äÁ¿
+ * EXTERNAL VARIABLES                                                // å¤–éƒ¨å˜é‡
  */
 
 /*********************************************************************
- * EXTERNAL FUNCTIONS                                                // Íâ²¿º¯Êı
+ * EXTERNAL FUNCTIONS                                                // å¤–éƒ¨å‡½æ•°
  */
 
 /*********************************************************************
- * LOCAL VARIABLES                                                   // ±¾µØ±äÁ¿
+ * LOCAL VARIABLES                                                   // æœ¬åœ°å˜é‡
  */
 
 // Task ID for internal task/event processing                        
-uint8_t centralTaskId;                                               // ÖĞÑëÉè±¸ÈÎÎñID£¨¹©Íâ²¿·ÃÎÊ£©
+uint8_t centralTaskId;                                               // ä¸­å¤®è®¾å¤‡ä»»åŠ¡IDï¼ˆä¾›å¤–éƒ¨è®¿é—®ï¼‰
 
 // Number of scan results                                            
-static uint8_t centralScanRes;                                       // É¨Ãè½á¹ûÊıÁ¿
+static uint8_t centralScanRes;                                       // æ‰«æç»“æœæ•°é‡
 
 // Scan result list                                                  
-static gapDevRec_t centralDevList[DEFAULT_MAX_SCAN_RES];            // É¨Ãè½á¹ûÁĞ±í
+static gapDevRec_t centralDevList[DEFAULT_MAX_SCAN_RES];            // æ‰«æç»“æœåˆ—è¡¨
 
-// Ä¿±êÉè±¸Ãû³Æ£¨Ìæ»»Ô­À´µÄÓ²±àÂëMACµØÖ·£©                                               
-static uint8_t targetDeviceName[] = TARGET_DEVICE_NAME; // Ä¿±êÉè±¸Ãû³Æ
-static uint8_t targetDeviceFound = FALSE;                // ÊÇ·ñÕÒµ½Ä¿±êÉè±¸
-static uint8_t connectionFailCount = 0;                  // Á¬½ÓÊ§°Ü¼ÆÊıÆ÷
+// ç›®æ ‡è®¾å¤‡åç§°ï¼ˆæ›¿æ¢åŸæ¥çš„ç¡¬ç¼–ç MACåœ°å€ï¼‰                                               
+static uint8_t targetDeviceName[] = TARGET_DEVICE_NAME; // ç›®æ ‡è®¾å¤‡åç§°
+static uint8_t targetDeviceFound = FALSE;                // æ˜¯å¦æ‰¾åˆ°ç›®æ ‡è®¾å¤‡
+static uint8_t connectionFailCount = 0;                  // è¿æ¥å¤±è´¥è®¡æ•°å™¨
 
-// ĞÂÔö£º×Ô¶¯ÖØÁ¬¿ØÖÆ±äÁ¿
-static uint8_t autoReconnectEnabled = TRUE;              // ÊÇ·ñÆôÓÃ×Ô¶¯ÖØÁ¬¹¦ÄÜ
+// æ–°å¢ï¼šè‡ªåŠ¨é‡è¿æ§åˆ¶å˜é‡
+static uint8_t autoReconnectEnabled = TRUE;              // æ˜¯å¦å¯ç”¨è‡ªåŠ¨é‡è¿åŠŸèƒ½
 
 // RSSI polling state                                                
-static uint8_t centralRssi = TRUE;                                   // RSSIÂÖÑ¯×´Ì¬
+static uint8_t centralRssi = TRUE;                                   // RSSIè½®è¯¢çŠ¶æ€
 
 // Parameter update state                                            
-static uint8_t centralParamUpdate = TRUE;                           // ²ÎÊı¸üĞÂ×´Ì¬
+static uint8_t centralParamUpdate = TRUE;                           // å‚æ•°æ›´æ–°çŠ¶æ€
 
 // Phy update state                                                  
-static uint8 centralPhyUpdate = FALSE;                              // PHY¸üĞÂ×´Ì¬
+static uint8 centralPhyUpdate = FALSE;                              // PHYæ›´æ–°çŠ¶æ€
 
 // Connection handle of current connection                           
-static uint16_t centralConnHandle = GAP_CONNHANDLE_INIT;            // µ±Ç°Á¬½Ó¾ä±ú
+static uint16_t centralConnHandle = GAP_CONNHANDLE_INIT;            // å½“å‰è¿æ¥å¥æŸ„
 
 // Application state                                                 
-static uint8_t centralState = BLE_STATE_IDLE;                       // Ó¦ÓÃ×´Ì¬
+static uint8_t centralState = BLE_STATE_IDLE;                       // åº”ç”¨çŠ¶æ€
 
 // Discovery state                                                   
-static uint8_t centralDiscState = BLE_DISC_STATE_IDLE;              // ·¢ÏÖ×´Ì¬
+static uint8_t centralDiscState = BLE_DISC_STATE_IDLE;              // å‘ç°çŠ¶æ€
 
 // Discovered service start and end handle                           
-static uint16_t centralSvcStartHdl = 0;                             // ·¢ÏÖµÄ·şÎñÆğÊ¼¾ä±ú
-static uint16_t centralSvcEndHdl = 0;                               // ·¢ÏÖµÄ·şÎñ½áÊø¾ä±ú
+static uint16_t centralSvcStartHdl = 0;                             // å‘ç°çš„æœåŠ¡èµ·å§‹å¥æŸ„
+static uint16_t centralSvcEndHdl = 0;                               // å‘ç°çš„æœåŠ¡ç»“æŸå¥æŸ„
 
 // Discovered characteristic handles                                  
-static uint16_t centralNotifyCharHdl = 0;                           // AE02Í¨ÖªÌØÕ÷¾ä±ú
-static uint16_t centralWriteCharHdl = 0;                            // AE10Ğ´ÌØÕ÷¾ä±ú
+static uint16_t centralNotifyCharHdl = 0;                           // AE02é€šçŸ¥ç‰¹å¾å¥æŸ„
+static uint16_t centralWriteCharHdl = 0;                            // AE10å†™ç‰¹å¾å¥æŸ„
 
 // Discovered Client Characteristic Configuration handle              
-static uint16_t centralCCCDHdl = 0;                                 // ·¢ÏÖµÄ¿Í»§¶ËÌØÕ÷ÅäÖÃ¾ä±ú
+static uint16_t centralCCCDHdl = 0;                                 // å‘ç°çš„å®¢æˆ·ç«¯ç‰¹å¾é…ç½®å¥æŸ„
 
-// ±£³ÖÏòºó¼æÈİĞÔµÄ¾É±äÁ¿£¨Ö¸ÏòĞ´ÌØÕ÷£©
-static uint16_t centralCharHdl = 0;                                 // ·¢ÏÖµÄÌØÕ÷¾ä±ú£¨¼æÈİ¾É´úÂë£©
+// ä¿æŒå‘åå…¼å®¹æ€§çš„æ—§å˜é‡ï¼ˆæŒ‡å‘å†™ç‰¹å¾ï¼‰
+static uint16_t centralCharHdl = 0;                                 // å‘ç°çš„ç‰¹å¾å¥æŸ„ï¼ˆå…¼å®¹æ—§ä»£ç ï¼‰
 
 // Value to write                                                    
-static uint8_t centralCharVal = 0x5A;                               // ÒªĞ´ÈëµÄÖµ
+static uint8_t centralCharVal = 0x5A;                               // è¦å†™å…¥çš„å€¼
 
 // Value read/write toggle                                           
-static uint8_t centralDoWrite = TRUE;                               // ¶Á/Ğ´ÇĞ»»±êÖ¾
+static uint8_t centralDoWrite = TRUE;                               // è¯»/å†™åˆ‡æ¢æ ‡å¿—
 
 // GATT read/write procedure state                                   
-static uint8_t centralProcedureInProgress = FALSE;                  // GATT¶Á/Ğ´¹ı³Ì×´Ì¬
+static uint8_t centralProcedureInProgress = FALSE;                  // GATTè¯»/å†™è¿‡ç¨‹çŠ¶æ€
 
 /*********************************************************************
- * LOCAL FUNCTIONS                                                   // ±¾µØº¯ÊıÉùÃ÷
+ * LOCAL FUNCTIONS                                                   // æœ¬åœ°å‡½æ•°å£°æ˜
  */
-static void centralProcessGATTMsg(gattMsgEvent_t *pMsg);            // ´¦ÀíGATTÏûÏ¢
-static void centralRssiCB(uint16_t connHandle, int8_t rssi);        // RSSI»Øµ÷º¯Êı
-static void centralEventCB(gapRoleEvent_t *pEvent);                 // ÊÂ¼ş»Øµ÷º¯Êı
-static void centralHciMTUChangeCB(uint16_t connHandle, uint16_t maxTxOctets, uint16_t maxRxOctets); // MTU±ä¸ü»Øµ÷
+static void centralProcessGATTMsg(gattMsgEvent_t *pMsg);            // å¤„ç†GATTæ¶ˆæ¯
+static void centralRssiCB(uint16_t connHandle, int8_t rssi);        // RSSIå›è°ƒå‡½æ•°
+static void centralEventCB(gapRoleEvent_t *pEvent);                 // äº‹ä»¶å›è°ƒå‡½æ•°
+static void centralHciMTUChangeCB(uint16_t connHandle, uint16_t maxTxOctets, uint16_t maxRxOctets); // MTUå˜æ›´å›è°ƒ
 static void centralPasscodeCB(uint8_t *deviceAddr, uint16_t connectionHandle,
-                              uint8_t uiInputs, uint8_t uiOutputs);  // ÃÜÂë»Øµ÷º¯Êı
-static void centralPairStateCB(uint16_t connHandle, uint8_t state, uint8_t status); // Åä¶Ô×´Ì¬»Øµ÷
-static void central_ProcessTMOSMsg(tmos_event_hdr_t *pMsg);         // ´¦ÀíTMOSÏûÏ¢
-static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg);        // GATT·¢ÏÖÊÂ¼ş´¦Àí
-static void centralStartDiscovery(void);                            // ¿ªÊ¼·şÎñ·¢ÏÖ
-static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType); // Ìí¼ÓÉè±¸ĞÅÏ¢
+                              uint8_t uiInputs, uint8_t uiOutputs);  // å¯†ç å›è°ƒå‡½æ•°
+static void centralPairStateCB(uint16_t connHandle, uint8_t state, uint8_t status); // é…å¯¹çŠ¶æ€å›è°ƒ
+static void central_ProcessTMOSMsg(tmos_event_hdr_t *pMsg);         // å¤„ç†TMOSæ¶ˆæ¯
+static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg);        // GATTå‘ç°äº‹ä»¶å¤„ç†
+static void centralStartDiscovery(void);                            // å¼€å§‹æœåŠ¡å‘ç°
+static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType); // æ·»åŠ è®¾å¤‡ä¿¡æ¯
 
 /*********************************************************************
- * PROFILE CALLBACKS                                                 // ÅäÖÃÎÄ¼ş»Øµ÷
+ * PROFILE CALLBACKS                                                 // é…ç½®æ–‡ä»¶å›è°ƒ
  */
 
-// GAP Role Callbacks                                                // GAP½ÇÉ«»Øµ÷½á¹¹Ìå
+// GAP Role Callbacks                                                // GAPè§’è‰²å›è°ƒç»“æ„ä½“
 static gapCentralRoleCB_t centralRoleCB = {
-    centralRssiCB,        // RSSI callback                          // RSSI»Øµ÷
-    centralEventCB,       // Event callback                         // ÊÂ¼ş»Øµ÷
-    centralHciMTUChangeCB // MTU change callback                    // MTU±ä¸ü»Øµ÷
+    centralRssiCB,        // RSSI callback                          // RSSIå›è°ƒ
+    centralEventCB,       // Event callback                         // äº‹ä»¶å›è°ƒ
+    centralHciMTUChangeCB // MTU change callback                    // MTUå˜æ›´å›è°ƒ
 };
 
-// Bond Manager Callbacks                                            // °ó¶¨¹ÜÀíÆ÷»Øµ÷½á¹¹Ìå
+// Bond Manager Callbacks                                            // ç»‘å®šç®¡ç†å™¨å›è°ƒç»“æ„ä½“
 static gapBondCBs_t centralBondCB = {
-    centralPasscodeCB,    // Passcode callback                      // ÃÜÂë»Øµ÷
-    centralPairStateCB    // Pairing state callback                 // Åä¶Ô×´Ì¬»Øµ÷
+    centralPasscodeCB,    // Passcode callback                      // å¯†ç å›è°ƒ
+    centralPairStateCB    // Pairing state callback                 // é…å¯¹çŠ¶æ€å›è°ƒ
 };
 
 /*********************************************************************
- * PUBLIC FUNCTIONS                                                  // ¹«¹²º¯Êı
+ * PUBLIC FUNCTIONS                                                  // å…¬å…±å‡½æ•°
  */
 
 /*********************************************************************
  * @fn      Central_Init
  *
- * @brief   Initialization function for the Central App Task.        // ÖĞÑëÉè±¸Ó¦ÓÃÈÎÎñµÄ³õÊ¼»¯º¯Êı
- *          This is called during initialization and should contain  // Õâ¸öº¯ÊıÔÚ³õÊ¼»¯Ê±±»µ÷ÓÃ£¬Ó¦¸Ã°üº¬
- *          any application specific initialization (ie. hardware    // ÈÎºÎÓ¦ÓÃ³ÌĞòÌØ¶¨µÄ³õÊ¼»¯£¨ÈçÓ²¼ş
- *          initialization/setup, table initialization, power up     // ³õÊ¼»¯/ÉèÖÃ£¬±í³õÊ¼»¯£¬ÉÏµç
- *          notification).                                          // Í¨Öª£©
+ * @brief   Initialization function for the Central App Task.        // ä¸­å¤®è®¾å¤‡åº”ç”¨ä»»åŠ¡çš„åˆå§‹åŒ–å‡½æ•°
+ *          This is called during initialization and should contain  // è¿™ä¸ªå‡½æ•°åœ¨åˆå§‹åŒ–æ—¶è¢«è°ƒç”¨ï¼Œåº”è¯¥åŒ…å«
+ *          any application specific initialization (ie. hardware    // ä»»ä½•åº”ç”¨ç¨‹åºç‰¹å®šçš„åˆå§‹åŒ–ï¼ˆå¦‚ç¡¬ä»¶
+ *          initialization/setup, table initialization, power up     // åˆå§‹åŒ–/è®¾ç½®ï¼Œè¡¨åˆå§‹åŒ–ï¼Œä¸Šç”µ
+ *          notification).                                          // é€šçŸ¥ï¼‰
  *
- * @param   task_id - the ID assigned by TMOS.  This ID should be   // task_id - TMOS·ÖÅäµÄID£¬Õâ¸öIDÓ¦¸Ã
- *                    used to send messages and set timers.         // ÓÃÓÚ·¢ËÍÏûÏ¢ºÍÉèÖÃ¶¨Ê±Æ÷
+ * @param   task_id - the ID assigned by TMOS.  This ID should be   // task_id - TMOSåˆ†é…çš„IDï¼Œè¿™ä¸ªIDåº”è¯¥
+ *                    used to send messages and set timers.         // ç”¨äºå‘é€æ¶ˆæ¯å’Œè®¾ç½®å®šæ—¶å™¨
  *
- * @return  none                                                    // ÎŞ·µ»ØÖµ
+ * @return  none                                                    // æ— è¿”å›å€¼
  */
 void Central_Init()
 {
-    centralTaskId = TMOS_ProcessEventRegister(Central_ProcessEvent);  // ×¢²áÖĞÑëÉè±¸ÊÂ¼ş´¦Àíº¯Êı
+    centralTaskId = TMOS_ProcessEventRegister(Central_ProcessEvent);  // æ³¨å†Œä¸­å¤®è®¾å¤‡äº‹ä»¶å¤„ç†å‡½æ•°
     
-    // ³õÊ¼»¯×´Ì¬±äÁ¿
+    // åˆå§‹åŒ–çŠ¶æ€å˜é‡
     centralState = BLE_STATE_IDLE;
     centralConnHandle = GAP_CONNHANDLE_INIT;
     centralDiscState = BLE_DISC_STATE_IDLE;
@@ -265,89 +265,89 @@ void Central_Init()
     centralWriteCharHdl = 0;
     centralCharHdl = 0;
     centralCCCDHdl = 0;
-    autoReconnectEnabled = TRUE;  // Ä¬ÈÏÆôÓÃ×Ô¶¯ÖØÁ¬
+    autoReconnectEnabled = TRUE;  // é»˜è®¤å¯ç”¨è‡ªåŠ¨é‡è¿
     
     PRINT("Central_Init: Initializing BLE Central with target device: %s\n", TARGET_DEVICE_NAME);
     
-    // Setup GAP                                                      // ÉèÖÃGAP²ÎÊı
-    GAP_SetParamValue(TGAP_DISC_SCAN, DEFAULT_SCAN_DURATION);        // ÉèÖÃÉ¨Ãè³ÖĞøÊ±¼ä
-    GAP_SetParamValue(TGAP_CONN_EST_INT_MIN, DEFAULT_MIN_CONNECTION_INTERVAL); // ÉèÖÃ×îĞ¡Á¬½Ó¼ä¸ô
-    GAP_SetParamValue(TGAP_CONN_EST_INT_MAX, DEFAULT_MAX_CONNECTION_INTERVAL); // ÉèÖÃ×î´óÁ¬½Ó¼ä¸ô
-    GAP_SetParamValue(TGAP_CONN_EST_SUPERV_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT); // ÉèÖÃÁ¬½Ó³¬Ê±Ê±¼ä
+    // Setup GAP                                                      // è®¾ç½®GAPå‚æ•°
+    GAP_SetParamValue(TGAP_DISC_SCAN, DEFAULT_SCAN_DURATION);        // è®¾ç½®æ‰«ææŒç»­æ—¶é—´
+    GAP_SetParamValue(TGAP_CONN_EST_INT_MIN, DEFAULT_MIN_CONNECTION_INTERVAL); // è®¾ç½®æœ€å°è¿æ¥é—´éš”
+    GAP_SetParamValue(TGAP_CONN_EST_INT_MAX, DEFAULT_MAX_CONNECTION_INTERVAL); // è®¾ç½®æœ€å¤§è¿æ¥é—´éš”
+    GAP_SetParamValue(TGAP_CONN_EST_SUPERV_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT); // è®¾ç½®è¿æ¥è¶…æ—¶æ—¶é—´
 
-    // Setup the GAP Bond Manager                                     // ÉèÖÃGAP°ó¶¨¹ÜÀíÆ÷
+    // Setup the GAP Bond Manager                                     // è®¾ç½®GAPç»‘å®šç®¡ç†å™¨
     {
-        uint32_t passkey = DEFAULT_PASSCODE;                          // ÉèÖÃÄ¬ÈÏÃÜÂë
-        uint8_t  pairMode = DEFAULT_PAIRING_MODE;                    // ÉèÖÃÅä¶ÔÄ£Ê½
-        uint8_t  mitm = DEFAULT_MITM_MODE;                           // ÉèÖÃMITM±£»¤Ä£Ê½
-        uint8_t  ioCap = DEFAULT_IO_CAPABILITIES;                    // ÉèÖÃIOÄÜÁ¦
-        uint8_t  bonding = DEFAULT_BONDING_MODE;                     // ÉèÖÃ°ó¶¨Ä£Ê½
+        uint32_t passkey = DEFAULT_PASSCODE;                          // è®¾ç½®é»˜è®¤å¯†ç 
+        uint8_t  pairMode = DEFAULT_PAIRING_MODE;                    // è®¾ç½®é…å¯¹æ¨¡å¼
+        uint8_t  mitm = DEFAULT_MITM_MODE;                           // è®¾ç½®MITMä¿æŠ¤æ¨¡å¼
+        uint8_t  ioCap = DEFAULT_IO_CAPABILITIES;                    // è®¾ç½®IOèƒ½åŠ›
+        uint8_t  bonding = DEFAULT_BONDING_MODE;                     // è®¾ç½®ç»‘å®šæ¨¡å¼
 
-        GAPBondMgr_SetParameter(GAPBOND_CENT_DEFAULT_PASSCODE, sizeof(uint32_t), &passkey);  // ÉèÖÃÄ¬ÈÏÃÜÂë
-        GAPBondMgr_SetParameter(GAPBOND_CENT_PAIRING_MODE, sizeof(uint8_t), &pairMode);      // ÉèÖÃÅä¶ÔÄ£Ê½
-        GAPBondMgr_SetParameter(GAPBOND_CENT_MITM_PROTECTION, sizeof(uint8_t), &mitm);       // ÉèÖÃMITM±£»¤
-        GAPBondMgr_SetParameter(GAPBOND_CENT_IO_CAPABILITIES, sizeof(uint8_t), &ioCap);      // ÉèÖÃIOÄÜÁ¦
-        GAPBondMgr_SetParameter(GAPBOND_CENT_BONDING_ENABLED, sizeof(uint8_t), &bonding);    // ÉèÖÃ°ó¶¨Ê¹ÄÜ
+        GAPBondMgr_SetParameter(GAPBOND_CENT_DEFAULT_PASSCODE, sizeof(uint32_t), &passkey);  // è®¾ç½®é»˜è®¤å¯†ç 
+        GAPBondMgr_SetParameter(GAPBOND_CENT_PAIRING_MODE, sizeof(uint8_t), &pairMode);      // è®¾ç½®é…å¯¹æ¨¡å¼
+        GAPBondMgr_SetParameter(GAPBOND_CENT_MITM_PROTECTION, sizeof(uint8_t), &mitm);       // è®¾ç½®MITMä¿æŠ¤
+        GAPBondMgr_SetParameter(GAPBOND_CENT_IO_CAPABILITIES, sizeof(uint8_t), &ioCap);      // è®¾ç½®IOèƒ½åŠ›
+        GAPBondMgr_SetParameter(GAPBOND_CENT_BONDING_ENABLED, sizeof(uint8_t), &bonding);    // è®¾ç½®ç»‘å®šä½¿èƒ½
     }
 
-    // Initialize GATT Client                                         // ³õÊ¼»¯GATT¿Í»§¶Ë
+    // Initialize GATT Client                                         // åˆå§‹åŒ–GATTå®¢æˆ·ç«¯
     GATT_InitClient();
-    // Register to receive incoming ATT Indications/Notifications     // ×¢²á½ÓÊÕATTÖ¸Ê¾/Í¨Öª
+    // Register to receive incoming ATT Indications/Notifications     // æ³¨å†Œæ¥æ”¶ATTæŒ‡ç¤º/é€šçŸ¥
     GATT_RegisterForInd(centralTaskId);
-    // Setup a delayed profile startup                               // ÉèÖÃÑÓ³ÙµÄÅäÖÃÎÄ¼şÆô¶¯
+    // Setup a delayed profile startup                               // è®¾ç½®å»¶è¿Ÿçš„é…ç½®æ–‡ä»¶å¯åŠ¨
     tmos_set_event(centralTaskId, START_DEVICE_EVT);
 }
 uint8_t send_data_index = 1;
 /*********************************************************************
  * @fn      Central_ProcessEvent
  *
- * @brief   Central Application Task event processor.                // ÖĞÑëÓ¦ÓÃÈÎÎñÊÂ¼ş´¦ÀíÆ÷
- *          This function is called to process all events for the task. // Õâ¸öº¯Êı±»µ÷ÓÃÀ´´¦ÀíÈÎÎñµÄËùÓĞÊÂ¼ş
- *          Events include timers, messages and any other user defined  // ÊÂ¼ş°üÀ¨¶¨Ê±Æ÷¡¢ÏûÏ¢ºÍÈÎºÎÆäËûÓÃ»§¶¨ÒåµÄÊÂ¼ş
+ * @brief   Central Application Task event processor.                // ä¸­å¤®åº”ç”¨ä»»åŠ¡äº‹ä»¶å¤„ç†å™¨
+ *          This function is called to process all events for the task. // è¿™ä¸ªå‡½æ•°è¢«è°ƒç”¨æ¥å¤„ç†ä»»åŠ¡çš„æ‰€æœ‰äº‹ä»¶
+ *          Events include timers, messages and any other user defined  // äº‹ä»¶åŒ…æ‹¬å®šæ—¶å™¨ã€æ¶ˆæ¯å’Œä»»ä½•å…¶ä»–ç”¨æˆ·å®šä¹‰çš„äº‹ä»¶
  *          events.
  *
- * @param   task_id  - The TMOS assigned task ID.                   // task_id - TMOS·ÖÅäµÄÈÎÎñID
- * @param   events - events to process.  This is a bit map and can  // events - Òª´¦ÀíµÄÊÂ¼ş£¬ÕâÊÇÒ»¸öÎ»Í¼
- *                   contain more than one event.                   // ¿ÉÒÔ°üº¬¶à¸öÊÂ¼ş
+ * @param   task_id  - The TMOS assigned task ID.                   // task_id - TMOSåˆ†é…çš„ä»»åŠ¡ID
+ * @param   events - events to process.  This is a bit map and can  // events - è¦å¤„ç†çš„äº‹ä»¶ï¼Œè¿™æ˜¯ä¸€ä¸ªä½å›¾
+ *                   contain more than one event.                   // å¯ä»¥åŒ…å«å¤šä¸ªäº‹ä»¶
  *
- * @return  events not processed                                    // ·µ»ØÎ´´¦ÀíµÄÊÂ¼ş
+ * @return  events not processed                                    // è¿”å›æœªå¤„ç†çš„äº‹ä»¶
  */
 uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
 {
-    if(events & SYS_EVENT_MSG)                                       // Èç¹ûÊÇÏµÍ³ÏûÏ¢ÊÂ¼ş
+    if(events & SYS_EVENT_MSG)                                       // å¦‚æœæ˜¯ç³»ç»Ÿæ¶ˆæ¯äº‹ä»¶
     {
         uint8_t *pMsg;
 
-        if((pMsg = tmos_msg_receive(centralTaskId)) != NULL)         // ½ÓÊÕÏûÏ¢
+        if((pMsg = tmos_msg_receive(centralTaskId)) != NULL)         // æ¥æ”¶æ¶ˆæ¯
         {
-            central_ProcessTMOSMsg((tmos_event_hdr_t *)pMsg);        // ´¦ÀíTMOSÏûÏ¢
-            // Release the TMOS message                               // ÊÍ·ÅTMOSÏûÏ¢
+            central_ProcessTMOSMsg((tmos_event_hdr_t *)pMsg);        // å¤„ç†TMOSæ¶ˆæ¯
+            // Release the TMOS message                               // é‡Šæ”¾TMOSæ¶ˆæ¯
             tmos_msg_deallocate(pMsg);
         }
-        // return unprocessed events                                 // ·µ»ØÎ´´¦ÀíµÄÊÂ¼ş
+        // return unprocessed events                                 // è¿”å›æœªå¤„ç†çš„äº‹ä»¶
         return (events ^ SYS_EVENT_MSG);
     }
 
-    if(events & START_DEVICE_EVT)                                    // Èç¹ûÊÇÆô¶¯Éè±¸ÊÂ¼ş
+    if(events & START_DEVICE_EVT)                                    // å¦‚æœæ˜¯å¯åŠ¨è®¾å¤‡äº‹ä»¶
     {
-        // Start the Device                                          // Æô¶¯Éè±¸
+        // Start the Device                                          // å¯åŠ¨è®¾å¤‡
         GAPRole_CentralStartDevice(centralTaskId, &centralBondCB, &centralRoleCB);
         return (events ^ START_DEVICE_EVT);
     }
 
-            if(events & ESTABLISH_LINK_TIMEOUT_EVT)                              // Èç¹ûÊÇ½¨Á¢Á¬½Ó³¬Ê±ÊÂ¼ş
+            if(events & ESTABLISH_LINK_TIMEOUT_EVT)                              // å¦‚æœæ˜¯å»ºç«‹è¿æ¥è¶…æ—¶äº‹ä»¶
         {
             PRINT("Connection timeout! Terminating connection attempt...\n");
-            GAPRole_TerminateLink(INVALID_CONNHANDLE);                    // ÖÕÖ¹Á¬½Ó
+            GAPRole_TerminateLink(INVALID_CONNHANDLE);                    // ç»ˆæ­¢è¿æ¥
             
-            // ÖØÖÃ×´Ì¬²¢ÖØĞÂ¿ªÊ¼ËÑË÷
+            // é‡ç½®çŠ¶æ€å¹¶é‡æ–°å¼€å§‹æœç´¢
             centralState = BLE_STATE_IDLE;
             centralConnHandle = GAP_CONNHANDLE_INIT;
             centralScanRes = 0;
             targetDeviceFound = FALSE;
             centralProcedureInProgress = FALSE;
             
-            // Ö»ÓĞÔÚÆôÓÃ×Ô¶¯ÖØÁ¬Ê±²ÅÖØĞÂ¿ªÊ¼ËÑË÷
+            // åªæœ‰åœ¨å¯ç”¨è‡ªåŠ¨é‡è¿æ—¶æ‰é‡æ–°å¼€å§‹æœç´¢
             if(autoReconnectEnabled == TRUE)
             {
                 PRINT("Restarting device discovery after timeout...\n");
@@ -363,75 +363,75 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
             return (events ^ ESTABLISH_LINK_TIMEOUT_EVT);
         }
 
-    if(events & START_SVC_DISCOVERY_EVT)                              // Èç¹ûÊÇ¿ªÊ¼·şÎñ·¢ÏÖÊÂ¼ş
+    if(events & START_SVC_DISCOVERY_EVT)                              // å¦‚æœæ˜¯å¼€å§‹æœåŠ¡å‘ç°äº‹ä»¶
     {
-        // start service discovery                                     // ¿ªÊ¼·şÎñ·¢ÏÖ
+        // start service discovery                                     // å¼€å§‹æœåŠ¡å‘ç°
         centralStartDiscovery();
         return (events ^ START_SVC_DISCOVERY_EVT);
     }
 
-    if(events & START_PARAM_UPDATE_EVT)                               // Èç¹ûÊÇ¿ªÊ¼²ÎÊı¸üĞÂÊÂ¼ş
+    if(events & START_PARAM_UPDATE_EVT)                               // å¦‚æœæ˜¯å¼€å§‹å‚æ•°æ›´æ–°äº‹ä»¶
     {
-        // start connect parameter update                              // ¿ªÊ¼Á¬½Ó²ÎÊı¸üĞÂ
+        // start connect parameter update                              // å¼€å§‹è¿æ¥å‚æ•°æ›´æ–°
         GAPRole_UpdateLink(centralConnHandle,
-                           DEFAULT_UPDATE_MIN_CONN_INTERVAL,           // Ê¹ÓÃÄ¬ÈÏµÄ×îĞ¡Á¬½Ó¼ä¸ô
-                           DEFAULT_UPDATE_MAX_CONN_INTERVAL,           // Ê¹ÓÃÄ¬ÈÏµÄ×î´óÁ¬½Ó¼ä¸ô
-                           DEFAULT_UPDATE_SLAVE_LATENCY,               // Ê¹ÓÃÄ¬ÈÏµÄ´Ó»úÑÓ³Ù
-                           DEFAULT_UPDATE_CONN_TIMEOUT);               // Ê¹ÓÃÄ¬ÈÏµÄÁ¬½Ó³¬Ê±
+                           DEFAULT_UPDATE_MIN_CONN_INTERVAL,           // ä½¿ç”¨é»˜è®¤çš„æœ€å°è¿æ¥é—´éš”
+                           DEFAULT_UPDATE_MAX_CONN_INTERVAL,           // ä½¿ç”¨é»˜è®¤çš„æœ€å¤§è¿æ¥é—´éš”
+                           DEFAULT_UPDATE_SLAVE_LATENCY,               // ä½¿ç”¨é»˜è®¤çš„ä»æœºå»¶è¿Ÿ
+                           DEFAULT_UPDATE_CONN_TIMEOUT);               // ä½¿ç”¨é»˜è®¤çš„è¿æ¥è¶…æ—¶
         return (events ^ START_PARAM_UPDATE_EVT);
     }
 
-    if(events & START_PHY_UPDATE_EVT)                                 // Èç¹ûÊÇ¿ªÊ¼PHY¸üĞÂÊÂ¼ş
+    if(events & START_PHY_UPDATE_EVT)                                 // å¦‚æœæ˜¯å¼€å§‹PHYæ›´æ–°äº‹ä»¶
     {
-        // start phy update                                           // ¿ªÊ¼PHY¸üĞÂ
+        // start phy update                                           // å¼€å§‹PHYæ›´æ–°
         PRINT("PHY Update %x...\n", GAPRole_UpdatePHY(centralConnHandle, 0, 
                     GAP_PHY_BIT_LE_2M, GAP_PHY_BIT_LE_2M, GAP_PHY_OPTIONS_NOPRE));
 
         return (events ^ START_PHY_UPDATE_EVT);
     }
 
-    if(events & START_READ_OR_WRITE_EVT)                              // Èç¹ûÊÇ¿ªÊ¼¶ÁĞ´ÊÂ¼ş£¨ÏÖÔÚÖ»×öĞ´²Ù×÷£©
+    if(events & START_READ_OR_WRITE_EVT)                              // å¦‚æœæ˜¯å¼€å§‹è¯»å†™äº‹ä»¶ï¼ˆç°åœ¨åªåšå†™æ“ä½œï¼‰
     {
-        if(centralProcedureInProgress == FALSE)                       // Èç¹ûµ±Ç°Ã»ÓĞÕıÔÚ½øĞĞµÄ²Ù×÷
+        if(centralProcedureInProgress == FALSE)                       // å¦‚æœå½“å‰æ²¡æœ‰æ­£åœ¨è¿›è¡Œçš„æ“ä½œ
         {
-            // Ö»Ö´ĞĞĞ´²Ù×÷£¬¶Á²Ù×÷ÒÑ×¢ÊÍ
-            // Do a write                                             // Ö´ĞĞĞ´²Ù×÷
+            // åªæ‰§è¡Œå†™æ“ä½œï¼Œè¯»æ“ä½œå·²æ³¨é‡Š
+            // Do a write                                             // æ‰§è¡Œå†™æ“ä½œ
             attWriteReq_t req;
 
-            req.cmd = FALSE;                                          // ²»ÊÇÃüÁî
-            req.sig = FALSE;                                          // ²»´øÇ©Ãû
-            req.handle = centralWriteCharHdl;                         // ÉèÖÃAE10Ğ´ÌØÕ÷¾ä±ú
+            req.cmd = FALSE;                                          // ä¸æ˜¯å‘½ä»¤
+            req.sig = FALSE;                                          // ä¸å¸¦ç­¾å
+            req.handle = centralWriteCharHdl;                         // è®¾ç½®AE10å†™ç‰¹å¾å¥æŸ„
 
-            req.len = 1;                                              // Ğ´Èë³¤¶ÈÎª1
-            req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_REQ, req.len, NULL, 0); // ·ÖÅäÄÚ´æ
-            PRINT("WRITE_handle = 0x%04X\n", req.handle);             // ´òÓ¡¾ä±úÖµ
-            if(req.pValue != NULL)                                    // Èç¹ûÄÚ´æ·ÖÅä³É¹¦
+            req.len = 1;                                              // å†™å…¥é•¿åº¦ä¸º1
+            req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_REQ, req.len, NULL, 0); // åˆ†é…å†…å­˜
+            PRINT("WRITE_handle = 0x%04X\n", req.handle);             // æ‰“å°å¥æŸ„å€¼
+            if(req.pValue != NULL)                                    // å¦‚æœå†…å­˜åˆ†é…æˆåŠŸ
             {
-                *req.pValue = centralCharVal;                         // ÉèÖÃĞ´ÈëÖµ
+                *req.pValue = centralCharVal;                         // è®¾ç½®å†™å…¥å€¼
 
-                if(GATT_WriteCharValue(centralConnHandle, &req, centralTaskId) == SUCCESS) // Ğ´ÈëAE10ÌØÕ÷Öµ
+                if(GATT_WriteCharValue(centralConnHandle, &req, centralTaskId) == SUCCESS) // å†™å…¥AE10ç‰¹å¾å€¼
                 {
-                    centralProcedureInProgress = TRUE;                // ÉèÖÃ²Ù×÷½øĞĞÖĞ±êÖ¾
+                    centralProcedureInProgress = TRUE;                // è®¾ç½®æ“ä½œè¿›è¡Œä¸­æ ‡å¿—
                     PRINT("Writing value 0x%02X to AE10 write characteristic\n", centralCharVal);
                 }
                 else
                 {
-                    GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);   // ÊÍ·ÅÄÚ´æ
+                    GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);   // é‡Šæ”¾å†…å­˜
                     PRINT("Write failed\n");
                 }
             }
             
-            /* ¶Á²Ù×÷ÒÑ×¢ÊÍ
+            /* è¯»æ“ä½œå·²æ³¨é‡Š
             else
             {
-                // Do a read                                          // Ö´ĞĞ¶Á²Ù×÷
+                // Do a read                                          // æ‰§è¡Œè¯»æ“ä½œ
                 attReadReq_t req;
 
-                req.handle = centralCharHdl;                          // ÉèÖÃÌØÕ÷¾ä±ú
-                if(GATT_ReadCharValue(centralConnHandle, &req, centralTaskId) == SUCCESS) // ¶ÁÈ¡ÌØÕ÷Öµ
+                req.handle = centralCharHdl;                          // è®¾ç½®ç‰¹å¾å¥æŸ„
+                if(GATT_ReadCharValue(centralConnHandle, &req, centralTaskId) == SUCCESS) // è¯»å–ç‰¹å¾å€¼
                 {
-                    centralProcedureInProgress = TRUE;                // ÉèÖÃ²Ù×÷½øĞĞÖĞ±êÖ¾
-                    centralDoWrite = !centralDoWrite;                 // ÇĞ»»¶ÁĞ´±êÖ¾
+                    centralProcedureInProgress = TRUE;                // è®¾ç½®æ“ä½œè¿›è¡Œä¸­æ ‡å¿—
+                    centralDoWrite = !centralDoWrite;                 // åˆ‡æ¢è¯»å†™æ ‡å¿—
                 }
             }
             */
@@ -439,72 +439,72 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ START_READ_OR_WRITE_EVT);
     }
 
-    if(events & START_WRITE_CCCD_EVT)                                   // Èç¹ûÊÇ¿ªÊ¼Ğ´CCCDÊÂ¼ş
+    if(events & START_WRITE_CCCD_EVT)                                   // å¦‚æœæ˜¯å¼€å§‹å†™CCCDäº‹ä»¶
     {
-        if(centralProcedureInProgress == FALSE)                        // Èç¹ûµ±Ç°Ã»ÓĞÕıÔÚ½øĞĞµÄ²Ù×÷
+        if(centralProcedureInProgress == FALSE)                        // å¦‚æœå½“å‰æ²¡æœ‰æ­£åœ¨è¿›è¡Œçš„æ“ä½œ
         {
-            // Do a write                                              // Ö´ĞĞĞ´²Ù×÷
+            // Do a write                                              // æ‰§è¡Œå†™æ“ä½œ
             attWriteReq_t req;
 
-            req.cmd = FALSE;                                           // ²»ÊÇÃüÁî
-            req.sig = FALSE;                                           // ²»´øÇ©Ãû
-            req.handle = centralCCCDHdl;                               // ÉèÖÃCCCD¾ä±ú
-            req.len = 2;                                               // Ğ´Èë³¤¶ÈÎª2
-            req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_REQ, req.len, NULL, 0); // ·ÖÅäÄÚ´æ
-            printf("CCCD_handle = %x\n" ,req.handle);                  // ´òÓ¡¾ä±úÖµ
-            if(req.pValue != NULL)                                     // Èç¹ûÄÚ´æ·ÖÅä³É¹¦
+            req.cmd = FALSE;                                           // ä¸æ˜¯å‘½ä»¤
+            req.sig = FALSE;                                           // ä¸å¸¦ç­¾å
+            req.handle = centralCCCDHdl;                               // è®¾ç½®CCCDå¥æŸ„
+            req.len = 2;                                               // å†™å…¥é•¿åº¦ä¸º2
+            req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_REQ, req.len, NULL, 0); // åˆ†é…å†…å­˜
+            printf("CCCD_handle = %x\n" ,req.handle);                  // æ‰“å°å¥æŸ„å€¼
+            if(req.pValue != NULL)                                     // å¦‚æœå†…å­˜åˆ†é…æˆåŠŸ
             {
-                req.pValue[0] = 1;                                     // ÆôÓÃÍ¨Öª
+                req.pValue[0] = 1;                                     // å¯ç”¨é€šçŸ¥
                 req.pValue[1] = 0;
 
-                if(GATT_WriteCharValue(centralConnHandle, &req, centralTaskId) == SUCCESS) // Ğ´ÈëCCCDÖµ
+                if(GATT_WriteCharValue(centralConnHandle, &req, centralTaskId) == SUCCESS) // å†™å…¥CCCDå€¼
                 {
-                    centralProcedureInProgress = TRUE;                 // ÉèÖÃ²Ù×÷½øĞĞÖĞ±êÖ¾
+                    centralProcedureInProgress = TRUE;                 // è®¾ç½®æ“ä½œè¿›è¡Œä¸­æ ‡å¿—
                 }
                 else
                 {
-                    GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);   // ÊÍ·ÅÄÚ´æ
+                    GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);   // é‡Šæ”¾å†…å­˜
                 }
             }
         }
         return (events ^ START_WRITE_CCCD_EVT);
     }
 
-    if(events & START_READ_RSSI_EVT)                                  // Èç¹ûÊÇ¿ªÊ¼¶ÁÈ¡RSSIÊÂ¼ş
+    if(events & START_READ_RSSI_EVT)                                  // å¦‚æœæ˜¯å¼€å§‹è¯»å–RSSIäº‹ä»¶
     {
-        GAPRole_ReadRssiCmd(centralConnHandle);                       // ¶ÁÈ¡RSSIÖµ
-        tmos_start_task(centralTaskId, START_READ_RSSI_EVT, DEFAULT_RSSI_PERIOD); // Æô¶¯ÏÂÒ»´ÎRSSI¶ÁÈ¡
+        GAPRole_ReadRssiCmd(centralConnHandle);                       // è¯»å–RSSIå€¼
+        tmos_start_task(centralTaskId, START_READ_RSSI_EVT, DEFAULT_RSSI_PERIOD); // å¯åŠ¨ä¸‹ä¸€æ¬¡RSSIè¯»å–
         return (events ^ START_READ_RSSI_EVT);
     }
 
-    if(events & START_SEND_TEST_DATA_EVT)                             // Èç¹ûÊÇ·¢ËÍ²âÊÔÊı¾İÊÂ¼ş
+    if(events & START_SEND_TEST_DATA_EVT)                             // å¦‚æœæ˜¯å‘é€æµ‹è¯•æ•°æ®äº‹ä»¶
     {
         if(centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT && centralWriteCharHdl != 0)
         {
-            // ¼ì²éÊÇ·ñÓĞÆäËûGATT²Ù×÷ÕıÔÚ½øĞĞ
+            // æ£€æŸ¥æ˜¯å¦æœ‰å…¶ä»–GATTæ“ä½œæ­£åœ¨è¿›è¡Œ
             if(centralProcedureInProgress == TRUE)
             {
                 PRINT("GATT procedure in progress, retrying test data send in 100ms...\n");
-                tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 100); // 100msºóÖØÊÔ
+                tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 100); // 100msåé‡è¯•
                 return (events ^ START_SEND_TEST_DATA_EVT);
             }
             
-            // Ò»´Î·¢ËÍ20¸ö×Ö½ÚµÄ²âÊÔÊı¾İ£¨1-20£©µ½AE10Ğ´ÌØÕ÷
+            // ä¸€æ¬¡å‘é€20ä¸ªå­—èŠ‚çš„æµ‹è¯•æ•°æ®ï¼ˆ1-20ï¼‰åˆ°AE10å†™ç‰¹å¾
             PRINT("Sending to AE10 write characteristic handle: 0x%04X\n", centralWriteCharHdl);
             
             attWriteReq_t req;
-            req.cmd = TRUE;                                           // Ê¹ÓÃWrite Command£¨ÎŞĞèÏìÓ¦£¬±ÜÃâÈ¨ÏŞÎÊÌâ£©
-            req.sig = FALSE;                                          // ²»´øÇ©Ãû
-            req.handle = centralWriteCharHdl;                         // ÉèÖÃAE10Ğ´ÌØÕ÷¾ä±ú
-            req.len = 20;                                             // Ğ´Èë³¤¶ÈÎª20×Ö½Ú
+            req.cmd = TRUE;                                           // ä½¿ç”¨Write Commandï¼ˆæ— éœ€å“åº”ï¼Œé¿å…æƒé™é—®é¢˜ï¼‰
+            req.sig = FALSE;                                          // ä¸å¸¦ç­¾å
+            req.handle = centralWriteCharHdl;                         // è®¾ç½®AE10å†™ç‰¹å¾å¥æŸ„
+            req.len = 20;                                             // å†™å…¥é•¿åº¦ä¸º20å­—èŠ‚
             req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0);
             
             if(req.pValue != NULL)
             {
-                // Ìî³äÊı¾İ1-20
+                // å¡«å……æ•°æ®1-20
                 for(uint8_t i = 0; i < 20; i++)
                 {
-                    req.pValue[i] = 0;  // Êı¾İÄÚÈİÎª1, 2, 3, ..., 20
+                    req.pValue[i] = 0;  // æ•°æ®å†…å®¹ä¸º1, 2, 3, ..., 20
                 }
                 if(send_data_index == 0)
                 {
@@ -578,7 +578,7 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 send_data_index +=1;
                 if(send_data_index>2)
                   send_data_index=0;
-                // ´òÓ¡Òª·¢ËÍµÄÊı¾İ
+                // æ‰“å°è¦å‘é€çš„æ•°æ®
                 PRINT("Sending 20 bytes test data: ");
                 for(uint8_t i = 0; i < 20; i++)
                 {
@@ -586,7 +586,7 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 }
                 PRINT("\n");
                 
-                bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);  // Ê¹ÓÃWrite Command
+                bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);  // ä½¿ç”¨Write Command
                 if(status == SUCCESS)
                 {
                     PRINT("20-byte test data sent successfully using Write Command to AE10!\n");
@@ -612,41 +612,41 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ START_SEND_TEST_DATA_EVT);
     }
 
-    if(events & START_SEND_INIT_DATA_EVT)                            // Èç¹ûÊÇ·¢ËÍ³õÊ¼»¯Êı¾İÊÂ¼ş
+    if(events & START_SEND_INIT_DATA_EVT)                            // å¦‚æœæ˜¯å‘é€åˆå§‹åŒ–æ•°æ®äº‹ä»¶
     {
         if(centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT && centralWriteCharHdl != 0)
         {
-            // ¼ì²éÊÇ·ñÓĞÆäËûGATT²Ù×÷ÕıÔÚ½øĞĞ
+            // æ£€æŸ¥æ˜¯å¦æœ‰å…¶ä»–GATTæ“ä½œæ­£åœ¨è¿›è¡Œ
             if(centralProcedureInProgress == TRUE)
             {
                 PRINT("GATT procedure in progress, retrying init data send in 100ms...\n");
-                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 100); // 100msºóÖØÊÔ
+                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 100); // 100msåé‡è¯•
                 return (events ^ START_SEND_INIT_DATA_EVT);
             }
             
-            // ·¢ËÍ³õÊ¼»¯Êı¾İ£º0x76 0x00 0x01 0x01
+            // å‘é€åˆå§‹åŒ–æ•°æ®ï¼š0x76 0x00 0x01 0x01
             PRINT("Sending initialization data to AE10 write characteristic handle: 0x%04X\n", centralWriteCharHdl);
             
             attWriteReq_t req;
-            req.cmd = TRUE;                                           // Ê¹ÓÃWrite Command£¨ÎŞĞèÏìÓ¦£©
-            req.sig = FALSE;                                          // ²»´øÇ©Ãû
-            req.handle = centralWriteCharHdl;                         // ÉèÖÃAE10Ğ´ÌØÕ÷¾ä±ú
-            req.len = 4;                                              // Ğ´Èë³¤¶ÈÎª4×Ö½Ú
+            req.cmd = TRUE;                                           // ä½¿ç”¨Write Commandï¼ˆæ— éœ€å“åº”ï¼‰
+            req.sig = FALSE;                                          // ä¸å¸¦ç­¾å
+            req.handle = centralWriteCharHdl;                         // è®¾ç½®AE10å†™ç‰¹å¾å¥æŸ„
+            req.len = 4;                                              // å†™å…¥é•¿åº¦ä¸º4å­—èŠ‚
             req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0);
             
             if(req.pValue != NULL)
             {
-                // Ìî³ä³õÊ¼»¯Êı¾İ£º0x75 0x00 0x01 0x01
+                // å¡«å……åˆå§‹åŒ–æ•°æ®ï¼š0x75 0x00 0x01 0x01
                 req.pValue[0] = 0x75;
                 req.pValue[1] = 0x00;
                 req.pValue[2] = 0x01;
                 req.pValue[3] = 0x01;
                 
-                // ´òÓ¡Òª·¢ËÍµÄÊı¾İ
+                // æ‰“å°è¦å‘é€çš„æ•°æ®
                 PRINT("Sending init data: 0x%02X 0x%02X 0x%02X 0x%02X\n", 
                       req.pValue[0], req.pValue[1], req.pValue[2], req.pValue[3]);
                 
-                bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);  // Ê¹ÓÃWrite Command
+                bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);  // ä½¿ç”¨Write Command
                 if(status == SUCCESS)
                 {
                     PRINT("Initialization data sent successfully to AE10!\n");
@@ -672,27 +672,27 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ START_SEND_INIT_DATA_EVT);
     }
 
-    if(events & STOP_AUTO_RECONNECT_EVT)                             // Èç¹ûÊÇÍ£Ö¹×Ô¶¯ÖØÁ¬ÊÂ¼ş
+    if(events & STOP_AUTO_RECONNECT_EVT)                             // å¦‚æœæ˜¯åœæ­¢è‡ªåŠ¨é‡è¿äº‹ä»¶
     {
-        setDimColor(WHITE, 0.05); // ÁÁ¶È 5% 
+        setDimColor(WHITE, 0.05); // äº®åº¦ 5% 
         PRINT("Stopping auto reconnect functionality...\n");
-        autoReconnectEnabled = FALSE;                                // ½ûÓÃ×Ô¶¯ÖØÁ¬
+        autoReconnectEnabled = FALSE;                                // ç¦ç”¨è‡ªåŠ¨é‡è¿
         
-        // Èç¹ûµ±Ç°ÓĞÁ¬½Ó£¬¶Ï¿ªÁ¬½Ó
+        // å¦‚æœå½“å‰æœ‰è¿æ¥ï¼Œæ–­å¼€è¿æ¥
         if(centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT)
         {
             PRINT("Disconnecting current BLE connection...\n");
             GAPRole_TerminateLink(centralConnHandle);
         }
         
-        // Í£Ö¹µ±Ç°µÄÉ¨Ãè
+        // åœæ­¢å½“å‰çš„æ‰«æ
         if(centralState == BLE_STATE_IDLE || centralState == BLE_STATE_CONNECTING)
         {
             PRINT("Stopping BLE discovery...\n");
             GAPRole_CentralCancelDiscovery();
         }
         
-        // Í£Ö¹ËùÓĞÏà¹ØµÄ¶¨Ê±ÈÎÎñ
+        // åœæ­¢æ‰€æœ‰ç›¸å…³çš„å®šæ—¶ä»»åŠ¡
         tmos_stop_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT);
         tmos_stop_task(centralTaskId, START_READ_RSSI_EVT);
         
@@ -700,13 +700,13 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ STOP_AUTO_RECONNECT_EVT);
     }
 
-    if(events & START_AUTO_RECONNECT_EVT)                            // Èç¹ûÊÇÆô¶¯×Ô¶¯ÖØÁ¬ÊÂ¼ş
+    if(events & START_AUTO_RECONNECT_EVT)                            // å¦‚æœæ˜¯å¯åŠ¨è‡ªåŠ¨é‡è¿äº‹ä»¶
     {
         PRINT("Starting auto reconnect functionality...\n");
-        setDimColor(Purple, 0.05); // ÁÁ¶È 5% 
-        autoReconnectEnabled = TRUE;                                 // ÆôÓÃ×Ô¶¯ÖØÁ¬
+        setDimColor(Purple, 0.05); // äº®åº¦ 5% 
+        autoReconnectEnabled = TRUE;                                 // å¯ç”¨è‡ªåŠ¨é‡è¿
         
-        // ÖØÖÃÁ¬½Ó×´Ì¬
+        // é‡ç½®è¿æ¥çŠ¶æ€
         centralState = BLE_STATE_IDLE;
         centralConnHandle = GAP_CONNHANDLE_INIT;
         centralDiscState = BLE_DISC_STATE_IDLE;
@@ -715,7 +715,7 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         centralProcedureInProgress = FALSE;
         connectionFailCount = 0;
         
-        // ÖØÖÃÌØÕ÷¾ä±ú
+        // é‡ç½®ç‰¹å¾å¥æŸ„
         centralNotifyCharHdl = 0;
         centralWriteCharHdl = 0;
         centralCharHdl = 0;
@@ -729,25 +729,25 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ START_AUTO_RECONNECT_EVT);
     }
 
-    // Discard unknown events                                         // ¶ªÆúÎ´ÖªÊÂ¼ş
+    // Discard unknown events                                         // ä¸¢å¼ƒæœªçŸ¥äº‹ä»¶
     return 0;
 }
 
 /*********************************************************************
  * @fn      central_ProcessTMOSMsg
  *
- * @brief   Process an incoming task message.                         // ´¦Àí´«ÈëµÄÈÎÎñÏûÏ¢
+ * @brief   Process an incoming task message.                         // å¤„ç†ä¼ å…¥çš„ä»»åŠ¡æ¶ˆæ¯
  *
- * @param   pMsg - message to process                                // pMsg - Òª´¦ÀíµÄÏûÏ¢
+ * @param   pMsg - message to process                                // pMsg - è¦å¤„ç†çš„æ¶ˆæ¯
  *
- * @return  none                                                     // ÎŞ·µ»ØÖµ
+ * @return  none                                                     // æ— è¿”å›å€¼
  */
 static void central_ProcessTMOSMsg(tmos_event_hdr_t *pMsg)
 {
-    switch(pMsg->event)                                               // ¸ù¾İÏûÏ¢ÊÂ¼şÀàĞÍ´¦Àí
+    switch(pMsg->event)                                               // æ ¹æ®æ¶ˆæ¯äº‹ä»¶ç±»å‹å¤„ç†
     {
-        case GATT_MSG_EVENT:                                          // Èç¹ûÊÇGATTÏûÏ¢ÊÂ¼ş
-            centralProcessGATTMsg((gattMsgEvent_t *)pMsg);            // ´¦ÀíGATTÏûÏ¢
+        case GATT_MSG_EVENT:                                          // å¦‚æœæ˜¯GATTæ¶ˆæ¯äº‹ä»¶
+            centralProcessGATTMsg((gattMsgEvent_t *)pMsg);            // å¤„ç†GATTæ¶ˆæ¯
             break;
     }
 }
@@ -755,52 +755,52 @@ static void central_ProcessTMOSMsg(tmos_event_hdr_t *pMsg)
 /*********************************************************************
  * @fn      centralProcessGATTMsg
  *
- * @brief   Process GATT messages                                    // ´¦ÀíGATTÏûÏ¢
+ * @brief   Process GATT messages                                    // å¤„ç†GATTæ¶ˆæ¯
  *
- * @return  none                                                     // ÎŞ·µ»ØÖµ
+ * @return  none                                                     // æ— è¿”å›å€¼
  */
 static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
 {
-    uint16 i = 0;                                                     // Ñ­»·¼ÆÊıÆ÷
-    if(centralState != BLE_STATE_CONNECTED)                           // Èç¹û²»ÊÇÒÑÁ¬½Ó×´Ì¬
+    uint16 i = 0;                                                     // å¾ªç¯è®¡æ•°å™¨
+    if(centralState != BLE_STATE_CONNECTED)                           // å¦‚æœä¸æ˜¯å·²è¿æ¥çŠ¶æ€
     {
-        // In case a GATT message came after a connection has dropped,  // Èç¹ûÁ¬½ÓÒÑ¶Ï¿ªºóÊÕµ½GATTÏûÏ¢
-        // ignore the message                                           // ºöÂÔ¸ÃÏûÏ¢
+        // In case a GATT message came after a connection has dropped,  // å¦‚æœè¿æ¥å·²æ–­å¼€åæ”¶åˆ°GATTæ¶ˆæ¯
+        // ignore the message                                           // å¿½ç•¥è¯¥æ¶ˆæ¯
         GATT_bm_free(&pMsg->msg, pMsg->method);
         return;
     }
 
-    if((pMsg->method == ATT_EXCHANGE_MTU_RSP) ||                        // Èç¹ûÊÇMTU½»»»ÏìÓ¦
-       ((pMsg->method == ATT_ERROR_RSP) &&                            // »òÕßÊÇ´íÎóÏìÓ¦
-        (pMsg->msg.errorRsp.reqOpcode == ATT_EXCHANGE_MTU_REQ)))      // ÇÒÊÇMTU½»»»ÇëÇóµÄ´íÎó
+    if((pMsg->method == ATT_EXCHANGE_MTU_RSP) ||                        // å¦‚æœæ˜¯MTUäº¤æ¢å“åº”
+       ((pMsg->method == ATT_ERROR_RSP) &&                            // æˆ–è€…æ˜¯é”™è¯¯å“åº”
+        (pMsg->msg.errorRsp.reqOpcode == ATT_EXCHANGE_MTU_REQ)))      // ä¸”æ˜¯MTUäº¤æ¢è¯·æ±‚çš„é”™è¯¯
     {
-        if(pMsg->method == ATT_ERROR_RSP)                             // Èç¹ûÊÇ´íÎóÏìÓ¦
+        if(pMsg->method == ATT_ERROR_RSP)                             // å¦‚æœæ˜¯é”™è¯¯å“åº”
         {
-            uint8_t status = pMsg->msg.errorRsp.errCode;              // »ñÈ¡´íÎóÂë
+            uint8_t status = pMsg->msg.errorRsp.errCode;              // è·å–é”™è¯¯ç 
 
-            PRINT("Exchange MTU Error: %x\n", status);                 // ´òÓ¡MTU½»»»´íÎó
+            PRINT("Exchange MTU Error: %x\n", status);                 // æ‰“å°MTUäº¤æ¢é”™è¯¯
         }
-        centralProcedureInProgress = FALSE;                           // Çå³ı²Ù×÷½øĞĞÖĞ±êÖ¾
+        centralProcedureInProgress = FALSE;                           // æ¸…é™¤æ“ä½œè¿›è¡Œä¸­æ ‡å¿—
     }
 
-    if(pMsg->method == ATT_MTU_UPDATED_EVENT)                         // Èç¹ûÊÇMTU¸üĞÂÊÂ¼ş
+    if(pMsg->method == ATT_MTU_UPDATED_EVENT)                         // å¦‚æœæ˜¯MTUæ›´æ–°äº‹ä»¶
     {
-        PRINT("MTU: %x\n", pMsg->msg.mtuEvt.MTU);                    // ´òÓ¡ĞÂµÄMTUÖµ
+        PRINT("MTU: %x\n", pMsg->msg.mtuEvt.MTU);                    // æ‰“å°æ–°çš„MTUå€¼
     }
 
-    if((pMsg->method == ATT_READ_RSP) ||                             // Èç¹ûÊÇ¶ÁÈ¡ÏìÓ¦
-       ((pMsg->method == ATT_ERROR_RSP) &&                           // »òÕßÊÇ´íÎóÏìÓ¦
-        (pMsg->msg.errorRsp.reqOpcode == ATT_READ_REQ)))             // ÇÒÊÇ¶ÁÈ¡ÇëÇóµÄ´íÎó
+    if((pMsg->method == ATT_READ_RSP) ||                             // å¦‚æœæ˜¯è¯»å–å“åº”
+       ((pMsg->method == ATT_ERROR_RSP) &&                           // æˆ–è€…æ˜¯é”™è¯¯å“åº”
+        (pMsg->msg.errorRsp.reqOpcode == ATT_READ_REQ)))             // ä¸”æ˜¯è¯»å–è¯·æ±‚çš„é”™è¯¯
     {
-        if(pMsg->method == ATT_ERROR_RSP)                            // Èç¹ûÊÇ´íÎóÏìÓ¦
+        if(pMsg->method == ATT_ERROR_RSP)                            // å¦‚æœæ˜¯é”™è¯¯å“åº”
         {
-            uint8_t status = pMsg->msg.errorRsp.errCode;             // »ñÈ¡´íÎóÂë
+            uint8_t status = pMsg->msg.errorRsp.errCode;             // è·å–é”™è¯¯ç 
 
-            PRINT("Read Error: %x\n", status);                        // ´òÓ¡¶ÁÈ¡´íÎó
+            PRINT("Read Error: %x\n", status);                        // æ‰“å°è¯»å–é”™è¯¯
         }
         else
         {
-            // After a successful read, display the read value         // ³É¹¦¶ÁÈ¡ºóÏÔÊ¾¶ÁÈ¡µÄÖµ
+            // After a successful read, display the read value         // æˆåŠŸè¯»å–åæ˜¾ç¤ºè¯»å–çš„å€¼
 //            PRINT("Read rsp: %x\n", *pMsg->msg.readRsp.pValue);
 //          PRINT("len = %d, Read rsp: ", pMsg->msg.readRsp.len);
 //          for( i = 0; i < pMsg->msg.readRsp.len; i++){
@@ -809,39 +809,39 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
         }
 //        tmos_start_task(centralTaskId, START_WRITE_CCCD_EVT, DEFAULT_WRITE_CCCD_DELAY);
 //        tmos_start_task(centralTaskId, START_READ_OR_WRITE_EVT, DEFAULT_READ_OR_WRITE_DELAY);
-        centralProcedureInProgress = FALSE;                          // Çå³ı²Ù×÷½øĞĞÖĞ±êÖ¾
+        centralProcedureInProgress = FALSE;                          // æ¸…é™¤æ“ä½œè¿›è¡Œä¸­æ ‡å¿—
     }
-    else if((pMsg->method == ATT_WRITE_RSP) ||                      // Èç¹ûÊÇĞ´ÈëÏìÓ¦
-            ((pMsg->method == ATT_ERROR_RSP) &&                      // »òÕßÊÇ´íÎóÏìÓ¦
-             (pMsg->msg.errorRsp.reqOpcode == ATT_WRITE_REQ)))      // ÇÒÊÇĞ´ÈëÇëÇóµÄ´íÎó
+    else if((pMsg->method == ATT_WRITE_RSP) ||                      // å¦‚æœæ˜¯å†™å…¥å“åº”
+            ((pMsg->method == ATT_ERROR_RSP) &&                      // æˆ–è€…æ˜¯é”™è¯¯å“åº”
+             (pMsg->msg.errorRsp.reqOpcode == ATT_WRITE_REQ)))      // ä¸”æ˜¯å†™å…¥è¯·æ±‚çš„é”™è¯¯
     {
-        if(pMsg->method == ATT_ERROR_RSP)                           // Èç¹ûÊÇ´íÎóÏìÓ¦
+        if(pMsg->method == ATT_ERROR_RSP)                           // å¦‚æœæ˜¯é”™è¯¯å“åº”
         {
-            uint8_t status = pMsg->msg.errorRsp.errCode;            // »ñÈ¡´íÎóÂë
+            uint8_t status = pMsg->msg.errorRsp.errCode;            // è·å–é”™è¯¯ç 
 
-            PRINT("Write Error: %x\n", status);                      // ´òÓ¡Ğ´Èë´íÎó
+            PRINT("Write Error: %x\n", status);                      // æ‰“å°å†™å…¥é”™è¯¯
         }
         else
         {
-            // Write success                                         // Ğ´Èë³É¹¦
-            PRINT("Write success \n");                              // ´òÓ¡Ğ´Èë³É¹¦
+            // Write success                                         // å†™å…¥æˆåŠŸ
+            PRINT("Write success \n");                              // æ‰“å°å†™å…¥æˆåŠŸ
             
-            // ¼ì²éÊÇ·ñÊÇCCCDĞ´Èë³É¹¦£¬Èç¹ûÊÇÔò·¢ËÍ³õÊ¼»¯Êı¾İ
+            // æ£€æŸ¥æ˜¯å¦æ˜¯CCCDå†™å…¥æˆåŠŸï¼Œå¦‚æœæ˜¯åˆ™å‘é€åˆå§‹åŒ–æ•°æ®
             if(centralDiscState == BLE_DISC_STATE_IDLE && centralWriteCharHdl != 0)
             {
                 PRINT("CCCD setup completed, triggering initialization data send...\n");
-                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 500); // 500msºó·¢ËÍ³õÊ¼»¯Êı¾İ
+                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 500); // 500msåå‘é€åˆå§‹åŒ–æ•°æ®
             }
         }
 
-        centralProcedureInProgress = FALSE;                         // Çå³ı²Ù×÷½øĞĞÖĞ±êÖ¾
+        centralProcedureInProgress = FALSE;                         // æ¸…é™¤æ“ä½œè¿›è¡Œä¸­æ ‡å¿—
     }
-    else if(pMsg->method == ATT_HANDLE_VALUE_NOTI)                 // Èç¹ûÊÇÌØÕ÷ÖµÍ¨Öª
+    else if(pMsg->method == ATT_HANDLE_VALUE_NOTI)                 // å¦‚æœæ˜¯ç‰¹å¾å€¼é€šçŸ¥
     {
 //        PRINT("Receive noti: %x\n", *pMsg->msg.handleValueNoti.pValue);
-      PRINT("Noti: ");                                             // ´òÓ¡Í¨ÖªÖµ
-      for( i = 0; i < pMsg->msg.handleValueNoti.len; i++){         // Ñ­»·´òÓ¡Ã¿¸ö×Ö½Ú
-        PRINT("%02x ", pMsg->msg.handleValueNoti.pValue[i]);       // ÒÔ16½øÖÆ¸ñÊ½´òÓ¡
+      PRINT("Noti: ");                                             // æ‰“å°é€šçŸ¥å€¼
+      for( i = 0; i < pMsg->msg.handleValueNoti.len; i++){         // å¾ªç¯æ‰“å°æ¯ä¸ªå­—èŠ‚
+        PRINT("%02x ", pMsg->msg.handleValueNoti.pValue[i]);       // ä»¥16è¿›åˆ¶æ ¼å¼æ‰“å°
       }PRINT("\n");
         if(pMsg->msg.handleValueNoti.pValue[0]==0xc0)
         {
@@ -858,71 +858,71 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
         }
         
     }
-    else if(centralDiscState != BLE_DISC_STATE_IDLE)               // Èç¹û²»ÊÇ·¢ÏÖ¿ÕÏĞ×´Ì¬
+    else if(centralDiscState != BLE_DISC_STATE_IDLE)               // å¦‚æœä¸æ˜¯å‘ç°ç©ºé—²çŠ¶æ€
     {
-        centralGATTDiscoveryEvent(pMsg);                           // ´¦ÀíGATT·¢ÏÖÊÂ¼ş
+        centralGATTDiscoveryEvent(pMsg);                           // å¤„ç†GATTå‘ç°äº‹ä»¶
     }
-    GATT_bm_free(&pMsg->msg, pMsg->method);                       // ÊÍ·ÅÏûÏ¢ÄÚ´æ
+    GATT_bm_free(&pMsg->msg, pMsg->method);                       // é‡Šæ”¾æ¶ˆæ¯å†…å­˜
 }
 
 /*********************************************************************
  * @fn      centralRssiCB
  *
- * @brief   RSSI callback.                                          // RSSI»Øµ÷º¯Êı
+ * @brief   RSSI callback.                                          // RSSIå›è°ƒå‡½æ•°
  *
- * @param   connHandle - connection handle                          // connHandle - Á¬½Ó¾ä±ú
- * @param   rssi - RSSI                                            // rssi - RSSIÖµ
+ * @param   connHandle - connection handle                          // connHandle - è¿æ¥å¥æŸ„
+ * @param   rssi - RSSI                                            // rssi - RSSIå€¼
  *
- * @return  none                                                    // ÎŞ·µ»ØÖµ
+ * @return  none                                                    // æ— è¿”å›å€¼
  */
 static void centralRssiCB(uint16_t connHandle, int8_t rssi)
 {
-    PRINT("RSSI : -%d dB \n", -rssi);                              // ´òÓ¡RSSIÖµ
+    PRINT("RSSI : -%d dB \n", -rssi);                              // æ‰“å°RSSIå€¼
 }
 
 /*********************************************************************
  * @fn      centralHciMTUChangeCB
  *
- * @brief   MTU changed callback.                                   // MTU±ä¸ü»Øµ÷º¯Êı
+ * @brief   MTU changed callback.                                   // MTUå˜æ›´å›è°ƒå‡½æ•°
  *
- * @param   maxTxOctets - Max tx octets                            // maxTxOctets - ×î´ó·¢ËÍ×Ö½ÚÊı
- * @param   maxRxOctets - Max rx octets                            // maxRxOctets - ×î´ó½ÓÊÕ×Ö½ÚÊı
+ * @param   maxTxOctets - Max tx octets                            // maxTxOctets - æœ€å¤§å‘é€å­—èŠ‚æ•°
+ * @param   maxRxOctets - Max rx octets                            // maxRxOctets - æœ€å¤§æ¥æ”¶å­—èŠ‚æ•°
  *
- * @return  none                                                    // ÎŞ·µ»ØÖµ
+ * @return  none                                                    // æ— è¿”å›å€¼
  */
 static void centralHciMTUChangeCB(uint16_t connHandle, uint16_t maxTxOctets, uint16_t maxRxOctets)
 {
-    attExchangeMTUReq_t req;                                        // MTU½»»»ÇëÇó½á¹¹Ìå
+    attExchangeMTUReq_t req;                                        // MTUäº¤æ¢è¯·æ±‚ç»“æ„ä½“
 
-    req.clientRxMTU = maxRxOctets;                                 // ÉèÖÃ¿Í»§¶Ë½ÓÊÕMTU
-    GATT_ExchangeMTU(connHandle, &req, centralTaskId);             // ·¢ÆğMTU½»»»ÇëÇó
-    PRINT("exchange mtu:%d\n", maxRxOctets);                       // ´òÓ¡½»»»µÄMTUÖµ
-    centralProcedureInProgress = TRUE;                             // ÉèÖÃ²Ù×÷½øĞĞÖĞ±êÖ¾
+    req.clientRxMTU = maxRxOctets;                                 // è®¾ç½®å®¢æˆ·ç«¯æ¥æ”¶MTU
+    GATT_ExchangeMTU(connHandle, &req, centralTaskId);             // å‘èµ·MTUäº¤æ¢è¯·æ±‚
+    PRINT("exchange mtu:%d\n", maxRxOctets);                       // æ‰“å°äº¤æ¢çš„MTUå€¼
+    centralProcedureInProgress = TRUE;                             // è®¾ç½®æ“ä½œè¿›è¡Œä¸­æ ‡å¿—
 }
 
 /*********************************************************************
  * @fn      centralEventCB
  *
- * @brief   Central event callback function.                        // ÖĞÑëÉè±¸ÊÂ¼ş»Øµ÷º¯Êı
+ * @brief   Central event callback function.                        // ä¸­å¤®è®¾å¤‡äº‹ä»¶å›è°ƒå‡½æ•°
  *
- * @param   pEvent - pointer to event structure                     // pEvent - ÊÂ¼ş½á¹¹ÌåÖ¸Õë
+ * @param   pEvent - pointer to event structure                     // pEvent - äº‹ä»¶ç»“æ„ä½“æŒ‡é’ˆ
  *
- * @return  none                                                    // ÎŞ·µ»ØÖµ
+ * @return  none                                                    // æ— è¿”å›å€¼
  */
 static void centralEventCB(gapRoleEvent_t *pEvent)
 {
-    switch(pEvent->gap.opcode)                                      // ¸ù¾İÊÂ¼ş²Ù×÷Âë´¦Àí
+    switch(pEvent->gap.opcode)                                      // æ ¹æ®äº‹ä»¶æ“ä½œç å¤„ç†
     {
-        case GAP_DEVICE_INIT_DONE_EVENT:                           // Éè±¸³õÊ¼»¯Íê³ÉÊÂ¼ş
+        case GAP_DEVICE_INIT_DONE_EVENT:                           // è®¾å¤‡åˆå§‹åŒ–å®Œæˆäº‹ä»¶
         {
             PRINT("BLE Central initialized. Searching for device: '%s' (length=%d)\n", 
-                  TARGET_DEVICE_NAME, TARGET_DEVICE_NAME_LEN);      // ´òÓ¡Ä¿±êÉè±¸ĞÅÏ¢
+                  TARGET_DEVICE_NAME, TARGET_DEVICE_NAME_LEN);      // æ‰“å°ç›®æ ‡è®¾å¤‡ä¿¡æ¯
             
-            // Ö»ÓĞÔÚÆôÓÃ×Ô¶¯ÖØÁ¬Ê±²Å¿ªÊ¼·¢ÏÖ
+            // åªæœ‰åœ¨å¯ç”¨è‡ªåŠ¨é‡è¿æ—¶æ‰å¼€å§‹å‘ç°
             if(autoReconnectEnabled == TRUE)
             {
                 PRINT("Auto reconnect enabled. Starting discovery...\n");
-                GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,   // ¿ªÊ¼Éè±¸·¢ÏÖ
+                GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,   // å¼€å§‹è®¾å¤‡å‘ç°
                                               DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                               DEFAULT_DISCOVERY_WHITE_LIST);
             }
@@ -933,56 +933,56 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
         }
         break;
 
-        case GAP_DEVICE_INFO_EVENT:                                // Éè±¸ĞÅÏ¢ÊÂ¼ş
+        case GAP_DEVICE_INFO_EVENT:                                // è®¾å¤‡ä¿¡æ¯äº‹ä»¶
         {
-            // ´òÓ¡Éè±¸MACµØÖ·ÓÃÓÚµ÷ÊÔ
+            // æ‰“å°è®¾å¤‡MACåœ°å€ç”¨äºè°ƒè¯•
             PRINT("Device found: %02X:%02X:%02X:%02X:%02X:%02X, dataLen=%d\n", 
                   pEvent->deviceInfo.addr[5], pEvent->deviceInfo.addr[4], 
                   pEvent->deviceInfo.addr[3], pEvent->deviceInfo.addr[2], 
                   pEvent->deviceInfo.addr[1], pEvent->deviceInfo.addr[0],
                   pEvent->deviceInfo.dataLen);
             
-            // ¼ì²é¹ã²¥Êı¾İÖĞµÄÉè±¸Ãû³Æ
+            // æ£€æŸ¥å¹¿æ’­æ•°æ®ä¸­çš„è®¾å¤‡åç§°
             uint8_t *pAdvData = pEvent->deviceInfo.pEvtData;
             uint8_t advDataLen = pEvent->deviceInfo.dataLen;
             uint8_t i = 0;
             
-            // Èç¹ûÓĞ¹ã²¥Êı¾İ£¬½øĞĞ½âÎö
+            // å¦‚æœæœ‰å¹¿æ’­æ•°æ®ï¼Œè¿›è¡Œè§£æ
             if(pAdvData != NULL && advDataLen > 0)
             {
-                // ´òÓ¡Ô­Ê¼¹ã²¥Êı¾İÓÃÓÚµ÷ÊÔ
+                // æ‰“å°åŸå§‹å¹¿æ’­æ•°æ®ç”¨äºè°ƒè¯•
                 PRINT("Raw ADV data: ");
-                for(uint8_t j = 0; j < advDataLen && j < 20; j++) {  // ÏŞÖÆ´òÓ¡³¤¶È
+                for(uint8_t j = 0; j < advDataLen && j < 20; j++) {  // é™åˆ¶æ‰“å°é•¿åº¦
                     PRINT("%02X ", pAdvData[j]);
                 }
                 PRINT("\n");
                 
-                // ½âÎö¹ã²¥Êı¾İÑ°ÕÒÉè±¸Ãû³Æ
-                while(i < advDataLen - 1)  // È·±£ÖÁÉÙÓĞlengthºÍtype×Ö¶Î
+                // è§£æå¹¿æ’­æ•°æ®å¯»æ‰¾è®¾å¤‡åç§°
+                while(i < advDataLen - 1)  // ç¡®ä¿è‡³å°‘æœ‰lengthå’Œtypeå­—æ®µ
                 {
                     uint8_t fieldLen = pAdvData[i];
-                    if(fieldLen == 0 || i + fieldLen >= advDataLen) break;  // ·ÀÖ¹Ô½½ç
+                    if(fieldLen == 0 || i + fieldLen >= advDataLen) break;  // é˜²æ­¢è¶Šç•Œ
                     
                     uint8_t fieldType = pAdvData[i + 1];
                     PRINT("Field: len=%d, type=0x%02X\n", fieldLen, fieldType);
                     
-                    // ¼ì²éÊÇ·ñÎªÍêÕû±¾µØÃû³Æ(0x09)»òËõ¶Ì±¾µØÃû³Æ(0x08)
+                    // æ£€æŸ¥æ˜¯å¦ä¸ºå®Œæ•´æœ¬åœ°åç§°(0x09)æˆ–ç¼©çŸ­æœ¬åœ°åç§°(0x08)
                     if(fieldType == 0x09 || fieldType == 0x08)
                     {
-                        uint8_t nameLen = fieldLen - 1;  // ¼õÈ¥ÀàĞÍ×Ö¶Î³¤¶È
+                        uint8_t nameLen = fieldLen - 1;  // å‡å»ç±»å‹å­—æ®µé•¿åº¦
                         if(nameLen > 0 && i + 2 + nameLen <= advDataLen)
                         {
-                            // ´òÓ¡ÕÒµ½µÄÉè±¸Ãû³Æ
+                            // æ‰“å°æ‰¾åˆ°çš„è®¾å¤‡åç§°
                             PRINT("Device name found (len=%d): ", nameLen);
                             for(uint8_t k = 0; k < nameLen; k++) {
                                 PRINT("%c", pAdvData[i + 2 + k]);
                             }
                             PRINT("\n");
                             
-                                                        // ¼ì²éÊÇ·ñÆ¥ÅäÄ¿±êÉè±¸Ãû³Æ£¨ÔÊĞí³¤¶ÈÉÔÓĞ²îÒì£©
+                                                        // æ£€æŸ¥æ˜¯å¦åŒ¹é…ç›®æ ‡è®¾å¤‡åç§°ï¼ˆå…è®¸é•¿åº¦ç¨æœ‰å·®å¼‚ï¼‰
                             if(nameLen >= TARGET_DEVICE_NAME_LEN)
                             {
-                                // Öğ×Ö½Ú±È½ÏÉè±¸Ãû³Æ£¨Ö»±È½ÏÄ¿±êÃû³ÆµÄ³¤¶È£©
+                                // é€å­—èŠ‚æ¯”è¾ƒè®¾å¤‡åç§°ï¼ˆåªæ¯”è¾ƒç›®æ ‡åç§°çš„é•¿åº¦ï¼‰
                                 uint8_t match = 1;
                                 for(uint8_t m = 0; m < TARGET_DEVICE_NAME_LEN; m++)
                                 {
@@ -998,21 +998,21 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                     PRINT("*** FOUND TARGET DEVICE: %s (expected len=%d, actual len=%d) ***\n", 
                                           TARGET_DEVICE_NAME, TARGET_DEVICE_NAME_LEN, nameLen);
                                     
-                                    // ±£´æÉè±¸µØÖ·ÓÃÓÚµ÷ÊÔ
+                                    // ä¿å­˜è®¾å¤‡åœ°å€ç”¨äºè°ƒè¯•
                                     PRINT("Target device MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
                                           pEvent->deviceInfo.addr[5], pEvent->deviceInfo.addr[4],
                                           pEvent->deviceInfo.addr[3], pEvent->deviceInfo.addr[2], 
                                           pEvent->deviceInfo.addr[1], pEvent->deviceInfo.addr[0]);
                                     
-                                    // ¼ì²éµ±Ç°Á¬½Ó×´Ì¬
+                                    // æ£€æŸ¥å½“å‰è¿æ¥çŠ¶æ€
                                     PRINT("Current state: %d, ConnHandle: 0x%04X\n", centralState, centralConnHandle);
                                     
-                                    // Í£Ö¹Éè±¸·¢ÏÖÒÔ±ÜÃâ³åÍ»
+                                    // åœæ­¢è®¾å¤‡å‘ç°ä»¥é¿å…å†²çª
                                     PRINT("Stopping device discovery before connection attempt...\n");
                                     GAPRole_CentralCancelDiscovery();
-                                    DelayMs(100);  // µÈ´ıÍ£Ö¹Íê³É
+                                    DelayMs(100);  // ç­‰å¾…åœæ­¢å®Œæˆ
                                     
-                                    // Èç¹ûÒÑ¾­Á¬½Ó»òÕıÔÚÁ¬½Ó£¬ÏÈ¶Ï¿ª
+                                    // å¦‚æœå·²ç»è¿æ¥æˆ–æ­£åœ¨è¿æ¥ï¼Œå…ˆæ–­å¼€
                                     if(centralState != BLE_STATE_IDLE || centralConnHandle != GAP_CONNHANDLE_INIT)
                                     {
                                         PRINT("Terminating existing connection...\n");
@@ -1020,25 +1020,25 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                         centralState = BLE_STATE_IDLE;
                                         centralConnHandle = GAP_CONNHANDLE_INIT;
                                         centralProcedureInProgress = FALSE;
-                                        // µÈ´ıÒ»¶ÎÊ±¼äÔÙ³¢ÊÔÁ¬½Ó
+                                        // ç­‰å¾…ä¸€æ®µæ—¶é—´å†å°è¯•è¿æ¥
                                         DelayMs(500);
                                     }
                                     
-                                    // ½¨Á¢Á¬½Ó£¨Ê¹ÓÃ½ÏµÍµÄduty cycle£©
-                                    bStatus_t status = GAPRole_CentralEstablishLink(FALSE,  // Ê¹ÓÃµÍduty cycle
-                                                                 FALSE,  // ²»Ê¹ÓÃ°×Ãûµ¥
+                                    // å»ºç«‹è¿æ¥ï¼ˆä½¿ç”¨è¾ƒä½çš„duty cycleï¼‰
+                                    bStatus_t status = GAPRole_CentralEstablishLink(FALSE,  // ä½¿ç”¨ä½duty cycle
+                                                                 FALSE,  // ä¸ä½¿ç”¨ç™½åå•
                                                                  pEvent->deviceInfo.addrType,
                                                                  pEvent->deviceInfo.addr);
                                     
                                     if(status == SUCCESS)
                                     {
-                                        centralState = BLE_STATE_CONNECTING;  // ÉèÖÃÎªÁ¬½ÓÖĞ×´Ì¬
-                                        connectionFailCount = 0;  // ÖØÖÃÊ§°Ü¼ÆÊıÆ÷
-                                        // Æô¶¯½¨Á¢Á¬½Ó³¬Ê±ÊÂ¼ş£¨Ôö¼Ó³¬Ê±Ê±¼ä£©
+                                        centralState = BLE_STATE_CONNECTING;  // è®¾ç½®ä¸ºè¿æ¥ä¸­çŠ¶æ€
+                                        connectionFailCount = 0;  // é‡ç½®å¤±è´¥è®¡æ•°å™¨
+                                        // å¯åŠ¨å»ºç«‹è¿æ¥è¶…æ—¶äº‹ä»¶ï¼ˆå¢åŠ è¶…æ—¶æ—¶é—´ï¼‰
                                         tmos_start_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT, ESTABLISH_LINK_TIMEOUT * 2);
                                         PRINT("Connecting to %s... (status=0x%02X)\n", TARGET_DEVICE_NAME, status);
                                         targetDeviceFound = TRUE;
-                                        return;  // ÕÒµ½Ä¿±êÉè±¸£¬Ö±½Ó·µ»Ø
+                                        return;  // æ‰¾åˆ°ç›®æ ‡è®¾å¤‡ï¼Œç›´æ¥è¿”å›
                                     }
                                     else
                                     {
@@ -1046,7 +1046,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                         connectionFailCount++;
                                         PRINT("Connection fail count: %d\n", connectionFailCount);
                                         
-                                        // ½âÊÍ´íÎóÂë
+                                        // è§£é‡Šé”™è¯¯ç 
                                         switch(status)
                                         {
                                             case 0x10:
@@ -1063,7 +1063,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                                 break;
                                         }
                                         
-                                        // Èç¹ûÁ¬ĞøÊ§°Ü5´Î£¬ÖØÆôÕû¸ö·¢ÏÖ¹ı³Ì
+                                        // å¦‚æœè¿ç»­å¤±è´¥5æ¬¡ï¼Œé‡å¯æ•´ä¸ªå‘ç°è¿‡ç¨‹
                                         if(connectionFailCount >= 5)
                                         {
                                             PRINT("Too many connection failures, restarting BLE discovery...\n");
@@ -1071,13 +1071,13 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                             centralScanRes = 0;
                                             targetDeviceFound = FALSE;
                                             
-                                            // ÑÓ³Ù¸ü³¤Ê±¼äÔÙÖØÆô
+                                            // å»¶è¿Ÿæ›´é•¿æ—¶é—´å†é‡å¯
                                             DelayMs(2000);
                                             
-                                            // Ö»ÓĞÔÚÆôÓÃ×Ô¶¯ÖØÁ¬Ê±²ÅÖØĞÂ¿ªÊ¼·¢ÏÖ
+                                            // åªæœ‰åœ¨å¯ç”¨è‡ªåŠ¨é‡è¿æ—¶æ‰é‡æ–°å¼€å§‹å‘ç°
                                             if(autoReconnectEnabled == TRUE)
                                             {
-                                                // ÖØĞÂ¿ªÊ¼·¢ÏÖ
+                                                // é‡æ–°å¼€å§‹å‘ç°
                                                 GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
                                                                               DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                                               DEFAULT_DISCOVERY_WHITE_LIST);
@@ -1090,14 +1090,14 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                         }
                                         else
                                         {
-                                            // ÑÓ³ÙºóÖØÊÔ
+                                            // å»¶è¿Ÿåé‡è¯•
                                             DelayMs(1000);
                                             PRINT("Will retry discovery in next scan cycle...\n");
                                             
-                                            // Ö»ÓĞÔÚÆôÓÃ×Ô¶¯ÖØÁ¬Ê±²ÅÖØĞÂ¿ªÊ¼·¢ÏÖ
+                                            // åªæœ‰åœ¨å¯ç”¨è‡ªåŠ¨é‡è¿æ—¶æ‰é‡æ–°å¼€å§‹å‘ç°
                                             if(autoReconnectEnabled == TRUE)
                                             {
-                                                // ÖØĞÂ¿ªÊ¼·¢ÏÖ
+                                                // é‡æ–°å¼€å§‹å‘ç°
                                                 GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
                                                                               DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                                               DEFAULT_DISCOVERY_WHITE_LIST);
@@ -1121,28 +1121,28 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                             }
                         }
                     }
-                    i += fieldLen + 1;  // ÒÆ¶¯µ½ÏÂÒ»¸ö×Ö¶Î
+                    i += fieldLen + 1;  // ç§»åŠ¨åˆ°ä¸‹ä¸€ä¸ªå­—æ®µ
                 }
             }
             
-            // Èç¹û²»ÊÇÄ¿±êÉè±¸£¬ÈÔÈ»Ìí¼Óµ½ÁĞ±íÖĞ
+            // å¦‚æœä¸æ˜¯ç›®æ ‡è®¾å¤‡ï¼Œä»ç„¶æ·»åŠ åˆ°åˆ—è¡¨ä¸­
             centralAddDeviceInfo(pEvent->deviceInfo.addr, pEvent->deviceInfo.addrType);
         }
         break;
 
-        case GAP_DEVICE_DISCOVERY_EVENT:                           // Éè±¸·¢ÏÖÊÂ¼ş
+        case GAP_DEVICE_DISCOVERY_EVENT:                           // è®¾å¤‡å‘ç°äº‹ä»¶
         {
-            // ¼ì²éÊÇ·ñÕÒµ½Ä¿±êÉè±¸£¨°´Éè±¸Ãû³ÆÆ¥Åä£©
+            // æ£€æŸ¥æ˜¯å¦æ‰¾åˆ°ç›®æ ‡è®¾å¤‡ï¼ˆæŒ‰è®¾å¤‡åç§°åŒ¹é…ï¼‰
             if(targetDeviceFound == FALSE)
             {
-                PRINT("Target device '%s' not found during discovery...\n", TARGET_DEVICE_NAME);  // ´òÓ¡Î´ÕÒµ½Ä¿±êÉè±¸
+                PRINT("Target device '%s' not found during discovery...\n", TARGET_DEVICE_NAME);  // æ‰“å°æœªæ‰¾åˆ°ç›®æ ‡è®¾å¤‡
                 centralScanRes = 0;
-                targetDeviceFound = FALSE;  // ÖØÖÃ±êÖ¾
+                targetDeviceFound = FALSE;  // é‡ç½®æ ‡å¿—
                 
-                // Ö»ÓĞÔÚÆôÓÃ×Ô¶¯ÖØÁ¬Ê±²ÅÖØĞÂ¿ªÊ¼ËÑË÷
+                // åªæœ‰åœ¨å¯ç”¨è‡ªåŠ¨é‡è¿æ—¶æ‰é‡æ–°å¼€å§‹æœç´¢
                 if(autoReconnectEnabled == TRUE)
                 {
-                    GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE, // ÖØĞÂ¿ªÊ¼Éè±¸·¢ÏÖ
+                    GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE, // é‡æ–°å¼€å§‹è®¾å¤‡å‘ç°
                                                   DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                   DEFAULT_DISCOVERY_WHITE_LIST);
                     PRINT("Discovering...\n");
@@ -1192,9 +1192,9 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             {
                 PRINT("Connection failed! Reason: 0x%02X\n", pEvent->gap.hdr.status);
                 centralScanRes = 0;
-                targetDeviceFound = FALSE;  // ÖØÖÃÄ¿±êÉè±¸±êÖ¾
+                targetDeviceFound = FALSE;  // é‡ç½®ç›®æ ‡è®¾å¤‡æ ‡å¿—
                 
-                // Ö»ÓĞÔÚÆôÓÃ×Ô¶¯ÖØÁ¬Ê±²ÅÖØĞÂ¿ªÊ¼ËÑË÷
+                // åªæœ‰åœ¨å¯ç”¨è‡ªåŠ¨é‡è¿æ—¶æ‰é‡æ–°å¼€å§‹æœç´¢
                 if(autoReconnectEnabled == TRUE)
                 {
                     PRINT("Restarting device discovery...\n");
@@ -1218,14 +1218,14 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             centralNotifyCharHdl = 0;
             centralWriteCharHdl = 0;
             centralCharHdl = 0;
-            centralCCCDHdl = 0;  // ÖØÖÃCCCD¾ä±ú
+            centralCCCDHdl = 0;  // é‡ç½®CCCDå¥æŸ„
             centralScanRes = 0;
             centralProcedureInProgress = FALSE;
-            targetDeviceFound = FALSE;  // ÖØÖÃÄ¿±êÉè±¸ÕÒµ½±êÖ¾
+            targetDeviceFound = FALSE;  // é‡ç½®ç›®æ ‡è®¾å¤‡æ‰¾åˆ°æ ‡å¿—
             tmos_stop_task(centralTaskId, START_READ_RSSI_EVT);
             PRINT("Disconnected...Reason:%x\n", pEvent->linkTerminate.reason);
             
-            // Ö»ÓĞÔÚÆôÓÃ×Ô¶¯ÖØÁ¬Ê±²ÅÖØĞÂËÑË÷
+            // åªæœ‰åœ¨å¯ç”¨è‡ªåŠ¨é‡è¿æ—¶æ‰é‡æ–°æœç´¢
             if(autoReconnectEnabled == TRUE)
             {
                 PRINT("Re-discovering target device '%s'...\n", TARGET_DEVICE_NAME);
@@ -1282,43 +1282,43 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
 /*********************************************************************
  * @fn      pairStateCB
  *
- * @brief   Pairing state callback.                                 // Åä¶Ô×´Ì¬»Øµ÷º¯Êı
+ * @brief   Pairing state callback.                                 // é…å¯¹çŠ¶æ€å›è°ƒå‡½æ•°
  *
- * @return  none                                                    // ÎŞ·µ»ØÖµ
+ * @return  none                                                    // æ— è¿”å›å€¼
  */
 static void centralPairStateCB(uint16_t connHandle, uint8_t state, uint8_t status)
 {
-    if(state == GAPBOND_PAIRING_STATE_STARTED)                      // Èç¹ûÊÇÅä¶Ô¿ªÊ¼×´Ì¬
+    if(state == GAPBOND_PAIRING_STATE_STARTED)                      // å¦‚æœæ˜¯é…å¯¹å¼€å§‹çŠ¶æ€
     {
-        PRINT("Pairing started:%d\n", status);                      // ´òÓ¡Åä¶Ô¿ªÊ¼
+        PRINT("Pairing started:%d\n", status);                      // æ‰“å°é…å¯¹å¼€å§‹
     }
-    else if(state == GAPBOND_PAIRING_STATE_COMPLETE)               // Èç¹ûÊÇÅä¶ÔÍê³É×´Ì¬
+    else if(state == GAPBOND_PAIRING_STATE_COMPLETE)               // å¦‚æœæ˜¯é…å¯¹å®ŒæˆçŠ¶æ€
     {
-        if(status == SUCCESS)                                       // Èç¹ûÅä¶Ô³É¹¦
+        if(status == SUCCESS)                                       // å¦‚æœé…å¯¹æˆåŠŸ
         {
-            PRINT("Pairing success\n");                             // ´òÓ¡Åä¶Ô³É¹¦
+            PRINT("Pairing success\n");                             // æ‰“å°é…å¯¹æˆåŠŸ
         }
         else
         {
-            PRINT("Pairing fail\n");                                // ´òÓ¡Åä¶ÔÊ§°Ü
+            PRINT("Pairing fail\n");                                // æ‰“å°é…å¯¹å¤±è´¥
         }
     }
-    else if(state == GAPBOND_PAIRING_STATE_BONDED)                 // Èç¹ûÊÇÒÑ°ó¶¨×´Ì¬
+    else if(state == GAPBOND_PAIRING_STATE_BONDED)                 // å¦‚æœæ˜¯å·²ç»‘å®šçŠ¶æ€
     {
-        if(status == SUCCESS)                                       // Èç¹û°ó¶¨³É¹¦
+        if(status == SUCCESS)                                       // å¦‚æœç»‘å®šæˆåŠŸ
         {
-            PRINT("Bonding success\n");                             // ´òÓ¡°ó¶¨³É¹¦
+            PRINT("Bonding success\n");                             // æ‰“å°ç»‘å®šæˆåŠŸ
         }
     }
-    else if(state == GAPBOND_PAIRING_STATE_BOND_SAVED)             // Èç¹ûÊÇ°ó¶¨±£´æ×´Ì¬
+    else if(state == GAPBOND_PAIRING_STATE_BOND_SAVED)             // å¦‚æœæ˜¯ç»‘å®šä¿å­˜çŠ¶æ€
     {
-        if(status == SUCCESS)                                       // Èç¹û±£´æ³É¹¦
+        if(status == SUCCESS)                                       // å¦‚æœä¿å­˜æˆåŠŸ
         {
-            PRINT("Bond save success\n");                           // ´òÓ¡°ó¶¨±£´æ³É¹¦
+            PRINT("Bond save success\n");                           // æ‰“å°ç»‘å®šä¿å­˜æˆåŠŸ
         }
         else
         {
-            PRINT("Bond save failed: %d\n", status);                // ´òÓ¡°ó¶¨±£´æÊ§°Ü
+            PRINT("Bond save failed: %d\n", status);                // æ‰“å°ç»‘å®šä¿å­˜å¤±è´¥
         }
     }
 }
@@ -1326,46 +1326,46 @@ static void centralPairStateCB(uint16_t connHandle, uint8_t state, uint8_t statu
 /*********************************************************************
  * @fn      centralPasscodeCB
  *
- * @brief   Passcode callback.                                      // ÃÜÂë»Øµ÷º¯Êı
+ * @brief   Passcode callback.                                      // å¯†ç å›è°ƒå‡½æ•°
  *
- * @return  none                                                    // ÎŞ·µ»ØÖµ
+ * @return  none                                                    // æ— è¿”å›å€¼
  */
 static void centralPasscodeCB(uint8_t *deviceAddr, uint16_t connectionHandle,
                               uint8_t uiInputs, uint8_t uiOutputs)
 {
-    uint32_t passcode;                                              // ÃÜÂë±äÁ¿
+    uint32_t passcode;                                              // å¯†ç å˜é‡
 
-    // Create random passcode                                       // ´´½¨Ëæ»úÃÜÂë
+    // Create random passcode                                       // åˆ›å»ºéšæœºå¯†ç 
     passcode = tmos_rand();
-    passcode %= 1000000;                                           // ÏŞÖÆÃÜÂëÎª6Î»Êı
-    // Display passcode to user                                    // ÏÔÊ¾ÃÜÂë¸øÓÃ»§
+    passcode %= 1000000;                                           // é™åˆ¶å¯†ç ä¸º6ä½æ•°
+    // Display passcode to user                                    // æ˜¾ç¤ºå¯†ç ç»™ç”¨æˆ·
     if(uiOutputs != 0)
     {
-        PRINT("Passcode:%06d\n", (int)passcode);                   // ´òÓ¡6Î»ÃÜÂë
+        PRINT("Passcode:%06d\n", (int)passcode);                   // æ‰“å°6ä½å¯†ç 
     }
-    // Send passcode response                                      // ·¢ËÍÃÜÂëÏìÓ¦
+    // Send passcode response                                      // å‘é€å¯†ç å“åº”
     GAPBondMgr_PasscodeRsp(connectionHandle, SUCCESS, passcode);
 }
 
 /*********************************************************************
  * @fn      centralStartDiscovery
  *
- * @brief   Start service discovery.                               // ¿ªÊ¼·şÎñ·¢ÏÖ
+ * @brief   Start service discovery.                               // å¼€å§‹æœåŠ¡å‘ç°
  *
- * @return  none                                                   // ÎŞ·µ»ØÖµ
+ * @return  none                                                   // æ— è¿”å›å€¼
  */
 static void centralStartDiscovery(void)
 {
     uint8_t uuid[ATT_BT_UUID_SIZE] = {LO_UINT16(TARGET_SERVICE_UUID),
-                                      HI_UINT16(TARGET_SERVICE_UUID)}; // Ä¿±ê·şÎñUUID: AE00
+                                      HI_UINT16(TARGET_SERVICE_UUID)}; // ç›®æ ‡æœåŠ¡UUID: AE00
 
-    // Initialize cached handles                                    // ³õÊ¼»¯»º´æµÄ¾ä±ú
+    // Initialize cached handles                                    // åˆå§‹åŒ–ç¼“å­˜çš„å¥æŸ„
     centralSvcStartHdl = centralSvcEndHdl = 0;
     centralNotifyCharHdl = centralWriteCharHdl = centralCharHdl = centralCCCDHdl = 0;
 
-    centralDiscState = BLE_DISC_STATE_SVC;                         // ÉèÖÃ·¢ÏÖ×´Ì¬Îª·şÎñ·¢ÏÖ
+    centralDiscState = BLE_DISC_STATE_SVC;                         // è®¾ç½®å‘ç°çŠ¶æ€ä¸ºæœåŠ¡å‘ç°
 
-    // Discovery target BLE service (AE00)                        // ·¢ÏÖÄ¿±êBLE·şÎñ(AE00)
+    // Discovery target BLE service (AE00)                        // å‘ç°ç›®æ ‡BLEæœåŠ¡(AE00)
     PRINT("Starting service discovery for UUID: 0x%04X\n", TARGET_SERVICE_UUID);
     GATT_DiscPrimaryServiceByUUID(centralConnHandle,
                                   uuid,
@@ -1376,34 +1376,34 @@ static void centralStartDiscovery(void)
 /*********************************************************************
  * @fn      centralGATTDiscoveryEvent
  *
- * @brief   Process GATT discovery event                           // ´¦ÀíGATT·¢ÏÖÊÂ¼ş
+ * @brief   Process GATT discovery event                           // å¤„ç†GATTå‘ç°äº‹ä»¶
  *
- * @return  none                                                   // ÎŞ·µ»ØÖµ
+ * @return  none                                                   // æ— è¿”å›å€¼
  */
 static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
 {
-    attReadByTypeReq_t req;                                        // ¶ÁÈ¡ÇëÇó½á¹¹Ìå
-    if(centralDiscState == BLE_DISC_STATE_SVC)                     // Èç¹ûÊÇ·şÎñ·¢ÏÖ×´Ì¬
+    attReadByTypeReq_t req;                                        // è¯»å–è¯·æ±‚ç»“æ„ä½“
+    if(centralDiscState == BLE_DISC_STATE_SVC)                     // å¦‚æœæ˜¯æœåŠ¡å‘ç°çŠ¶æ€
     {
-        // Service found, store handles                            // ÕÒµ½·şÎñ£¬´æ´¢¾ä±ú
+        // Service found, store handles                            // æ‰¾åˆ°æœåŠ¡ï¼Œå­˜å‚¨å¥æŸ„
         if(pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP &&
            pMsg->msg.findByTypeValueRsp.numInfo > 0)
         {
-            centralSvcStartHdl = ATT_ATTR_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0); // ±£´æ·şÎñÆğÊ¼¾ä±ú
-            centralSvcEndHdl = ATT_GRP_END_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0); // ±£´æ·şÎñ½áÊø¾ä±ú
+            centralSvcStartHdl = ATT_ATTR_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0); // ä¿å­˜æœåŠ¡èµ·å§‹å¥æŸ„
+            centralSvcEndHdl = ATT_GRP_END_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0); // ä¿å­˜æœåŠ¡ç»“æŸå¥æŸ„
 
-            // Display Profile Service handle range                 // ÏÔÊ¾ÅäÖÃÎÄ¼ş·şÎñ¾ä±ú·¶Î§
+            // Display Profile Service handle range                 // æ˜¾ç¤ºé…ç½®æ–‡ä»¶æœåŠ¡å¥æŸ„èŒƒå›´
             PRINT("Found Profile Service handle : %x ~ %x \n", centralSvcStartHdl, centralSvcEndHdl);
         }
-        // If procedure complete                                   // Èç¹û³ÌĞòÍê³É
+        // If procedure complete                                   // å¦‚æœç¨‹åºå®Œæˆ
         if((pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP &&
             pMsg->hdr.status == bleProcedureComplete) ||
            (pMsg->method == ATT_ERROR_RSP))
         {
-            if(centralSvcStartHdl != 0)                            // Èç¹ûÕÒµ½AE00·şÎñ
+            if(centralSvcStartHdl != 0)                            // å¦‚æœæ‰¾åˆ°AE00æœåŠ¡
             {
-                // Discover all characteristics in the service     // ·¢ÏÖ·şÎñÖĞµÄËùÓĞÌØÕ÷
-                centralDiscState = BLE_DISC_STATE_CHAR;            // ÉèÖÃ×´Ì¬ÎªÌØÕ÷·¢ÏÖ
+                // Discover all characteristics in the service     // å‘ç°æœåŠ¡ä¸­çš„æ‰€æœ‰ç‰¹å¾
+                centralDiscState = BLE_DISC_STATE_CHAR;            // è®¾ç½®çŠ¶æ€ä¸ºç‰¹å¾å‘ç°
                 
                 PRINT("Discovering all characteristics in AE00 service (handles: 0x%04X - 0x%04X)\n", 
                       centralSvcStartHdl, centralSvcEndHdl);
@@ -1411,62 +1411,62 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             }
             else
             {
-                PRINT("Target service AE00 not found!\n");        // AE00·şÎñÎ´ÕÒµ½
-                // ¶Ï¿ªÁ¬½Ó£¬ÖØĞÂËÑË÷Éè±¸
+                PRINT("Target service AE00 not found!\n");        // AE00æœåŠ¡æœªæ‰¾åˆ°
+                // æ–­å¼€è¿æ¥ï¼Œé‡æ–°æœç´¢è®¾å¤‡
                 GAPRole_TerminateLink(centralConnHandle);
             }
         }
     }
-    else if(centralDiscState == BLE_DISC_STATE_CHAR)              // Èç¹ûÊÇÌØÕ÷·¢ÏÖ×´Ì¬
+    else if(centralDiscState == BLE_DISC_STATE_CHAR)              // å¦‚æœæ˜¯ç‰¹å¾å‘ç°çŠ¶æ€
     {
-        // ´¦ÀíÌØÕ÷·¢ÏÖÏìÓ¦
+        // å¤„ç†ç‰¹å¾å‘ç°å“åº”
         if(pMsg->method == ATT_READ_BY_TYPE_RSP &&
            pMsg->msg.readByTypeRsp.numPairs > 0)
         {
-            // ½âÎö·¢ÏÖµÄËùÓĞÌØÕ÷
+            // è§£æå‘ç°çš„æ‰€æœ‰ç‰¹å¾
             PRINT("Discovered %d characteristics in AE00 service:\n", pMsg->msg.readByTypeRsp.numPairs);
             for(uint8_t i = 0; i < pMsg->msg.readByTypeRsp.numPairs; i++)
             {
                 uint8_t *pData = &pMsg->msg.readByTypeRsp.pDataList[i * pMsg->msg.readByTypeRsp.len];
-                uint16_t charDeclHdl = BUILD_UINT16(pData[0], pData[1]);    // ÌØÕ÷ÉùÃ÷¾ä±ú
-                uint8_t properties = pData[2];                              // ÌØÕ÷ÊôĞÔ
-                uint16_t valueHdl = BUILD_UINT16(pData[3], pData[4]);       // ÌØÕ÷Öµ¾ä±ú
+                uint16_t charDeclHdl = BUILD_UINT16(pData[0], pData[1]);    // ç‰¹å¾å£°æ˜å¥æŸ„
+                uint8_t properties = pData[2];                              // ç‰¹å¾å±æ€§
+                uint16_t valueHdl = BUILD_UINT16(pData[3], pData[4]);       // ç‰¹å¾å€¼å¥æŸ„
                 
                 PRINT("Char %d: DeclHdl=0x%04X, Props=0x%02X, ValueHdl=0x%04X\n", 
                       i, charDeclHdl, properties, valueHdl);
                 
-                // ¶ÔÓÚ16×Ö½ÚUUID£¬ÌáÈ¡2×Ö½Ú¶ÌUUID
-                if(pMsg->msg.readByTypeRsp.len == 21)  // 16×Ö½ÚUUID¸ñÊ½
+                // å¯¹äº16å­—èŠ‚UUIDï¼Œæå–2å­—èŠ‚çŸ­UUID
+                if(pMsg->msg.readByTypeRsp.len == 21)  // 16å­—èŠ‚UUIDæ ¼å¼
                 {
-                    uint16_t shortUUID = BUILD_UINT16(pData[5], pData[6]);  // ÌáÈ¡¶ÌUUID
+                    uint16_t shortUUID = BUILD_UINT16(pData[5], pData[6]);  // æå–çŸ­UUID
                     PRINT("  UUID: 0x%04X", shortUUID);
                     
-                    // ¼ì²éÊÇ·ñÎªÄ¿±êÌØÕ÷
-                    if(shortUUID == TARGET_WRITE_CHAR_UUID)  // AE10Ğ´ÌØÕ÷
+                    // æ£€æŸ¥æ˜¯å¦ä¸ºç›®æ ‡ç‰¹å¾
+                    if(shortUUID == TARGET_WRITE_CHAR_UUID)  // AE10å†™ç‰¹å¾
                     {
                         centralWriteCharHdl = valueHdl;
-                        centralCharHdl = valueHdl;  // ÉèÖÃ¼æÈİ±äÁ¿
+                        centralCharHdl = valueHdl;  // è®¾ç½®å…¼å®¹å˜é‡
                         PRINT(" -> AE10 Write Characteristic Found! Handle=0x%04X", valueHdl);
                     }
-                    else if(shortUUID == TARGET_NOTIFY_CHAR_UUID)  // AE02Í¨ÖªÌØÕ÷
+                    else if(shortUUID == TARGET_NOTIFY_CHAR_UUID)  // AE02é€šçŸ¥ç‰¹å¾
                     {
                         centralNotifyCharHdl = valueHdl;
                         PRINT(" -> AE02 Notify Characteristic Found! Handle=0x%04X", valueHdl);
                     }
                     PRINT("\n");
                 }
-                else if(pMsg->msg.readByTypeRsp.len == 7)  // 2×Ö½ÚUUID¸ñÊ½
+                else if(pMsg->msg.readByTypeRsp.len == 7)  // 2å­—èŠ‚UUIDæ ¼å¼
                 {
                     uint16_t shortUUID = BUILD_UINT16(pData[5], pData[6]);
                     PRINT("  UUID: 0x%04X", shortUUID);
                     
-                    if(shortUUID == TARGET_WRITE_CHAR_UUID)  // AE10Ğ´ÌØÕ÷
+                    if(shortUUID == TARGET_WRITE_CHAR_UUID)  // AE10å†™ç‰¹å¾
                     {
                         centralWriteCharHdl = valueHdl;
-                        centralCharHdl = valueHdl;  // ÉèÖÃ¼æÈİ±äÁ¿
+                        centralCharHdl = valueHdl;  // è®¾ç½®å…¼å®¹å˜é‡
                         PRINT(" -> AE10 Write Characteristic Found! Handle=0x%04X", valueHdl);
                     }
-                    else if(shortUUID == TARGET_NOTIFY_CHAR_UUID)  // AE02Í¨ÖªÌØÕ÷
+                    else if(shortUUID == TARGET_NOTIFY_CHAR_UUID)  // AE02é€šçŸ¥ç‰¹å¾
                     {
                         centralNotifyCharHdl = valueHdl;
                         PRINT(" -> AE02 Notify Characteristic Found! Handle=0x%04X", valueHdl);
@@ -1474,7 +1474,7 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
                     PRINT("\n");
                 }
                 
-                // ´òÓ¡ÊôĞÔÏêÇé
+                // æ‰“å°å±æ€§è¯¦æƒ…
                 PRINT("  Properties: ");
                 if(properties & 0x02) PRINT("Read ");
                 if(properties & 0x08) PRINT("Write ");
@@ -1492,14 +1492,14 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             PRINT("  AE10 Write Handle: 0x%04X\n", centralWriteCharHdl);
             PRINT("  AE02 Notify Handle: 0x%04X\n", centralNotifyCharHdl);
             
-            if(centralNotifyCharHdl != 0)  // Èç¹ûÕÒµ½ÁËAE02Í¨ÖªÌØÕ÷
+            if(centralNotifyCharHdl != 0)  // å¦‚æœæ‰¾åˆ°äº†AE02é€šçŸ¥ç‰¹å¾
             {
                 // Discover CCCD for AE02 notification characteristic
-                centralDiscState = BLE_DISC_STATE_CCCD;           // ÉèÖÃ×´Ì¬ÎªCCCD·¢ÏÖ
-                req.startHandle = centralSvcStartHdl;             // ÉèÖÃÆğÊ¼¾ä±ú
-                req.endHandle = centralSvcEndHdl;                 // ÉèÖÃ½áÊø¾ä±ú
-                req.type.len = ATT_BT_UUID_SIZE;                  // ÉèÖÃUUID³¤¶È
-                req.type.uuid[0] = LO_UINT16(GATT_CLIENT_CHAR_CFG_UUID); // ÉèÖÃCCCD UUID
+                centralDiscState = BLE_DISC_STATE_CCCD;           // è®¾ç½®çŠ¶æ€ä¸ºCCCDå‘ç°
+                req.startHandle = centralSvcStartHdl;             // è®¾ç½®èµ·å§‹å¥æŸ„
+                req.endHandle = centralSvcEndHdl;                 // è®¾ç½®ç»“æŸå¥æŸ„
+                req.type.len = ATT_BT_UUID_SIZE;                  // è®¾ç½®UUIDé•¿åº¦
+                req.type.uuid[0] = LO_UINT16(GATT_CLIENT_CHAR_CFG_UUID); // è®¾ç½®CCCD UUID
                 req.type.uuid[1] = HI_UINT16(GATT_CLIENT_CHAR_CFG_UUID);
 
                 PRINT("Discovering CCCD for AE02 notification...\n");
@@ -1513,58 +1513,58 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             }
         }
     }
-    else if(centralDiscState == BLE_DISC_STATE_CCCD)             // Èç¹ûÊÇCCCD·¢ÏÖ×´Ì¬
+    else if(centralDiscState == BLE_DISC_STATE_CCCD)             // å¦‚æœæ˜¯CCCDå‘ç°çŠ¶æ€
     {
-        // CCCD found, store handle                              // ÕÒµ½CCCD£¬´æ´¢¾ä±ú
+        // CCCD found, store handle                              // æ‰¾åˆ°CCCDï¼Œå­˜å‚¨å¥æŸ„
         if(pMsg->method == ATT_READ_BY_TYPE_RSP &&
            pMsg->msg.readByTypeRsp.numPairs > 0)
         {
-            centralCCCDHdl = BUILD_UINT16(pMsg->msg.readByTypeRsp.pDataList[0], // ¹¹½¨CCCD¾ä±ú
+            centralCCCDHdl = BUILD_UINT16(pMsg->msg.readByTypeRsp.pDataList[0], // æ„å»ºCCCDå¥æŸ„
                                           pMsg->msg.readByTypeRsp.pDataList[1]);
-            centralProcedureInProgress = FALSE;                   // Çå³ı²Ù×÷½øĞĞÖĞ±êÖ¾
+            centralProcedureInProgress = FALSE;                   // æ¸…é™¤æ“ä½œè¿›è¡Œä¸­æ ‡å¿—
 
-            // Start do write CCCD to enable notifications        // ¿ªÊ¼Ğ´CCCDÆôÓÃÍ¨Öª
+            // Start do write CCCD to enable notifications        // å¼€å§‹å†™CCCDå¯ç”¨é€šçŸ¥
             tmos_start_task(centralTaskId, START_WRITE_CCCD_EVT, DEFAULT_WRITE_CCCD_DELAY);
 
-            // Display CCCD handle                                // ÏÔÊ¾CCCD¾ä±ú
+            // Display CCCD handle                                // æ˜¾ç¤ºCCCDå¥æŸ„
             PRINT("Found AE02 CCCD handle: 0x%04X, enabling notifications...\n", centralCCCDHdl);
             PRINT("Ready to receive notifications from AE02 and send data to AE10 (handle: 0x%04X)\n", centralWriteCharHdl);
-            setDimColor(RED, 0.05); // ÁÁ¶È 5% 
-            // ×¼±¸ÔÚCCCDÅäÖÃÍê³Éºó·¢ËÍ³õÊ¼»¯Êı¾İ
+            setDimColor(RED, 0.05); // äº®åº¦ 5% 
+            // å‡†å¤‡åœ¨CCCDé…ç½®å®Œæˆåå‘é€åˆå§‹åŒ–æ•°æ®
             PRINT("Will send initialization data after CCCD setup completes...\n");
         }
         else
         {
             PRINT("AE02 CCCD not found, notifications not available\n");
-            // ¼´Ê¹Ã»ÓĞCCCD£¬Á¬½ÓÈÔÈ»ÓĞĞ§£¬¿ÉÒÔ½øĞĞĞ´²Ù×÷
+            // å³ä½¿æ²¡æœ‰CCCDï¼Œè¿æ¥ä»ç„¶æœ‰æ•ˆï¼Œå¯ä»¥è¿›è¡Œå†™æ“ä½œ
             centralProcedureInProgress = FALSE;
             
-            // ¼´Ê¹Ã»ÓĞCCCD£¬Ò²´¥·¢³õÊ¼»¯Êı¾İ·¢ËÍ
+            // å³ä½¿æ²¡æœ‰CCCDï¼Œä¹Ÿè§¦å‘åˆå§‹åŒ–æ•°æ®å‘é€
             if(centralWriteCharHdl != 0)
             {
                 PRINT("Triggering initialization data send (no CCCD found)...\n");
-                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 1000); // 1sºó·¢ËÍ³õÊ¼»¯Êı¾İ
+                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 1000); // 1såå‘é€åˆå§‹åŒ–æ•°æ®
             }
         }
-        centralDiscState = BLE_DISC_STATE_IDLE;                  // ÉèÖÃ×´Ì¬Îª¿ÕÏĞ
+        centralDiscState = BLE_DISC_STATE_IDLE;                  // è®¾ç½®çŠ¶æ€ä¸ºç©ºé—²
     }
 }
 
 /*********************************************************************
  * @fn      centralAddDeviceInfo
  *
- * @brief   Add a device to the device discovery result list       // Ìí¼ÓÉè±¸µ½Éè±¸·¢ÏÖ½á¹ûÁĞ±í
+ * @brief   Add a device to the device discovery result list       // æ·»åŠ è®¾å¤‡åˆ°è®¾å¤‡å‘ç°ç»“æœåˆ—è¡¨
  *
- * @return  none                                                   // ÎŞ·µ»ØÖµ
+ * @return  none                                                   // æ— è¿”å›å€¼
  */
 static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType)
 {
     uint8_t i;
 
-    // If result count not at max                                  // Èç¹û½á¹ûÊıÁ¿Î´´ïµ½×î´óÖµ
+    // If result count not at max                                  // å¦‚æœç»“æœæ•°é‡æœªè¾¾åˆ°æœ€å¤§å€¼
     if(centralScanRes < DEFAULT_MAX_SCAN_RES)
     {
-        // Check if device is already in scan results              // ¼ì²éÉè±¸ÊÇ·ñÒÑÔÚÉ¨Ãè½á¹ûÖĞ
+        // Check if device is already in scan results              // æ£€æŸ¥è®¾å¤‡æ˜¯å¦å·²åœ¨æ‰«æç»“æœä¸­
         for(i = 0; i < centralScanRes; i++)
         {
             if(tmos_memcmp(pAddr, centralDevList[i].addr, B_ADDR_LEN))
@@ -1572,12 +1572,12 @@ static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType)
                 return;
             }
         }
-        // Add addr to scan result list                           // Ìí¼ÓµØÖ·µ½É¨Ãè½á¹ûÁĞ±í
+        // Add addr to scan result list                           // æ·»åŠ åœ°å€åˆ°æ‰«æç»“æœåˆ—è¡¨
         tmos_memcpy(centralDevList[centralScanRes].addr, pAddr, B_ADDR_LEN);
         centralDevList[centralScanRes].addrType = addrType;
-        // Increment scan result count                            // Ôö¼ÓÉ¨Ãè½á¹û¼ÆÊı
+        // Increment scan result count                            // å¢åŠ æ‰«æç»“æœè®¡æ•°
         centralScanRes++;
-        // Display device addr                                    // ÏÔÊ¾Éè±¸µØÖ·
+        // Display device addr                                    // æ˜¾ç¤ºè®¾å¤‡åœ°å€
 //        PRINT("Device %d - Addr %x %x %x %x %x %x \n", centralScanRes,
 //              centralDevList[centralScanRes - 1].addr[0],
 //              centralDevList[centralScanRes - 1].addr[1],
@@ -1591,35 +1591,35 @@ static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType)
 /*********************************************************************
  * @fn      Central_DisconnectAndStopAutoReconnect
  *
- * @brief   ¶Ï¿ªµ±Ç°Á¬½Ó²¢Í£Ö¹×Ô¶¯ÖØÁ¬¹¦ÄÜ
+ * @brief   æ–­å¼€å½“å‰è¿æ¥å¹¶åœæ­¢è‡ªåŠ¨é‡è¿åŠŸèƒ½
  *
  * @return  none
  */
 void Central_DisconnectAndStopAutoReconnect(void)
 {
     PRINT("User triggered: Disconnect and stop auto reconnect\n");
-    // ´¥·¢Í£Ö¹×Ô¶¯ÖØÁ¬ÊÂ¼ş
+    // è§¦å‘åœæ­¢è‡ªåŠ¨é‡è¿äº‹ä»¶
     tmos_set_event(centralTaskId, STOP_AUTO_RECONNECT_EVT);
 }
 
 /*********************************************************************
  * @fn      Central_StartAutoReconnect
  *
- * @brief   Æô¶¯×Ô¶¯ËÑË÷ºÍÁ¬½Ó¹¦ÄÜ
+ * @brief   å¯åŠ¨è‡ªåŠ¨æœç´¢å’Œè¿æ¥åŠŸèƒ½
  *
  * @return  none
  */
 void Central_StartAutoReconnect(void)
 {
     PRINT("User triggered: Start auto reconnect\n");
-    // ´¥·¢Æô¶¯×Ô¶¯ÖØÁ¬ÊÂ¼ş
+    // è§¦å‘å¯åŠ¨è‡ªåŠ¨é‡è¿äº‹ä»¶
     tmos_set_event(centralTaskId, START_AUTO_RECONNECT_EVT);
 }
 
 /*********************************************************************
  * @fn      Central_IsConnected
  *
- * @brief   ¼ì²éÊÇ·ñµ±Ç°ÓĞBLEÁ¬½Ó
+ * @brief   æ£€æŸ¥æ˜¯å¦å½“å‰æœ‰BLEè¿æ¥
  *
  * @return  TRUE if connected, FALSE otherwise
  */

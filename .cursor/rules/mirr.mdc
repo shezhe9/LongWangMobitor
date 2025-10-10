@@ -1,0 +1,8 @@
+---
+alwaysApply: true
+---
+
+D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\LongWangMonitor 这个是我用 CH582 作为蓝牙Master的工程代码。 
+D:\BaiduSyncdisk\Tools\Raditor\Code\EXAM_PC\BLE\BLE-HID-OTA 这个是我用 CH582 作为蓝牙Slave的工程代码。 
+工程是基于 TMOS 操作系统。 
+我现在需要在 master 这个工程代码上移植一些来自于 stave 工程的功能。 

@@ -2,7 +2,7 @@
 #include "uart_cmd.h"
 #include "ws2812.h"
 #include "key.h"
-#include "central.h"  // Ìí¼Ócentral.hÍ·ÎÄ¼şÒÔ·ÃÎÊcentralTaskIdºÍÊÂ¼ş¶¨Òå
+#include "central.h"  // æ·»åŠ central.hå¤´æ–‡ä»¶ä»¥è®¿é—®centralTaskIdå’Œäº‹ä»¶å®šä¹‰
 
 
 void app_uart_init(void)
@@ -27,10 +27,10 @@ void app_uart_init(void)
     //enable interupt
     PRINT("UART1_INTCfg \n");
     UART1_INTCfg(ENABLE, RB_IER_RECV_RDY | RB_IER_LINE_STAT);
-    //ÆğÓÃUART1µÄfifo    (R8_UARTx_FCR)µÄ RB_FCR_FIFO_EN Î»ÖÃ1
+    //èµ·ç”¨UART1çš„fifo    (R8_UARTx_FCR)çš„ RB_FCR_FIFO_EN ä½ç½®1
     PRINT("UART1_FIFOCfg \n");
     R8_UART1_FCR |= RB_FCR_FIFO_EN;
-    UART1_ByteTrigCfg(11);//11£º7 ×Ö½Ú¡£
+    UART1_ByteTrigCfg(11);//11ï¼š7 å­—èŠ‚ã€‚
     
     PRINT("PFIC_EnableIRQ \n");
     PFIC_EnableIRQ(UART1_IRQn);
@@ -40,7 +40,7 @@ void app_uart_init(void)
 //Not every uart reception will end with a UART_II_RECV_TOUT
 //UART_II_RECV_TOUT can only be triggered when R8_UARTx_RFC is not 0
 //Here we cannot rely UART_II_RECV_TOUT as the end of a uart reception
-//¶¨Òå20×Ö½Ú»º³åÇøÓÃÓÚ½ÓÊÕÊı¾İ
+//å®šä¹‰20å­—èŠ‚ç¼“å†²åŒºç”¨äºæ¥æ”¶æ•°æ®
 uint8_t uart_rx_buffer[20];
 
 __INTERRUPT
@@ -56,27 +56,27 @@ void UART1_IRQHandler(void)
 
         case UART_II_RECV_RDY:
         case UART_II_RECV_TOUT:
-              // Ö±½Ó´¦Àí½ÓÊÕµ½µÄÊı¾İ
+              // ç›´æ¥å¤„ç†æ¥æ”¶åˆ°çš„æ•°æ®
             do
             {
-                //d´òÓ¡fifoµÄ¼ÆÊıÆ÷Öµ
+                //dæ‰“å°fifoçš„è®¡æ•°å™¨å€¼
                 //PRINT("count: %d\n", R8_UART1_RFC);
-                //½«R8_UART1_RFC¸öÊı¾İ´æ´¢µ½»º³åÇø
+                //å°†R8_UART1_RFCä¸ªæ•°æ®å­˜å‚¨åˆ°ç¼“å†²åŒº
                 for(uint8_t i = 0; i < R8_UART1_RFC; i++)   
                 {
                     uart_rx_buffer[i] = R8_UART1_RBR;
                 }
 
-                // Öğ×Ö´òÓ¡½ÓÊÕµ½µÄ×Ö·û´®
+                // é€å­—æ‰“å°æ¥æ”¶åˆ°çš„å­—ç¬¦ä¸²
                 //for(uint8_t i = 0; i < R8_UART1_RFC; i++)
                 //{
                 //    PRINT("char: 0x%x\n", uart_rx_buffer[i]);
                 //}
               
                 
-                // ´òÓ¡Ê×¸öÊı¾İµÄÊ®Áù½øÖÆÖµ
+                // æ‰“å°é¦–ä¸ªæ•°æ®çš„åå…­è¿›åˆ¶å€¼
                 //PRINT("First: 0x%X\n", uart_rx_buffer[0]);
-                //Èç¹ûuart_rx_buffer[0]=0x31 ÔòÖØÆôCH582MÏµÍ³
+                //å¦‚æœuart_rx_buffer[0]=0x31 åˆ™é‡å¯CH582Mç³»ç»Ÿ
                 if (uart_rx_buffer[0] == 0x31)
                 {
                     PRINT("EN_CH_SWITCH\n");
@@ -118,36 +118,36 @@ void UART1_IRQHandler(void)
                
                 if (uart_rx_buffer[0] == 0x39)
                 {
-                    // Ê¹ÄÜ¿´ÃÅ¹·
+                    // ä½¿èƒ½çœ‹é—¨ç‹—
                     R8_SAFE_ACCESS_SIG = SAFE_ACCESS_SIG1;
                     R8_SAFE_ACCESS_SIG = SAFE_ACCESS_SIG2;
                     R8_RST_WDOG_CTRL = RB_WDOG_RST_EN;
-                    // ´¥·¢¿´ÃÅ¹·¸´Î»
+                    // è§¦å‘çœ‹é—¨ç‹—å¤ä½
                     R8_SAFE_ACCESS_SIG = SAFE_ACCESS_SIG1;
                     R8_SAFE_ACCESS_SIG = SAFE_ACCESS_SIG2;
                     R8_RST_WDOG_CTRL |= RB_SOFTWARE_RESET;
-                    // µÈ´ı¸´Î»·¢Éú
+                    // ç­‰å¾…å¤ä½å‘ç”Ÿ
                     while(1);
                 }
 
                 if (uart_rx_buffer[0] == 0x3a)
                 {
                     PRINT("Received 0x3a command - Starting to send 20 test data to BLE device\n");
-                    // ´¥·¢·¢ËÍ20¸ö²âÊÔÊı¾İÊÂ¼ş
-                    tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 10); // 10msºó¿ªÊ¼·¢ËÍ
+                    // è§¦å‘å‘é€20ä¸ªæµ‹è¯•æ•°æ®äº‹ä»¶
+                    tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 10); // 10msåå¼€å§‹å‘é€
                 }
 
                 if (uart_rx_buffer[0] == 0x3b)
                 {
                     PRINT("Received 0x3b command - Disconnect BLE and stop auto reconnect\n");
-                    // ¶Ï¿ªBLEÁ¬½Ó²¢Í£Ö¹×Ô¶¯ÖØÁ¬
+                    // æ–­å¼€BLEè¿æ¥å¹¶åœæ­¢è‡ªåŠ¨é‡è¿
                     Central_DisconnectAndStopAutoReconnect();
                 }
 
                 if (uart_rx_buffer[0] == 0x3c)
                 {
                     PRINT("Received 0x3c command - Start auto reconnect\n");
-                    // Æô¶¯×Ô¶¯ËÑË÷ºÍÁ¬½Ó
+                    // å¯åŠ¨è‡ªåŠ¨æœç´¢å’Œè¿æ¥
                     Central_StartAutoReconnect();
                 }
 

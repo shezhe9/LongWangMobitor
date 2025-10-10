@@ -3,214 +3,215 @@
  * Author             : WCH
  * Version            : V1.0
  * Date               : 2020/08/06
- * Description        : SPI0ÑİÊ¾ Master/Slave Ä£Ê½Êı¾İÊÕ·¢
+ * Description        : SPI0æ¼”ç¤º Master/Slave æ¨¡å¼æ•°æ®æ”¶å‘
  *********************************************************************************
  * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
  * Attention: This software (modified or not) and binary are used for 
  * microcontroller manufactured by Nanjing Qinheng Microelectronics.
  *******************************************************************************/
 
-#include "CH58x_common.h"
-#include "ws2812.h"
-
-__attribute__((aligned(4))) UINT8 spiBuff[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6};
-__attribute__((aligned(4))) UINT8 spiBuffrev[16];
-
-
-#define LED_NUM 1
-
-#define GRB_CODE_0 (0x80)
-#define GRB_CODE_1 (0xE0)
-
-__attribute__((aligned(4))) uint8_t grb_scale[LED_NUM*3] = {0};     //Ã¿¸öµÆÖéµÄG/R/BÈıÉ«»Ò¶È¸÷ÓÃÒ»¸ö×Ö½Ú±íÊ¾
-__attribute__((aligned(4))) uint8_t spi_grb_buff[LED_NUM*3*4];     //Ã¿¸öµÆÖéµÄÃ¿ÖÖÑÕÉ«£¬ÓÃ4×Ö½Ú±íÊ¾¡£
-
-
-
-
-/*
- * ½«GRB»Ò¶È×ª»»ÎªÍ¨¹ıSPIµÄDMA·¢³öµÄ±ÈÌØÁ÷¡£Ã¿¸öWS2812µÆÖéĞèÒª12¸ö×Ö½ÚÀ´Çı¶¯¡£
- * uint8_t *grb_pdest:  SPI»º´æÊı×é
- * uint8_t *grb_psrc:   GRB»Ò¶È
- * uint16_t len:        µÆÖéÊıÁ¿
- * */
-void grb_scale_2_spi_buff(uint8_t *pdest_grb, uint8_t *psrc_grb, uint16_t len)
-{
-    memset(pdest_grb, 0, len*3*4);     //Êı×éÇåÁã
-//  G/R/BÇı¶¯ÖĞµÄÒ»¸ö±àÂëÎ»ÓÃ4¸öSPIÎ»±íÊ¾¡£Ã¿ÖÖÉ«²Ê8¸ö±àÂëÎ»£¬ĞèÒª4×Ö½Ú¡£Çı¶¯G/R/B¹²24¸öÎ»£¬¹ÊĞèÒªSPI²¨ĞÎÖĞµÄ96¸öÎ»¼´12¸ö×Ö½ÚÀ´±íÊ¾¡£
-    for(uint16_t i=0; i<len; i++)
-    {
-        for(uint8_t j=0; j<3; j++)  //G/R/BÈıÖÖÉ«²ÊÂÖÁ÷ÅäÖÃ
-        {
-            for(uint8_t k=0; k<4; k++)  //Ã¿ÖÖÉ«²Ê8Î»»Ò¶È,ÓÃ4¸ö×Ö½Ú±íÊ¾
-            {
-                for(uint8_t m=0; m<2; m++)  //Ã¿¸ö×Ö½Ú°üº¬Á½¸öws2812±àÂëÎ»
-                {
-                    if( psrc_grb[3*i + j] & (0x80 >> (2*k + m)) )
-                    {
-                        pdest_grb[3*4*i + 4*j +k] |= (GRB_CODE_1 >> (m*4));
-                        //PRINT("1 ");
-                    }
-                    else
-                    {
-                        pdest_grb[3*4*i + 4*j +k] |= (GRB_CODE_0 >> (m*4));
-                        //PRINT("0 ");
-                    }
-                }
-                //PRINT("%x ", spi_grb_buff[3*4*i + 4*j +k]);
-            }
-        }
-        //PRINT("\n");
-    }
-    //PRINT("\n");
-}
-#define MAX_NUM 10
-#define delay 100
-// ¶¨ÒåÑÕÉ«
-
-
-void display(uint8_t G_set,uint8_t R_set,uint8_t B_set)
-{
-    uint8_t i;
-    uint8_t R=0;
-    uint8_t G=0;
-    uint8_t B=0;
-
-    memset(spi_grb_buff, 0, 24);     //Ä£ÄâWS2812µÄ¸´Î»ĞÅºÅ
-    for(uint8_t brightness = 0; brightness <= MAX_NUM; brightness++)
-    {
-
-        if(R_set==0)
-            R=0;
-        else
-            R=brightness;
-        if(G_set==0)
-            G=0;
-        else
-            G=brightness;
-        if(B_set==0)
-            B=0;
-        else
-            B=brightness;
-        grb_scale[3*i + 0] = G; // G
-        grb_scale[3*i + 1] = R;       // R
-        grb_scale[3*i + 2] = B;       // B
-        grb_scale_2_spi_buff(spi_grb_buff, grb_scale, LED_NUM);
-        SPI0_MasterDMATrans(spi_grb_buff, LED_NUM*3*4);
-        DelayMs(delay); // ¿ØÖÆ±ä»¯ËÙ¶È
-        PRINT(" RGB =%d %d %d \n",R,G,B);
-    }
-    memset(spi_grb_buff, 0, 24);     //Ä£ÄâWS2812µÄ¸´Î»ĞÅºÅ
-    for(uint8_t brightness = MAX_NUM; brightness > 0; brightness--)
-    {
-        if(R_set==0)
-            R=0;
-        else
-            R=brightness;
-        if(G_set==0)
-            G=0;
-        else
-            G=brightness;
-        if(B_set==0)
-            B=0;
-        else
-            B=brightness;
-        grb_scale[3*i + 0] = G; // G
-        grb_scale[3*i + 1] = R;       // R
-        grb_scale[3*i + 2] = B;       // B
-        grb_scale_2_spi_buff(spi_grb_buff, grb_scale, LED_NUM);
-        SPI0_MasterDMATrans(spi_grb_buff, LED_NUM*3*4);
-        DelayMs(delay); // ¿ØÖÆ±ä»¯ËÙ¶È
-        PRINT(" RGB =%d %d %d \n",R,G,B);
-    }
-};
-
-
-
-void setDimColor(uint32_t color, float brightness) {
-    // Çå¿Õ»º³åÇø
-    memset(spi_grb_buff, 0, 24); // Ä£Äâ WS2812 µÄ¸´Î»ĞÅºÅ
-
-    // ÌáÈ¡ RGB ÑÕÉ«Í¨µÀ²¢µ÷ÕûÁÁ¶È
-    uint8_t r = (color >> 16) & 0xFF;
-    uint8_t g = (color >> 8) & 0xFF;
-    uint8_t b = color & 0xFF;
-
-    // ¸ù¾İÁÁ¶Èµ÷ÕûÑÕÉ«
-    uint8_t dimR = r * brightness;
-    uint8_t dimG = g * brightness;
-    uint8_t dimB = b * brightness;
-
-    // ÉèÖÃÑÕÉ«µ½ LED µÆ´ø
-    for (uint8_t i = 0; i < LED_NUM; i++) {
-        grb_scale[3 * i]     = dimG; // G
-        grb_scale[3 * i + 1] = dimR; // R
-        grb_scale[3 * i + 2] = dimB; // B
-    }
-
-    // ½«ÑÕÉ«Êı¾İ·¢ËÍµ½ LED µÆ´ø
-    grb_scale_2_spi_buff(spi_grb_buff, grb_scale, LED_NUM);
-    SPI0_MasterDMATrans(spi_grb_buff, LED_NUM * 3 * 4);
-}
-
-//½«SPI0Ó³Éäµ½PB12ºÍPB13
-void SPI0_PinRemap_Init(void) {
-    // Ê¹ÄÜ°²È«·ÃÎÊ£¬ÒÔ±ãĞŞ¸ÄÌØÊâ¼Ä´æÆ÷
-    R8_SAFE_ACCESS_SIG = 0x55;
-    R8_SAFE_ACCESS_SIG = 0xAA;
-
-    // »ñÈ¡µ±Ç° SPI0 Ó³ÉäÇé¿ö
-    uint8_t current_mapping = (R16_PIN_ALTERNATE & (1 << 8)) >> 8;
-
-    // ´òÓ¡µ±Ç° SPI0 Ó³ÉäÇé¿ö
-    if (current_mapping) {
-        PRINT("old SPI0 map to PB12/PB13/PB14/PB15\n");
-    } else {
-        PRINT("old SPI0 map to PA12/PA13/PA14/PA15\n");
-    }
-
-    // ½« SPI0 Òı½ÅÓ³Éäµ½ PB×é
-    R16_PIN_ALTERNATE |= (1 << 8);  // ĞŞ¸ÄÎªµÚ8Î»
-
-    // »ñÈ¡µ±Ç°Ó³ÉäÇé¿ö²¢´òÓ¡
-    current_mapping = (R16_PIN_ALTERNATE & (1 << 8)) >> 8;
-    if (current_mapping) {
-        PRINT("now SPI0 map to PB12/PB13/PB14/PB15\n");
-    } else {
-        PRINT("now SPI0 map to PA12/PA13/PA14/PA15\n");
-    }
-
-    // »Ö¸´°²È«·ÃÎÊ×´Ì¬
-    R8_SAFE_ACCESS_SIG = 0x55;
-    R8_SAFE_ACCESS_SIG = 0xAA;
-
-    // Ö»ÅäÖÃMOSIÒı½Å£¨PB14£©ÎªÍÆÍìÊä³ö
-    GPIOB_ModeCfg(GPIO_Pin_14, GPIO_ModeOut_PP_5mA);  // MOSI
-    PRINT("SPI0 MOSI pin configured on PB14\n");
-
-    //masterÄ£Ê½ÏÂ£¬MOSIµÄÄ¬ÈÏµçÆ½ÊÜµ½MISOÓ°Ïì£¬Èç¹ûÓÃÀ´Çı¶¯ÖîÈçWS2812£¬
-    //ĞèÒª°ÑMISOĞü¿Õ²¢ÇÒÉèÖÃÎªµÍµçÆ½Êä³ö
-
-    // ÅäÖÃMISOÒı½ÅÎªµÍµçÆ½Êä³ö
-    GPIOB_ModeCfg(GPIO_Pin_15, GPIO_ModeOut_PP_5mA);  // MISOÉèÖÃÎªÍÆÍìÊä³ö
-    GPIOB_ResetBits(GPIO_Pin_15);  // MISOÉèÖÃÎªµÍµçÆ½
-}
-
-float temper_env, humidity_env;
-void ws2812_ini(void)
-{
-    //HSECFG_Capacitance(HSECap_18p);
-    // Ö»ÅäÖÃMOSIÒı½Å£¨PB14£©ÎªÍÆÍìÊä³ö
-    GPIOA_ModeCfg(GPIO_Pin_14, GPIO_ModeOut_PP_5mA);  // MOSI
-    PRINT("SPI0 MOSI pin configured on PA14\n");
-    //masterÄ£Ê½ÏÂ£¬MOSIµÄÄ¬ÈÏµçÆ½ÊÜµ½MISOÓ°Ïì£¬Èç¹ûÓÃÀ´Çı¶¯ÖîÈçWS2812£¬
-    //ĞèÒª°ÑMISOĞü¿Õ²¢ÇÒÉèÖÃÎªµÍµçÆ½Êä³ö
-    GPIOA_ModeCfg(GPIO_Pin_15, GPIO_ModeOut_PP_5mA);  // MISOÉèÖÃÎªÍÆÍìÊä³ö
-    GPIOA_ResetBits(GPIO_Pin_15);  // MISOÉèÖÃÎªµÍµçÆ½
-    SPI0_MasterDefInit();
-    SPI0_CLKCfg(19);    //SPIµÄÊ±ÖÓ£¬62.4M·ÖÆµµ½3.284MÆµÂÊ£¬Ã¿4¸öbitÄ£ÄâÒ»¸öws2812±àÂëÎ»£¨Ä£ÄâÄ¿±êÎª800KÆµÂÊ£©
-    memset(spi_grb_buff, 0, 24);     //Ä£ÄâWS2812µÄ¸´Î»ĞÅºÅ
-    SPI0_MasterDMATrans(spi_grb_buff, 24);
-    //display(255,0,0);
-    setDimColor(INI_STATE, 0.01); // 10% ÁÁ¶È
-}
+ #include "CH58x_common.h"
+ #include "ws2812.h"
+ 
+ __attribute__((aligned(4))) UINT8 spiBuff[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6};
+ __attribute__((aligned(4))) UINT8 spiBuffrev[16];
+ 
+ 
+ #define LED_NUM 1
+ 
+ #define GRB_CODE_0 (0x80)
+ #define GRB_CODE_1 (0xE0)
+ 
+ __attribute__((aligned(4))) uint8_t grb_scale[LED_NUM*3] = {0};     //æ¯ä¸ªç¯ç çš„G/R/Bä¸‰è‰²ç°åº¦å„ç”¨ä¸€ä¸ªå­—èŠ‚è¡¨ç¤º
+ __attribute__((aligned(4))) uint8_t spi_grb_buff[LED_NUM*3*4];     //æ¯ä¸ªç¯ç çš„æ¯ç§é¢œè‰²ï¼Œç”¨4å­—èŠ‚è¡¨ç¤ºã€‚
+ 
+ 
+ 
+ 
+ /*
+  * å°†GRBç°åº¦è½¬æ¢ä¸ºé€šè¿‡SPIçš„DMAå‘å‡ºçš„æ¯”ç‰¹æµã€‚æ¯ä¸ªWS2812ç¯ç éœ€è¦12ä¸ªå­—èŠ‚æ¥é©±åŠ¨ã€‚
+  * uint8_t *grb_pdest:  SPIç¼“å­˜æ•°ç»„
+  * uint8_t *grb_psrc:   GRBç°åº¦
+  * uint16_t len:        ç¯ç æ•°é‡
+  * */
+ void grb_scale_2_spi_buff(uint8_t *pdest_grb, uint8_t *psrc_grb, uint16_t len)
+ {
+     memset(pdest_grb, 0, len*3*4);     //æ•°ç»„æ¸…é›¶
+ //  G/R/Bé©±åŠ¨ä¸­çš„ä¸€ä¸ªç¼–ç ä½ç”¨4ä¸ªSPIä½è¡¨ç¤ºã€‚æ¯ç§è‰²å½©8ä¸ªç¼–ç ä½ï¼Œéœ€è¦4å­—èŠ‚ã€‚é©±åŠ¨G/R/Bå…±24ä¸ªä½ï¼Œæ•…éœ€è¦SPIæ³¢å½¢ä¸­çš„96ä¸ªä½å³12ä¸ªå­—èŠ‚æ¥è¡¨ç¤ºã€‚
+     for(uint16_t i=0; i<len; i++)
+     {
+         for(uint8_t j=0; j<3; j++)  //G/R/Bä¸‰ç§è‰²å½©è½®æµé…ç½®
+         {
+             for(uint8_t k=0; k<4; k++)  //æ¯ç§è‰²å½©8ä½ç°åº¦,ç”¨4ä¸ªå­—èŠ‚è¡¨ç¤º
+             {
+                 for(uint8_t m=0; m<2; m++)  //æ¯ä¸ªå­—èŠ‚åŒ…å«ä¸¤ä¸ªws2812ç¼–ç ä½
+                 {
+                     if( psrc_grb[3*i + j] & (0x80 >> (2*k + m)) )
+                     {
+                         pdest_grb[3*4*i + 4*j +k] |= (GRB_CODE_1 >> (m*4));
+                         //PRINT("1 ");
+                     }
+                     else
+                     {
+                         pdest_grb[3*4*i + 4*j +k] |= (GRB_CODE_0 >> (m*4));
+                         //PRINT("0 ");
+                     }
+                 }
+                 //PRINT("%x ", spi_grb_buff[3*4*i + 4*j +k]);
+             }
+         }
+         //PRINT("\n");
+     }
+     //PRINT("\n");
+ }
+ #define MAX_NUM 10
+ #define delay 100
+ // å®šä¹‰é¢œè‰²
+ 
+ 
+ void display(uint8_t G_set,uint8_t R_set,uint8_t B_set)
+ {
+     uint8_t i;
+     uint8_t R=0;
+     uint8_t G=0;
+     uint8_t B=0;
+ 
+     memset(spi_grb_buff, 0, 24);     //æ¨¡æ‹ŸWS2812çš„å¤ä½ä¿¡å·
+     for(uint8_t brightness = 0; brightness <= MAX_NUM; brightness++)
+     {
+ 
+         if(R_set==0)
+             R=0;
+         else
+             R=brightness;
+         if(G_set==0)
+             G=0;
+         else
+             G=brightness;
+         if(B_set==0)
+             B=0;
+         else
+             B=brightness;
+         grb_scale[3*i + 0] = G; // G
+         grb_scale[3*i + 1] = R;       // R
+         grb_scale[3*i + 2] = B;       // B
+         grb_scale_2_spi_buff(spi_grb_buff, grb_scale, LED_NUM);
+         SPI0_MasterDMATrans(spi_grb_buff, LED_NUM*3*4);
+         DelayMs(delay); // æ§åˆ¶å˜åŒ–é€Ÿåº¦
+         PRINT(" RGB =%d %d %d \n",R,G,B);
+     }
+     memset(spi_grb_buff, 0, 24);     //æ¨¡æ‹ŸWS2812çš„å¤ä½ä¿¡å·
+     for(uint8_t brightness = MAX_NUM; brightness > 0; brightness--)
+     {
+         if(R_set==0)
+             R=0;
+         else
+             R=brightness;
+         if(G_set==0)
+             G=0;
+         else
+             G=brightness;
+         if(B_set==0)
+             B=0;
+         else
+             B=brightness;
+         grb_scale[3*i + 0] = G; // G
+         grb_scale[3*i + 1] = R;       // R
+         grb_scale[3*i + 2] = B;       // B
+         grb_scale_2_spi_buff(spi_grb_buff, grb_scale, LED_NUM);
+         SPI0_MasterDMATrans(spi_grb_buff, LED_NUM*3*4);
+         DelayMs(delay); // æ§åˆ¶å˜åŒ–é€Ÿåº¦
+         PRINT(" RGB =%d %d %d \n",R,G,B);
+     }
+ };
+ 
+ 
+ 
+ void setDimColor(uint32_t color, float brightness) {
+     // æ¸…ç©ºç¼“å†²åŒº
+     memset(spi_grb_buff, 0, 24); // æ¨¡æ‹Ÿ WS2812 çš„å¤ä½ä¿¡å·
+ 
+     // æå– RGB é¢œè‰²é€šé“å¹¶è°ƒæ•´äº®åº¦
+     uint8_t r = (color >> 16) & 0xFF;
+     uint8_t g = (color >> 8) & 0xFF;
+     uint8_t b = color & 0xFF;
+ 
+     // æ ¹æ®äº®åº¦è°ƒæ•´é¢œè‰²
+     uint8_t dimR = r * brightness;
+     uint8_t dimG = g * brightness;
+     uint8_t dimB = b * brightness;
+ 
+     // è®¾ç½®é¢œè‰²åˆ° LED ç¯å¸¦
+     for (uint8_t i = 0; i < LED_NUM; i++) {
+         grb_scale[3 * i]     = dimG; // G
+         grb_scale[3 * i + 1] = dimR; // R
+         grb_scale[3 * i + 2] = dimB; // B
+     }
+ 
+     // å°†é¢œè‰²æ•°æ®å‘é€åˆ° LED ç¯å¸¦
+     grb_scale_2_spi_buff(spi_grb_buff, grb_scale, LED_NUM);
+     SPI0_MasterDMATrans(spi_grb_buff, LED_NUM * 3 * 4);
+ }
+ 
+ //å°†SPI0æ˜ å°„åˆ°PB12å’ŒPB13
+ void SPI0_PinRemap_Init(void) {
+     // ä½¿èƒ½å®‰å…¨è®¿é—®ï¼Œä»¥ä¾¿ä¿®æ”¹ç‰¹æ®Šå¯„å­˜å™¨
+     R8_SAFE_ACCESS_SIG = 0x55;
+     R8_SAFE_ACCESS_SIG = 0xAA;
+ 
+     // è·å–å½“å‰ SPI0 æ˜ å°„æƒ…å†µ
+     uint8_t current_mapping = (R16_PIN_ALTERNATE & (1 << 8)) >> 8;
+ 
+     // æ‰“å°å½“å‰ SPI0 æ˜ å°„æƒ…å†µ
+     if (current_mapping) {
+         PRINT("old SPI0 map to PB12/PB13/PB14/PB15\n");
+     } else {
+         PRINT("old SPI0 map to PA12/PA13/PA14/PA15\n");
+     }
+ 
+     // å°† SPI0 å¼•è„šæ˜ å°„åˆ° PBç»„
+     R16_PIN_ALTERNATE |= (1 << 8);  // ä¿®æ”¹ä¸ºç¬¬8ä½
+ 
+     // è·å–å½“å‰æ˜ å°„æƒ…å†µå¹¶æ‰“å°
+     current_mapping = (R16_PIN_ALTERNATE & (1 << 8)) >> 8;
+     if (current_mapping) {
+         PRINT("now SPI0 map to PB12/PB13/PB14/PB15\n");
+     } else {
+         PRINT("now SPI0 map to PA12/PA13/PA14/PA15\n");
+     }
+ 
+     // æ¢å¤å®‰å…¨è®¿é—®çŠ¶æ€
+     R8_SAFE_ACCESS_SIG = 0x55;
+     R8_SAFE_ACCESS_SIG = 0xAA;
+ 
+     // åªé…ç½®MOSIå¼•è„šï¼ˆPB14ï¼‰ä¸ºæ¨æŒ½è¾“å‡º
+     GPIOB_ModeCfg(GPIO_Pin_14, GPIO_ModeOut_PP_5mA);  // MOSI
+     PRINT("SPI0 MOSI pin configured on PB14\n");
+ 
+     //masteræ¨¡å¼ä¸‹ï¼ŒMOSIçš„é»˜è®¤ç”µå¹³å—åˆ°MISOå½±å“ï¼Œå¦‚æœç”¨æ¥é©±åŠ¨è¯¸å¦‚WS2812ï¼Œ
+     //éœ€è¦æŠŠMISOæ‚¬ç©ºå¹¶ä¸”è®¾ç½®ä¸ºä½ç”µå¹³è¾“å‡º
+ 
+     // é…ç½®MISOå¼•è„šä¸ºä½ç”µå¹³è¾“å‡º
+     GPIOB_ModeCfg(GPIO_Pin_15, GPIO_ModeOut_PP_5mA);  // MISOè®¾ç½®ä¸ºæ¨æŒ½è¾“å‡º
+     GPIOB_ResetBits(GPIO_Pin_15);  // MISOè®¾ç½®ä¸ºä½ç”µå¹³
+ }
+ 
+ float temper_env, humidity_env;
+ void ws2812_ini(void)
+ {
+     //HSECFG_Capacitance(HSECap_18p);
+     // åªé…ç½®MOSIå¼•è„šï¼ˆPB14ï¼‰ä¸ºæ¨æŒ½è¾“å‡º
+     GPIOA_ModeCfg(GPIO_Pin_14, GPIO_ModeOut_PP_5mA);  // MOSI
+     PRINT("SPI0 MOSI pin configured on PA14\n");
+     //masteræ¨¡å¼ä¸‹ï¼ŒMOSIçš„é»˜è®¤ç”µå¹³å—åˆ°MISOå½±å“ï¼Œå¦‚æœç”¨æ¥é©±åŠ¨è¯¸å¦‚WS2812ï¼Œ
+     //éœ€è¦æŠŠMISOæ‚¬ç©ºå¹¶ä¸”è®¾ç½®ä¸ºä½ç”µå¹³è¾“å‡º
+     GPIOA_ModeCfg(GPIO_Pin_15, GPIO_ModeOut_PP_5mA);  // MISOè®¾ç½®ä¸ºæ¨æŒ½è¾“å‡º
+     GPIOA_ResetBits(GPIO_Pin_15);  // MISOè®¾ç½®ä¸ºä½ç”µå¹³
+     SPI0_MasterDefInit();
+     SPI0_CLKCfg(19);    //SPIçš„æ—¶é’Ÿï¼Œ62.4Måˆ†é¢‘åˆ°3.284Mé¢‘ç‡ï¼Œæ¯4ä¸ªbitæ¨¡æ‹Ÿä¸€ä¸ªws2812ç¼–ç ä½ï¼ˆæ¨¡æ‹Ÿç›®æ ‡ä¸º800Ké¢‘ç‡ï¼‰
+     memset(spi_grb_buff, 0, 24);     //æ¨¡æ‹ŸWS2812çš„å¤ä½ä¿¡å·
+     SPI0_MasterDMATrans(spi_grb_buff, 24);
+     //display(255,0,0);
+     setDimColor(INI_STATE, 0.01); // 10% äº®åº¦
+ }
+ 

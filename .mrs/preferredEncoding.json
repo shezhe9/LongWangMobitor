@@ -1,0 +1,12 @@
+{
+	"details": [
+		{
+			"file": "APP/include/central.h",
+			"encoding": "gbk"
+		},
+		{
+			"file": "APP/central_main.c",
+			"encoding": "gbk"
+		}
+	]
+}
