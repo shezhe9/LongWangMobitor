@@ -75,41 +75,8 @@ void UART1_IRQHandler(void)
                 
                 // 打印首个数据的十六进制值
                 //PRINT("First: 0x%X\n", uart_rx_buffer[0]);
-                //如果uart_rx_buffer[0]=0x31 则重启CH582M系统
-                if (uart_rx_buffer[0] == 0x31)
-                {
-                    PRINT("EN_CH_SWITCH\n");
-                    EN_CH_SWITCH();
-                }
-
-                if (uart_rx_buffer[0] == 0x32)
-                {
-                    PRINT("EN_ESP_SWITCH\n");
-                    EN_ESP_SWITCH();
-                }
-
-                if (uart_rx_buffer[0] == 0x33)
-                {
-                    PRINT("EN_ESP_ME_SWITCH\n");
-                    EN_ESP_ME_SWITCH();
-                }
-                if (uart_rx_buffer[0] == 0x34)
-                {
-                    PRINT("EN_ESP_UART1_LOG_SWITCH\n");
-                    EN_ESP_UART1_LOG_SWITCH();
-                }
-
-                if (uart_rx_buffer[0] == 0x35)
-                {
-                    PRINT("EN_TEMP_SWITCH\n");
-                    EN_TEMP_SWITCH();
-                }
-
-                if (uart_rx_buffer[0] == 0x36)
-                {
-                    
-                }
-
+                
+                // 串口命令处理
                 if (uart_rx_buffer[0] == 0x38)
                 {
                     tmos_set_event(keyTaskId, KEY_EVENT_SINGLE_CLICK);

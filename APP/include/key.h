@@ -18,24 +18,11 @@
      KEY_TEST_SECOND = 0x0008
  } KeyEvent;
  
- extern  uint8_t keyTaskId;                 // TMOS任务ID，用于发送按键事件
- 
- #define CH582_AutoCheck_Pin GPIO_Pin_18
- #define CH582_PROG_BOOT_Pin GPIO_Pin_2
- 
- #define CH582_Key_Pin GPIO_Pin_19
- 
- #define CH582_12V_Pin GPIO_Pin_0
- #define CH582_3V3_Pin GPIO_Pin_5
- 
- #define EN_CH_Pin GPIO_Pin_6  //PB6  CH582 串口
- #define EN_ESP_Pin GPIO_Pin_12 //PB12 ESP烧录口
- #define EN_ESP_ME_Pin GPIO_Pin_12//PA12 本机ESP烧录串口
- #define EN_ESP_UART1_LOG_Pin GPIO_Pin_1//PB1  本机或者ESP 串口1
- 
- #define EN_TEMP_SWITCH_Pin GPIO_Pin_9//PB9  temp切换
- 
- // 按键状态定义
+extern  uint8_t keyTaskId;                 // TMOS任务ID，用于发送按键事件
+
+#define CH582_PROG_BOOT_Pin GPIO_Pin_1  // PB1 按键引脚
+
+// 按键状态定义
  
  // 新增按键检测事件
  #define KEY_DOUBLE_CLICK_CHECK  0x0010  // 双击检测事件
