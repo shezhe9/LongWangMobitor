@@ -14,7 +14,8 @@
 #include "CONFIG.h"                                                   // 包含配置头文件
 #include "gattprofile.h"                                             // 包含GATT配置文件头文件
 #include "central.h"                                                 // 包含central主机头文件
-#include "key.h"  
+#include "key.h"
+#include "ulog_buffer.h"                                             // ulog 日志系统  
 /*********************************************************************
  * MACROS                                                            // 宏定义
  */
@@ -266,7 +267,7 @@ void Central_Init()
     centralCCCDHdl = 0;
     autoReconnectEnabled = TRUE;  // 默认启用自动重连
     
-    PRINT("Central_Init: Initializing BLE Central with target device: %s\n", TARGET_DEVICE_NAME);
+    uinfo("Central_Init: Initializing BLE Central with target device: %s\n", TARGET_DEVICE_NAME);
     
     // Setup GAP                                                      // 设置GAP参数
     GAP_SetParamValue(TGAP_DISC_SCAN, DEFAULT_SCAN_DURATION);        // 设置扫描持续时间
@@ -336,7 +337,7 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
 
             if(events & ESTABLISH_LINK_TIMEOUT_EVT)                              // 如果是建立连接超时事件
         {
-            PRINT("Connection timeout! Terminating connection attempt...\n");
+            uinfo("Connection timeout! Terminating connection attempt...\n");
             GAPRole_TerminateLink(INVALID_CONNHANDLE);                    // 终止连接
             
             // 重置状态并重新开始搜索
@@ -349,14 +350,14 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
             // 只有在启用自动重连时才重新开始搜索
             if(autoReconnectEnabled == TRUE)
             {
-                PRINT("Restarting device discovery after timeout...\n");
+                uinfo("Restarting device discovery after timeout...\n");
                 GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
                                               DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                               DEFAULT_DISCOVERY_WHITE_LIST);
             }
             else
             {
-                PRINT("Auto reconnect disabled, not restarting discovery after timeout.\n");
+                uinfo("Auto reconnect disabled, not restarting discovery after timeout.\n");
             }
             
             return (events ^ ESTABLISH_LINK_TIMEOUT_EVT);
@@ -383,7 +384,7 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
     if(events & START_PHY_UPDATE_EVT)                                 // 如果是开始PHY更新事件
     {
         // start phy update                                           // 开始PHY更新
-        PRINT("PHY Update %x...\n", GAPRole_UpdatePHY(centralConnHandle, 0, 
+        uinfo("PHY Update %x...\n", GAPRole_UpdatePHY(centralConnHandle, 0, 
                     GAP_PHY_BIT_LE_2M, GAP_PHY_BIT_LE_2M, GAP_PHY_OPTIONS_NOPRE));
 
         return (events ^ START_PHY_UPDATE_EVT);
@@ -403,7 +404,7 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
 
             req.len = 1;                                              // 写入长度为1
             req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_REQ, req.len, NULL, 0); // 分配内存
-            PRINT("WRITE_handle = 0x%04X\n", req.handle);             // 打印句柄值
+            uinfo("WRITE_handle = 0x%04X\n", req.handle);             // 打印句柄值
             if(req.pValue != NULL)                                    // 如果内存分配成功
             {
                 *req.pValue = centralCharVal;                         // 设置写入值
@@ -411,12 +412,12 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 if(GATT_WriteCharValue(centralConnHandle, &req, centralTaskId) == SUCCESS) // 写入AE10特征值
                 {
                     centralProcedureInProgress = TRUE;                // 设置操作进行中标志
-                    PRINT("Writing value 0x%02X to AE10 write characteristic\n", centralCharVal);
+                    uinfo("Writing value 0x%02X to AE10 write characteristic\n", centralCharVal);
                 }
                 else
                 {
                     GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);   // 释放内存
-                    PRINT("Write failed\n");
+                    uinfo("Write failed\n");
                 }
             }
             
@@ -483,13 +484,13 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
             // 检查是否有其他GATT操作正在进行
             if(centralProcedureInProgress == TRUE)
             {
-                PRINT("GATT procedure in progress, retrying test data send in 100ms...\n");
+                uinfo("GATT procedure in progress, retrying test data send in 100ms...\n");
                 tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 100); // 100ms后重试
                 return (events ^ START_SEND_TEST_DATA_EVT);
             }
             
             // 一次发送20个字节的测试数据（1-20）到AE10写特征
-            PRINT("Sending to AE10 write characteristic handle: 0x%04X\n", centralWriteCharHdl);
+            uinfo("Sending to AE10 write characteristic handle: 0x%04X\n", centralWriteCharHdl);
             
             attWriteReq_t req;
             req.cmd = TRUE;                                           // 使用Write Command（无需响应，避免权限问题）
@@ -578,35 +579,35 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 if(send_data_index>2)
                   send_data_index=0;
                 // 打印要发送的数据
-                PRINT("Sending 20 bytes test data: ");
+                uinfo("Sending 20 bytes test data: ");
                 for(uint8_t i = 0; i < 20; i++)
                 {
-                    PRINT("%d ", req.pValue[i]);
+                    uinfo("%d ", req.pValue[i]);
                 }
-                PRINT("\n");
+                uinfo("\n");
                 
                 bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);  // 使用Write Command
                 if(status == SUCCESS)
                 {
-                    PRINT("20-byte test data sent successfully using Write Command to AE10!\n");
+                    uinfo("20-byte test data sent successfully using Write Command to AE10!\n");
                 }
                 else
                 {
-                    PRINT("Failed to send 20-byte test data, status: 0x%02X\n", status);
+                    uinfo("Failed to send 20-byte test data, status: 0x%02X\n", status);
                     GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
                 }
             }
             else
             {
-                PRINT("Failed to allocate memory for 20-byte test data\n");
+                uinfo("Failed to allocate memory for 20-byte test data\n");
             }
         }
         else
         {
-            PRINT("Cannot send test data:\n");
-            PRINT("  State: %d (expected: %d - BLE_STATE_CONNECTED)\n", centralState, BLE_STATE_CONNECTED);
-            PRINT("  ConnHandle: 0x%04X (expected: != 0xFFFE)\n", centralConnHandle);
-            PRINT("  AE02 WriteHandle: 0x%04X (expected: != 0)\n", centralWriteCharHdl);
+            uinfo("Cannot send test data:\n");
+            uinfo("  State: %d (expected: %d - BLE_STATE_CONNECTED)\n", centralState, BLE_STATE_CONNECTED);
+            uinfo("  ConnHandle: 0x%04X (expected: != 0xFFFE)\n", centralConnHandle);
+            uinfo("  AE02 WriteHandle: 0x%04X (expected: != 0)\n", centralWriteCharHdl);
         }
         return (events ^ START_SEND_TEST_DATA_EVT);
     }
@@ -618,13 +619,13 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
             // 检查是否有其他GATT操作正在进行
             if(centralProcedureInProgress == TRUE)
             {
-                PRINT("GATT procedure in progress, retrying init data send in 100ms...\n");
+                uinfo("GATT procedure in progress, retrying init data send in 100ms...\n");
                 tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 100); // 100ms后重试
                 return (events ^ START_SEND_INIT_DATA_EVT);
             }
             
             // 发送初始化数据：0x76 0x00 0x01 0x01
-            PRINT("Sending initialization data to AE10 write characteristic handle: 0x%04X\n", centralWriteCharHdl);
+            uinfo("Sending initialization data to AE10 write characteristic handle: 0x%04X\n", centralWriteCharHdl);
             
             attWriteReq_t req;
             req.cmd = TRUE;                                           // 使用Write Command（无需响应）
@@ -642,51 +643,51 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 req.pValue[3] = 0x01;
                 
                 // 打印要发送的数据
-                PRINT("Sending init data: 0x%02X 0x%02X 0x%02X 0x%02X\n", 
+                uinfo("Sending init data: 0x%02X 0x%02X 0x%02X 0x%02X\n", 
                       req.pValue[0], req.pValue[1], req.pValue[2], req.pValue[3]);
                 
                 bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);  // 使用Write Command
                 if(status == SUCCESS)
                 {
-                    PRINT("Initialization data sent successfully to AE10!\n");
+                    uinfo("Initialization data sent successfully to AE10!\n");
                 }
                 else
                 {
-                    PRINT("Failed to send initialization data, status: 0x%02X\n", status);
+                    uinfo("Failed to send initialization data, status: 0x%02X\n", status);
                     GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
                 }
             }
             else
             {
-                PRINT("Failed to allocate memory for initialization data\n");
+                uinfo("Failed to allocate memory for initialization data\n");
             }
         }
         else
         {
-            PRINT("Cannot send initialization data:\n");
-            PRINT("  State: %d (expected: %d - BLE_STATE_CONNECTED)\n", centralState, BLE_STATE_CONNECTED);
-            PRINT("  ConnHandle: 0x%04X (expected: != 0xFFFE)\n", centralConnHandle);
-            PRINT("  AE10 WriteHandle: 0x%04X (expected: != 0)\n", centralWriteCharHdl);
+            uinfo("Cannot send initialization data:\n");
+            uinfo("  State: %d (expected: %d - BLE_STATE_CONNECTED)\n", centralState, BLE_STATE_CONNECTED);
+            uinfo("  ConnHandle: 0x%04X (expected: != 0xFFFE)\n", centralConnHandle);
+            uinfo("  AE10 WriteHandle: 0x%04X (expected: != 0)\n", centralWriteCharHdl);
         }
         return (events ^ START_SEND_INIT_DATA_EVT);
     }
 
     if(events & STOP_AUTO_RECONNECT_EVT)                             // 如果是停止自动重连事件
     {
-        PRINT("Stopping auto reconnect functionality...\n");
+        uinfo("Stopping auto reconnect functionality...\n");
         autoReconnectEnabled = FALSE;                                // 禁用自动重连
         
         // 如果当前有连接，断开连接
         if(centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT)
         {
-            PRINT("Disconnecting current BLE connection...\n");
+            uinfo("Disconnecting current BLE connection...\n");
             GAPRole_TerminateLink(centralConnHandle);
         }
         
         // 停止当前的扫描
         if(centralState == BLE_STATE_IDLE || centralState == BLE_STATE_CONNECTING)
         {
-            PRINT("Stopping BLE discovery...\n");
+            uinfo("Stopping BLE discovery...\n");
             GAPRole_CentralCancelDiscovery();
         }
         
@@ -694,13 +695,13 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         tmos_stop_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT);
         tmos_stop_task(centralTaskId, START_READ_RSSI_EVT);
         
-        PRINT("Auto reconnect stopped. Device will not automatically search for BLE devices.\n");
+        uinfo("Auto reconnect stopped. Device will not automatically search for BLE devices.\n");
         return (events ^ STOP_AUTO_RECONNECT_EVT);
     }
 
     if(events & START_AUTO_RECONNECT_EVT)                            // 如果是启动自动重连事件
     {
-        PRINT("Starting auto reconnect functionality...\n");
+        uinfo("Starting auto reconnect functionality...\n");
         autoReconnectEnabled = TRUE;                                 // 启用自动重连
         
         // 重置连接状态
@@ -718,7 +719,7 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         centralCharHdl = 0;
         centralCCCDHdl = 0;
         
-        PRINT("Restarting device discovery for target device: '%s'...\n", TARGET_DEVICE_NAME);
+        uinfo("Restarting device discovery for target device: '%s'...\n", TARGET_DEVICE_NAME);
         GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
                                       DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                       DEFAULT_DISCOVERY_WHITE_LIST);
@@ -775,14 +776,14 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
         {
             uint8_t status = pMsg->msg.errorRsp.errCode;              // 获取错误码
 
-            PRINT("Exchange MTU Error: %x\n", status);                 // 打印MTU交换错误
+            uinfo("Exchange MTU Error: %x\n", status);                 // 打印MTU交换错误
         }
         centralProcedureInProgress = FALSE;                           // 清除操作进行中标志
     }
 
     if(pMsg->method == ATT_MTU_UPDATED_EVENT)                         // 如果是MTU更新事件
     {
-        PRINT("MTU: %x\n", pMsg->msg.mtuEvt.MTU);                    // 打印新的MTU值
+        uinfo("MTU: %x\n", pMsg->msg.mtuEvt.MTU);                    // 打印新的MTU值
     }
 
     if((pMsg->method == ATT_READ_RSP) ||                             // 如果是读取响应
@@ -793,16 +794,16 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
         {
             uint8_t status = pMsg->msg.errorRsp.errCode;             // 获取错误码
 
-            PRINT("Read Error: %x\n", status);                        // 打印读取错误
+            uinfo("Read Error: %x\n", status);                        // 打印读取错误
         }
         else
         {
             // After a successful read, display the read value         // 成功读取后显示读取的值
-//            PRINT("Read rsp: %x\n", *pMsg->msg.readRsp.pValue);
-//          PRINT("len = %d, Read rsp: ", pMsg->msg.readRsp.len);
+//            uinfo("Read rsp: %x\n", *pMsg->msg.readRsp.pValue);
+//          uinfo("len = %d, Read rsp: ", pMsg->msg.readRsp.len);
 //          for( i = 0; i < pMsg->msg.readRsp.len; i++){
-//            PRINT("%02x ", pMsg->msg.readRsp.pValue[i]);
-//          }PRINT("\n");
+//            uinfo("%02x ", pMsg->msg.readRsp.pValue[i]);
+//          }uinfo("\n");
         }
 //        tmos_start_task(centralTaskId, START_WRITE_CCCD_EVT, DEFAULT_WRITE_CCCD_DELAY);
 //        tmos_start_task(centralTaskId, START_READ_OR_WRITE_EVT, DEFAULT_READ_OR_WRITE_DELAY);
@@ -816,17 +817,17 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
         {
             uint8_t status = pMsg->msg.errorRsp.errCode;            // 获取错误码
 
-            PRINT("Write Error: %x\n", status);                      // 打印写入错误
+            uinfo("Write Error: %x\n", status);                      // 打印写入错误
         }
         else
         {
             // Write success                                         // 写入成功
-            PRINT("Write success \n");                              // 打印写入成功
+            uinfo("Write success \n");                              // 打印写入成功
             
             // 检查是否是CCCD写入成功，如果是则发送初始化数据
             if(centralDiscState == BLE_DISC_STATE_IDLE && centralWriteCharHdl != 0)
             {
-                PRINT("CCCD setup completed, triggering initialization data send...\n");
+                uinfo("CCCD setup completed, triggering initialization data send...\n");
                 tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 500); // 500ms后发送初始化数据
             }
         }
@@ -835,11 +836,9 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
     }
     else if(pMsg->method == ATT_HANDLE_VALUE_NOTI)                 // 如果是特征值通知
     {
-//        PRINT("Receive noti: %x\n", *pMsg->msg.handleValueNoti.pValue);
-      PRINT("Noti: ");                                             // 打印通知值
-      for( i = 0; i < pMsg->msg.handleValueNoti.len; i++){         // 循环打印每个字节
-        PRINT("%02x ", pMsg->msg.handleValueNoti.pValue[i]);       // 以16进制格式打印
-      }PRINT("\n");
+//        uinfo("Receive noti: %x\n", *pMsg->msg.handleValueNoti.pValue);
+      // 使用 ulog_array_to_hex 一次性打印，避免循环产生多条日志
+      ulog_array_to_hex("Noti", pMsg->msg.handleValueNoti.pValue, pMsg->msg.handleValueNoti.len);
         if(pMsg->msg.handleValueNoti.pValue[0]==0xc0)
         {
             uint8_t modetype = pMsg->msg.handleValueNoti.pValue[3];
@@ -851,7 +850,7 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
             uint8_t pwm_cold=pMsg->msg.handleValueNoti.pValue[11];
             uint8_t pwm_bump =pMsg->msg.handleValueNoti.pValue[13];
             uint8_t pwm_fan =pMsg->msg.handleValueNoti.pValue[14];
-            PRINT("md=%d rightTemp=%d rightTemp=%d tempDelta=%d tempEnv=%d tempWater=%d pwm_cold=%d pwm_bump=%d pwm_fan=%d "  , modetype,leftTemp,rightTemp,tempDelta,tempEnv,tempWater,pwm_cold,pwm_bump,pwm_fan); 
+            uinfo("md=%d rightTemp=%d rightTemp=%d tempDelta=%d tempEnv=%d tempWater=%d pwm_cold=%d pwm_bump=%d pwm_fan=%d "  , modetype,leftTemp,rightTemp,tempDelta,tempEnv,tempWater,pwm_cold,pwm_bump,pwm_fan); 
         }
         
     }
@@ -874,7 +873,7 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
  */
 static void centralRssiCB(uint16_t connHandle, int8_t rssi)
 {
-    PRINT("RSSI : -%d dB \n", -rssi);                              // 打印RSSI值
+    uinfo("RSSI : -%d dB \n", -rssi);                              // 打印RSSI值
 }
 
 /*********************************************************************
@@ -893,7 +892,7 @@ static void centralHciMTUChangeCB(uint16_t connHandle, uint16_t maxTxOctets, uin
 
     req.clientRxMTU = maxRxOctets;                                 // 设置客户端接收MTU
     GATT_ExchangeMTU(connHandle, &req, centralTaskId);             // 发起MTU交换请求
-    PRINT("exchange mtu:%d\n", maxRxOctets);                       // 打印交换的MTU值
+    uinfo("exchange mtu:%d\n", maxRxOctets);                       // 打印交换的MTU值
     centralProcedureInProgress = TRUE;                             // 设置操作进行中标志
 }
 
@@ -912,20 +911,20 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
     {
         case GAP_DEVICE_INIT_DONE_EVENT:                           // 设备初始化完成事件
         {
-            PRINT("BLE Central initialized. Searching for device: '%s' (length=%d)\n", 
+            uinfo("BLE Central initialized. Searching for device: '%s' (length=%d)\n", 
                   TARGET_DEVICE_NAME, TARGET_DEVICE_NAME_LEN);      // 打印目标设备信息
             
             // 只有在启用自动重连时才开始发现
             if(autoReconnectEnabled == TRUE)
             {
-                PRINT("Auto reconnect enabled. Starting discovery...\n");
+                uinfo("Auto reconnect enabled. Starting discovery...\n");
                 GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,   // 开始设备发现
                                               DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                               DEFAULT_DISCOVERY_WHITE_LIST);
             }
             else
             {
-                PRINT("Auto reconnect disabled. Not starting discovery.\n");
+                uinfo("Auto reconnect disabled. Not starting discovery.\n");
             }
         }
         break;
@@ -933,7 +932,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
         case GAP_DEVICE_INFO_EVENT:                                // 设备信息事件
         {
             // 打印设备MAC地址用于调试
-            PRINT("Device found: %02X:%02X:%02X:%02X:%02X:%02X, dataLen=%d\n", 
+            uinfo("Device found: %02X:%02X:%02X:%02X:%02X:%02X, dataLen=%d\n", 
                   pEvent->deviceInfo.addr[5], pEvent->deviceInfo.addr[4], 
                   pEvent->deviceInfo.addr[3], pEvent->deviceInfo.addr[2], 
                   pEvent->deviceInfo.addr[1], pEvent->deviceInfo.addr[0],
@@ -947,12 +946,13 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             // 如果有广播数据，进行解析
             if(pAdvData != NULL && advDataLen > 0)
             {
-                // 打印原始广播数据用于调试
-                PRINT("Raw ADV data: ");
-                for(uint8_t j = 0; j < advDataLen && j < 20; j++) {  // 限制打印长度
-                    PRINT("%02X ", pAdvData[j]);
-                }
-                PRINT("\n");
+                // 注释掉详细 ADV 数据打印，避免缓冲区溢出（每个字节一条日志会填满缓冲区）
+                // 如需调试可以改用临时的 PRINT
+                // uinfo("Raw ADV data: ");
+                // for(uint8_t j = 0; j < advDataLen && j < 20; j++) {
+                //     uinfo("%02X ", pAdvData[j]);
+                // }
+                // uinfo("\n");
                 
                 // 解析广播数据寻找设备名称
                 while(i < advDataLen - 1)  // 确保至少有length和type字段
@@ -961,7 +961,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                     if(fieldLen == 0 || i + fieldLen >= advDataLen) break;  // 防止越界
                     
                     uint8_t fieldType = pAdvData[i + 1];
-                    PRINT("Field: len=%d, type=0x%02X\n", fieldLen, fieldType);
+                    uinfo("Field: len=%d, type=0x%02X\n", fieldLen, fieldType);
                     
                     // 检查是否为完整本地名称(0x09)或缩短本地名称(0x08)
                     if(fieldType == 0x09 || fieldType == 0x08)
@@ -970,11 +970,14 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                         if(nameLen > 0 && i + 2 + nameLen <= advDataLen)
                         {
                             // 打印找到的设备名称
-                            PRINT("Device name found (len=%d): ", nameLen);
-                            for(uint8_t k = 0; k < nameLen; k++) {
-                                PRINT("%c", pAdvData[i + 2 + k]);
+                            // 一次性打印设备名称，避免循环产生多条日志
+                            char devName[32] = {0};
+                            uint8_t copyLen = (nameLen < 31) ? nameLen : 31;
+                            for(uint8_t k = 0; k < copyLen; k++)
+                            {
+                                devName[k] = pAdvData[i + 2 + k];
                             }
-                            PRINT("\n");
+                            uinfo("Device name found (len=%d): %s\n", nameLen, devName);
                             
                                                         // 检查是否匹配目标设备名称（允许长度稍有差异）
                             if(nameLen >= TARGET_DEVICE_NAME_LEN)
@@ -992,27 +995,27 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                 
                                 if(match)
                                 {
-                                    PRINT("*** FOUND TARGET DEVICE: %s (expected len=%d, actual len=%d) ***\n", 
+                                    uinfo("*** FOUND TARGET DEVICE: %s (expected len=%d, actual len=%d) ***\n", 
                                           TARGET_DEVICE_NAME, TARGET_DEVICE_NAME_LEN, nameLen);
                                     
                                     // 保存设备地址用于调试
-                                    PRINT("Target device MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+                                    uinfo("Target device MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
                                           pEvent->deviceInfo.addr[5], pEvent->deviceInfo.addr[4],
                                           pEvent->deviceInfo.addr[3], pEvent->deviceInfo.addr[2], 
                                           pEvent->deviceInfo.addr[1], pEvent->deviceInfo.addr[0]);
                                     
                                     // 检查当前连接状态
-                                    PRINT("Current state: %d, ConnHandle: 0x%04X\n", centralState, centralConnHandle);
+                                    uinfo("Current state: %d, ConnHandle: 0x%04X\n", centralState, centralConnHandle);
                                     
                                     // 停止设备发现以避免冲突
-                                    PRINT("Stopping device discovery before connection attempt...\n");
+                                    uinfo("Stopping device discovery before connection attempt...\n");
                                     GAPRole_CentralCancelDiscovery();
                                     DelayMs(100);  // 等待停止完成
                                     
                                     // 如果已经连接或正在连接，先断开
                                     if(centralState != BLE_STATE_IDLE || centralConnHandle != GAP_CONNHANDLE_INIT)
                                     {
-                                        PRINT("Terminating existing connection...\n");
+                                        uinfo("Terminating existing connection...\n");
                                         GAPRole_TerminateLink(centralConnHandle);
                                         centralState = BLE_STATE_IDLE;
                                         centralConnHandle = GAP_CONNHANDLE_INIT;
@@ -1033,37 +1036,37 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                         connectionFailCount = 0;  // 重置失败计数器
                                         // 启动建立连接超时事件（增加超时时间）
                                         tmos_start_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT, ESTABLISH_LINK_TIMEOUT * 2);
-                                        PRINT("Connecting to %s... (status=0x%02X)\n", TARGET_DEVICE_NAME, status);
+                                        uinfo("Connecting to %s... (status=0x%02X)\n", TARGET_DEVICE_NAME, status);
                                         targetDeviceFound = TRUE;
                                         return;  // 找到目标设备，直接返回
                                     }
                                     else
                                     {
-                                        PRINT("Failed to initiate connection (status=0x%02X)\n", status);
+                                        uinfo("Failed to initiate connection (status=0x%02X)\n", status);
                                         connectionFailCount++;
-                                        PRINT("Connection fail count: %d\n", connectionFailCount);
+                                        uinfo("Connection fail count: %d\n", connectionFailCount);
                                         
                                         // 解释错误码
                                         switch(status)
                                         {
                                             case 0x10:
-                                                PRINT("Error: Connection limit exceeded or incorrect mode\n");
+                                                uinfo("Error: Connection limit exceeded or incorrect mode\n");
                                                 break;
                                             case 0x0C:
-                                                PRINT("Error: Command disallowed\n");
+                                                uinfo("Error: Command disallowed\n");
                                                 break;
                                             case 0x07:
-                                                PRINT("Error: Memory capacity exceeded\n");
+                                                uinfo("Error: Memory capacity exceeded\n");
                                                 break;
                                             default:
-                                                PRINT("Error: Unknown error code\n");
+                                                uinfo("Error: Unknown error code\n");
                                                 break;
                                         }
                                         
                                         // 如果连续失败5次，重启整个发现过程
                                         if(connectionFailCount >= 5)
                                         {
-                                            PRINT("Too many connection failures, restarting BLE discovery...\n");
+                                            uinfo("Too many connection failures, restarting BLE discovery...\n");
                                             connectionFailCount = 0;
                                             centralScanRes = 0;
                                             targetDeviceFound = FALSE;
@@ -1078,18 +1081,18 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                                 GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
                                                                               DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                                               DEFAULT_DISCOVERY_WHITE_LIST);
-                                                PRINT("Restarted device discovery\n");
+                                                uinfo("Restarted device discovery\n");
                                             }
                                             else
                                             {
-                                                PRINT("Auto reconnect disabled, not restarting discovery after failures.\n");
+                                                uinfo("Auto reconnect disabled, not restarting discovery after failures.\n");
                                             }
                                         }
                                         else
                                         {
                                             // 延迟后重试
                                             DelayMs(1000);
-                                            PRINT("Will retry discovery in next scan cycle...\n");
+                                            uinfo("Will retry discovery in next scan cycle...\n");
                                             
                                             // 只有在启用自动重连时才重新开始发现
                                             if(autoReconnectEnabled == TRUE)
@@ -1101,19 +1104,19 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                             }
                                             else
                                             {
-                                                PRINT("Auto reconnect disabled, not retrying discovery.\n");
+                                                uinfo("Auto reconnect disabled, not retrying discovery.\n");
                                             }
                                         }
                                     }
                                 }
                                 else
                                 {
-                                    PRINT("Device name prefix does not match target\n");
+                                    uinfo("Device name prefix does not match target\n");
                                 }
                             }
                             else
                             {
-                                PRINT("Device name too short (expected >= %d, got %d)\n", 
+                                uinfo("Device name too short (expected >= %d, got %d)\n", 
                                       TARGET_DEVICE_NAME_LEN, nameLen);
                             }
                         }
@@ -1132,7 +1135,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             // 检查是否找到目标设备（按设备名称匹配）
             if(targetDeviceFound == FALSE)
             {
-                PRINT("Target device '%s' not found during discovery...\n", TARGET_DEVICE_NAME);  // 打印未找到目标设备
+                uinfo("Target device '%s' not found during discovery...\n", TARGET_DEVICE_NAME);  // 打印未找到目标设备
                 centralScanRes = 0;
                 targetDeviceFound = FALSE;  // 重置标志
                 
@@ -1142,11 +1145,11 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                     GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE, // 重新开始设备发现
                                                   DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                   DEFAULT_DISCOVERY_WHITE_LIST);
-                    PRINT("Discovering...\n");
+                    uinfo("Discovering...\n");
                 }
                 else
                 {
-                    PRINT("Auto reconnect disabled, stopping discovery.\n");
+                    uinfo("Auto reconnect disabled, stopping discovery.\n");
                 }
             }
         }
@@ -1155,7 +1158,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
         case GAP_LINK_ESTABLISHED_EVENT:
         {
             tmos_stop_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT);
-            PRINT("Link establishment event received, status=0x%02X\n", pEvent->gap.hdr.status);
+            uinfo("Link establishment event received, status=0x%02X\n", pEvent->gap.hdr.status);
             
             if(pEvent->gap.hdr.status == SUCCESS)
             {
@@ -1163,8 +1166,8 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 centralConnHandle = pEvent->linkCmpl.connectionHandle;
                 centralProcedureInProgress = TRUE;
 
-                PRINT("Successfully connected to %s!\n", TARGET_DEVICE_NAME);
-                PRINT("Connection handle: 0x%04X\n", centralConnHandle);
+                uinfo("Successfully connected to %s!\n", TARGET_DEVICE_NAME);
+                uinfo("Connection handle: 0x%04X\n", centralConnHandle);
                 
                 // Initiate service discovery
                 tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
@@ -1187,21 +1190,21 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             }
             else
             {
-                PRINT("Connection failed! Reason: 0x%02X\n", pEvent->gap.hdr.status);
+                uinfo("Connection failed! Reason: 0x%02X\n", pEvent->gap.hdr.status);
                 centralScanRes = 0;
                 targetDeviceFound = FALSE;  // 重置目标设备标志
                 
                 // 只有在启用自动重连时才重新开始搜索
                 if(autoReconnectEnabled == TRUE)
                 {
-                    PRINT("Restarting device discovery...\n");
+                    uinfo("Restarting device discovery...\n");
                     GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
                                                   DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                                   DEFAULT_DISCOVERY_WHITE_LIST);
                 }
                 else
                 {
-                    PRINT("Auto reconnect disabled, not restarting discovery.\n");
+                    uinfo("Auto reconnect disabled, not restarting discovery.\n");
                 }
             }
         }
@@ -1220,38 +1223,38 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             centralProcedureInProgress = FALSE;
             targetDeviceFound = FALSE;  // 重置目标设备找到标志
             tmos_stop_task(centralTaskId, START_READ_RSSI_EVT);
-            PRINT("Disconnected...Reason:%x\n", pEvent->linkTerminate.reason);
+            uinfo("Disconnected...Reason:%x\n", pEvent->linkTerminate.reason);
             
             // 只有在启用自动重连时才重新搜索
             if(autoReconnectEnabled == TRUE)
             {
-                PRINT("Re-discovering target device '%s'...\n", TARGET_DEVICE_NAME);
+                uinfo("Re-discovering target device '%s'...\n", TARGET_DEVICE_NAME);
                 GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
                                               DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                               DEFAULT_DISCOVERY_WHITE_LIST);
             }
             else
             {
-                PRINT("Auto reconnect disabled, not restarting discovery after disconnect.\n");
+                uinfo("Auto reconnect disabled, not restarting discovery after disconnect.\n");
             }
         }
         break;
 
         case GAP_LINK_PARAM_UPDATE_EVENT:
         {
-            PRINT("Param Update...\n");
+            uinfo("Param Update...\n");
         }
         break;
 
         case GAP_PHY_UPDATE_EVENT:
         {
-            PRINT("PHY Update...\n");
+            uinfo("PHY Update...\n");
         }
         break;
 
         case GAP_EXT_ADV_DEVICE_INFO_EVENT:
         {
-            PRINT("Recv ext adv from %02X:%02X:%02X:%02X:%02X:%02X\n",
+            uinfo("Recv ext adv from %02X:%02X:%02X:%02X:%02X:%02X\n",
                   pEvent->deviceExtAdvInfo.addr[5], pEvent->deviceExtAdvInfo.addr[4],
                   pEvent->deviceExtAdvInfo.addr[3], pEvent->deviceExtAdvInfo.addr[2], 
                   pEvent->deviceExtAdvInfo.addr[1], pEvent->deviceExtAdvInfo.addr[0]);
@@ -1262,7 +1265,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
 
         case GAP_DIRECT_DEVICE_INFO_EVENT:
         {
-            PRINT("Recv direct adv from %02X:%02X:%02X:%02X:%02X:%02X\n",
+            uinfo("Recv direct adv from %02X:%02X:%02X:%02X:%02X:%02X\n",
                   pEvent->deviceDirectInfo.addr[5], pEvent->deviceDirectInfo.addr[4],
                   pEvent->deviceDirectInfo.addr[3], pEvent->deviceDirectInfo.addr[2], 
                   pEvent->deviceDirectInfo.addr[1], pEvent->deviceDirectInfo.addr[0]);
@@ -1287,35 +1290,35 @@ static void centralPairStateCB(uint16_t connHandle, uint8_t state, uint8_t statu
 {
     if(state == GAPBOND_PAIRING_STATE_STARTED)                      // 如果是配对开始状态
     {
-        PRINT("Pairing started:%d\n", status);                      // 打印配对开始
+        uinfo("Pairing started:%d\n", status);                      // 打印配对开始
     }
     else if(state == GAPBOND_PAIRING_STATE_COMPLETE)               // 如果是配对完成状态
     {
         if(status == SUCCESS)                                       // 如果配对成功
         {
-            PRINT("Pairing success\n");                             // 打印配对成功
+            uinfo("Pairing success\n");                             // 打印配对成功
         }
         else
         {
-            PRINT("Pairing fail\n");                                // 打印配对失败
+            uinfo("Pairing fail\n");                                // 打印配对失败
         }
     }
     else if(state == GAPBOND_PAIRING_STATE_BONDED)                 // 如果是已绑定状态
     {
         if(status == SUCCESS)                                       // 如果绑定成功
         {
-            PRINT("Bonding success\n");                             // 打印绑定成功
+            uinfo("Bonding success\n");                             // 打印绑定成功
         }
     }
     else if(state == GAPBOND_PAIRING_STATE_BOND_SAVED)             // 如果是绑定保存状态
     {
         if(status == SUCCESS)                                       // 如果保存成功
         {
-            PRINT("Bond save success\n");                           // 打印绑定保存成功
+            uinfo("Bond save success\n");                           // 打印绑定保存成功
         }
         else
         {
-            PRINT("Bond save failed: %d\n", status);                // 打印绑定保存失败
+            uinfo("Bond save failed: %d\n", status);                // 打印绑定保存失败
         }
     }
 }
@@ -1338,7 +1341,7 @@ static void centralPasscodeCB(uint8_t *deviceAddr, uint16_t connectionHandle,
     // Display passcode to user                                    // 显示密码给用户
     if(uiOutputs != 0)
     {
-        PRINT("Passcode:%06d\n", (int)passcode);                   // 打印6位密码
+        uinfo("Passcode:%06d\n", (int)passcode);                   // 打印6位密码
     }
     // Send passcode response                                      // 发送密码响应
     GAPBondMgr_PasscodeRsp(connectionHandle, SUCCESS, passcode);
@@ -1363,7 +1366,7 @@ static void centralStartDiscovery(void)
     centralDiscState = BLE_DISC_STATE_SVC;                         // 设置发现状态为服务发现
 
     // Discovery target BLE service (AE00)                        // 发现目标BLE服务(AE00)
-    PRINT("Starting service discovery for UUID: 0x%04X\n", TARGET_SERVICE_UUID);
+    uinfo("Starting service discovery for UUID: 0x%04X\n", TARGET_SERVICE_UUID);
     GATT_DiscPrimaryServiceByUUID(centralConnHandle,
                                   uuid,
                                   ATT_BT_UUID_SIZE,
@@ -1390,7 +1393,7 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             centralSvcEndHdl = ATT_GRP_END_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0); // 保存服务结束句柄
 
             // Display Profile Service handle range                 // 显示配置文件服务句柄范围
-            PRINT("Found Profile Service handle : %x ~ %x \n", centralSvcStartHdl, centralSvcEndHdl);
+            uinfo("Found Profile Service handle : %x ~ %x \n", centralSvcStartHdl, centralSvcEndHdl);
         }
         // If procedure complete                                   // 如果程序完成
         if((pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP &&
@@ -1402,13 +1405,13 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
                 // Discover all characteristics in the service     // 发现服务中的所有特征
                 centralDiscState = BLE_DISC_STATE_CHAR;            // 设置状态为特征发现
                 
-                PRINT("Discovering all characteristics in AE00 service (handles: 0x%04X - 0x%04X)\n", 
+                uinfo("Discovering all characteristics in AE00 service (handles: 0x%04X - 0x%04X)\n", 
                       centralSvcStartHdl, centralSvcEndHdl);
                 GATT_DiscAllChars(centralConnHandle, centralSvcStartHdl, centralSvcEndHdl, centralTaskId);
             }
             else
             {
-                PRINT("Target service AE00 not found!\n");        // AE00服务未找到
+                uinfo("Target service AE00 not found!\n");        // AE00服务未找到
                 // 断开连接，重新搜索设备
                 GAPRole_TerminateLink(centralConnHandle);
             }
@@ -1421,7 +1424,7 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
            pMsg->msg.readByTypeRsp.numPairs > 0)
         {
             // 解析发现的所有特征
-            PRINT("Discovered %d characteristics in AE00 service:\n", pMsg->msg.readByTypeRsp.numPairs);
+            uinfo("Discovered %d characteristics in AE00 service:\n", pMsg->msg.readByTypeRsp.numPairs);
             for(uint8_t i = 0; i < pMsg->msg.readByTypeRsp.numPairs; i++)
             {
                 uint8_t *pData = &pMsg->msg.readByTypeRsp.pDataList[i * pMsg->msg.readByTypeRsp.len];
@@ -1429,55 +1432,55 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
                 uint8_t properties = pData[2];                              // 特征属性
                 uint16_t valueHdl = BUILD_UINT16(pData[3], pData[4]);       // 特征值句柄
                 
-                PRINT("Char %d: DeclHdl=0x%04X, Props=0x%02X, ValueHdl=0x%04X\n", 
+                uinfo("Char %d: DeclHdl=0x%04X, Props=0x%02X, ValueHdl=0x%04X\n", 
                       i, charDeclHdl, properties, valueHdl);
                 
                 // 对于16字节UUID，提取2字节短UUID
                 if(pMsg->msg.readByTypeRsp.len == 21)  // 16字节UUID格式
                 {
                     uint16_t shortUUID = BUILD_UINT16(pData[5], pData[6]);  // 提取短UUID
-                    PRINT("  UUID: 0x%04X", shortUUID);
+                    uinfo("  UUID: 0x%04X", shortUUID);
                     
                     // 检查是否为目标特征
                     if(shortUUID == TARGET_WRITE_CHAR_UUID)  // AE10写特征
                     {
                         centralWriteCharHdl = valueHdl;
                         centralCharHdl = valueHdl;  // 设置兼容变量
-                        PRINT(" -> AE10 Write Characteristic Found! Handle=0x%04X", valueHdl);
+                        uinfo(" -> AE10 Write Characteristic Found! Handle=0x%04X", valueHdl);
                     }
                     else if(shortUUID == TARGET_NOTIFY_CHAR_UUID)  // AE02通知特征
                     {
                         centralNotifyCharHdl = valueHdl;
-                        PRINT(" -> AE02 Notify Characteristic Found! Handle=0x%04X", valueHdl);
+                        uinfo(" -> AE02 Notify Characteristic Found! Handle=0x%04X", valueHdl);
                     }
-                    PRINT("\n");
+                    uinfo("\n");
                 }
                 else if(pMsg->msg.readByTypeRsp.len == 7)  // 2字节UUID格式
                 {
                     uint16_t shortUUID = BUILD_UINT16(pData[5], pData[6]);
-                    PRINT("  UUID: 0x%04X", shortUUID);
+                    uinfo("  UUID: 0x%04X", shortUUID);
                     
                     if(shortUUID == TARGET_WRITE_CHAR_UUID)  // AE10写特征
                     {
                         centralWriteCharHdl = valueHdl;
                         centralCharHdl = valueHdl;  // 设置兼容变量
-                        PRINT(" -> AE10 Write Characteristic Found! Handle=0x%04X", valueHdl);
+                        uinfo(" -> AE10 Write Characteristic Found! Handle=0x%04X", valueHdl);
                     }
                     else if(shortUUID == TARGET_NOTIFY_CHAR_UUID)  // AE02通知特征
                     {
                         centralNotifyCharHdl = valueHdl;
-                        PRINT(" -> AE02 Notify Characteristic Found! Handle=0x%04X", valueHdl);
+                        uinfo(" -> AE02 Notify Characteristic Found! Handle=0x%04X", valueHdl);
                     }
-                    PRINT("\n");
+                    uinfo("\n");
                 }
                 
                 // 打印属性详情
-                PRINT("  Properties: ");
-                if(properties & 0x02) PRINT("Read ");
-                if(properties & 0x08) PRINT("Write ");
-                if(properties & 0x10) PRINT("Notify ");
-                if(properties & 0x20) PRINT("Indicate ");
-                PRINT("\n");
+                uinfo("  Properties: ");
+                if(properties & 0x02) uinfo("Read ");
+                if(properties & 0x08) uinfo("Write ");
+                if(properties & 0x10) uinfo("Notify ");
+                if(properties & 0x20) uinfo("Indicate ");
+                uinfo("\n");
             }
         }
         
@@ -1485,9 +1488,9 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             pMsg->hdr.status == bleProcedureComplete) ||
            (pMsg->method == ATT_ERROR_RSP))
         {
-            PRINT("\nCharacteristic discovery summary:\n");
-            PRINT("  AE10 Write Handle: 0x%04X\n", centralWriteCharHdl);
-            PRINT("  AE02 Notify Handle: 0x%04X\n", centralNotifyCharHdl);
+            uinfo("\nCharacteristic discovery summary:\n");
+            uinfo("  AE10 Write Handle: 0x%04X\n", centralWriteCharHdl);
+            uinfo("  AE02 Notify Handle: 0x%04X\n", centralNotifyCharHdl);
             
             if(centralNotifyCharHdl != 0)  // 如果找到了AE02通知特征
             {
@@ -1499,12 +1502,12 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
                 req.type.uuid[0] = LO_UINT16(GATT_CLIENT_CHAR_CFG_UUID); // 设置CCCD UUID
                 req.type.uuid[1] = HI_UINT16(GATT_CLIENT_CHAR_CFG_UUID);
 
-                PRINT("Discovering CCCD for AE02 notification...\n");
+                uinfo("Discovering CCCD for AE02 notification...\n");
                 GATT_ReadUsingCharUUID(centralConnHandle, &req, centralTaskId);
             }
             else
             {
-                PRINT("AE02 notification characteristic not found!\n");
+                uinfo("AE02 notification characteristic not found!\n");
                 centralDiscState = BLE_DISC_STATE_IDLE;
                 centralProcedureInProgress = FALSE;
             }
@@ -1524,21 +1527,21 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             tmos_start_task(centralTaskId, START_WRITE_CCCD_EVT, DEFAULT_WRITE_CCCD_DELAY);
 
             // Display CCCD handle                                // 显示CCCD句柄
-            PRINT("Found AE02 CCCD handle: 0x%04X, enabling notifications...\n", centralCCCDHdl);
-            PRINT("Ready to receive notifications from AE02 and send data to AE10 (handle: 0x%04X)\n", centralWriteCharHdl);
+            uinfo("Found AE02 CCCD handle: 0x%04X, enabling notifications...\n", centralCCCDHdl);
+            uinfo("Ready to receive notifications from AE02 and send data to AE10 (handle: 0x%04X)\n", centralWriteCharHdl);
             // 准备在CCCD配置完成后发送初始化数据
-            PRINT("Will send initialization data after CCCD setup completes...\n");
+            uinfo("Will send initialization data after CCCD setup completes...\n");
         }
         else
         {
-            PRINT("AE02 CCCD not found, notifications not available\n");
+            uinfo("AE02 CCCD not found, notifications not available\n");
             // 即使没有CCCD，连接仍然有效，可以进行写操作
             centralProcedureInProgress = FALSE;
             
             // 即使没有CCCD，也触发初始化数据发送
             if(centralWriteCharHdl != 0)
             {
-                PRINT("Triggering initialization data send (no CCCD found)...\n");
+                uinfo("Triggering initialization data send (no CCCD found)...\n");
                 tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 1000); // 1s后发送初始化数据
             }
         }
@@ -1574,7 +1577,7 @@ static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType)
         // Increment scan result count                            // 增加扫描结果计数
         centralScanRes++;
         // Display device addr                                    // 显示设备地址
-//        PRINT("Device %d - Addr %x %x %x %x %x %x \n", centralScanRes,
+//        uinfo("Device %d - Addr %x %x %x %x %x %x \n", centralScanRes,
 //              centralDevList[centralScanRes - 1].addr[0],
 //              centralDevList[centralScanRes - 1].addr[1],
 //              centralDevList[centralScanRes - 1].addr[2],
@@ -1593,7 +1596,7 @@ static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType)
  */
 void Central_DisconnectAndStopAutoReconnect(void)
 {
-    PRINT("User triggered: Disconnect and stop auto reconnect\n");
+    uinfo("User triggered: Disconnect and stop auto reconnect\n");
     // 触发停止自动重连事件
     tmos_set_event(centralTaskId, STOP_AUTO_RECONNECT_EVT);
 }
@@ -1607,7 +1610,7 @@ void Central_DisconnectAndStopAutoReconnect(void)
  */
 void Central_StartAutoReconnect(void)
 {
-    PRINT("User triggered: Start auto reconnect\n");
+    uinfo("User triggered: Start auto reconnect\n");
     // 触发启动自动重连事件
     tmos_set_event(centralTaskId, START_AUTO_RECONNECT_EVT);
 }

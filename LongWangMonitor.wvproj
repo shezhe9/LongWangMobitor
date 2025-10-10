@@ -3,8 +3,16 @@
 	"isNormalMRSProject": true,
 	"basic": {
 		"chipInfo": {
+			"vendor": "WCH",
+			"toolchain": "RISC-V",
+			"series": "CH58X",
 			"rtos": "NoneOS",
-			"calibrateSupport": false
+			"mcu": "CH582M",
+			"description": "",
+			"link": "WCH-Link",
+			"peripheral_version": "1.0",
+			"calibrateSupport": false,
+			"calibrateCommand": ""
 		},
 		"linkedFolders": [
 			{
@@ -164,7 +172,9 @@
 							"${project}/HAL/include",
 							"${project}/Ld",
 							"${project}/LIB",
-							"${project}/RVMSIS"
+							"${project}/RVMSIS",
+							"${project}/Driver/ulog",
+							"${project}/Driver/ulog/inc"
 						],
 						"include_system_paths": [],
 						"include_files": []
@@ -368,8 +378,8 @@
 		]
 	},
 	"flashConfig": {
-		"mcutype": "",
-		"address": "",
+		"mcutype": "CH58x",
+		"address": "0x00000000",
 		"target_path": "",
 		"clkSpeed": "High",
 		"debug_interface_mode": "1-wire serial",
@@ -441,23 +451,22 @@
 			},
 			"debugInRAM": false
 		},
+		"svdpath": null,
 		"output": {
 			"showDebugGDBTrace": true,
 			"saveDebugOutputToFile": false,
 			"showDebugOutputTimestamps": true
 		},
 		"reserve": {
-			"PROGRAM_NAME": "obj/HID-TEST.elf",
-			"PROJECT_ATTR": "HID-TEST",
+			"PROGRAM_NAME": "obj/LongWangMonitor.elf",
+			"PROJECT_ATTR": "LongWangMonitor",
 			"PROJECT_BUILD_CONFIG_AUTO_ATTR": true,
 			"PROJECT_BUILD_CONFIG_ID_ATTR": "",
 			"ATTR_BUILD_BEFORE_LAUNCH_ATTR": 2,
 			"GdbServerAllocateConsole": true,
 			"GdbServerAllocateTelnetConsole": false,
-			"SkipDownloadBeforeDebug": false,
 			"StartGdbCLient": true,
-			"UPDATE_THREADLIST_ON_SUSPEND": false,
-			"DebugInRam": false
+			"UPDATE_THREADLIST_ON_SUSPEND": false
 		}
 	}
 }

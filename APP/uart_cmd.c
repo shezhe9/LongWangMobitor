@@ -2,6 +2,7 @@
 #include "uart_cmd.h"
 #include "key.h"
 #include "central.h"  // 添加central.h头文件以访问centralTaskId和事件定义
+#include "ulog_buffer.h"  // ulog 日志系统
 
 
 void app_uart_init(void)
@@ -59,7 +60,7 @@ void UART1_IRQHandler(void)
             do
             {
                 //d打印fifo的计数器值
-                //PRINT("count: %d\n", R8_UART1_RFC);
+                //uinfo("count: %d\n", R8_UART1_RFC);
                 //将R8_UART1_RFC个数据存储到缓冲区
                 for(uint8_t i = 0; i < R8_UART1_RFC; i++)   
                 {
@@ -69,12 +70,12 @@ void UART1_IRQHandler(void)
                 // 逐字打印接收到的字符串
                 //for(uint8_t i = 0; i < R8_UART1_RFC; i++)
                 //{
-                //    PRINT("char: 0x%x\n", uart_rx_buffer[i]);
+                //    uinfo("char: 0x%x\n", uart_rx_buffer[i]);
                 //}
               
                 
                 // 打印首个数据的十六进制值
-                //PRINT("First: 0x%X\n", uart_rx_buffer[0]);
+                //uinfo("First: 0x%X\n", uart_rx_buffer[0]);
                 
                 // 串口命令处理
                 if (uart_rx_buffer[0] == 0x38)
@@ -98,21 +99,21 @@ void UART1_IRQHandler(void)
 
                 if (uart_rx_buffer[0] == 0x3a)
                 {
-                    PRINT("Received 0x3a command - Starting to send 20 test data to BLE device\n");
+                    uinfo("Recv 0x3a: Start send test data\n");
                     // 触发发送20个测试数据事件
                     tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 10); // 10ms后开始发送
                 }
 
                 if (uart_rx_buffer[0] == 0x3b)
                 {
-                    PRINT("Received 0x3b command - Disconnect BLE and stop auto reconnect\n");
+                    uinfo("Recv 0x3b: Disconnect and stop\n");
                     // 断开BLE连接并停止自动重连
                     Central_DisconnectAndStopAutoReconnect();
                 }
 
                 if (uart_rx_buffer[0] == 0x3c)
                 {
-                    PRINT("Received 0x3c command - Start auto reconnect\n");
+                    uinfo("Recv 0x3c: Start reconnect\n");
                     // 启动自动搜索和连接
                     Central_StartAutoReconnect();
                 }

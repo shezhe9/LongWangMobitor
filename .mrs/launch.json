@@ -4,8 +4,8 @@
 		{
 			"type": "mrs-debugger",
 			"request": "launch",
-			"name": "HID-TEST",
-			"cwd": "e:\\Code\\EXAM\\BLE\\ch582test",
+			"name": "LongWangMonitor",
+			"cwd": "d:\\BaiduSyncdisk\\Tools\\Raditor\\Code\\EXAM_PC\\BLE\\LongWangMonitor",
 			"openOCDCfg": {
 				"useLocalOpenOCD": true,
 				"executable": "d:/MounRiver/MounRiver_Studio2/resources/app/resources/win32/components/WCH/OpenOCD/OpenOCD/bin/openocd.exe",
@@ -38,8 +38,8 @@
 					"additionalCommands": []
 				},
 				"loadedFiles": {
-					"executableFile": "e:\\Code\\EXAM\\BLE\\ch582test\\obj\\HID-TEST.elf",
-					"symbolFile": "e:\\Code\\EXAM\\BLE\\ch582test\\obj\\HID-TEST.elf",
+					"executableFile": "d:\\BaiduSyncdisk\\Tools\\Raditor\\Code\\EXAM_PC\\BLE\\LongWangMonitor\\obj\\LongWangMonitor.elf",
+					"symbolFile": "d:\\BaiduSyncdisk\\Tools\\Raditor\\Code\\EXAM_PC\\BLE\\LongWangMonitor\\obj\\LongWangMonitor.elf",
 					"executableFileOffset": 0,
 					"symbolFileOffset": 0
 				},

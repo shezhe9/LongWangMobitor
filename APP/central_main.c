@@ -15,6 +15,7 @@
 #include "central.h"
 #include "uart_cmd.h"
 #include "key.h"
+#include "ulog_buffer.h"  // ulog 日志系统
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -71,11 +72,18 @@ int main(void)
     app_uart_init();
     CH58X_BLEInit();
     HAL_Init();
-
     GAPRole_CentralInit();
+    
+    // 初始化 ulog 日志系统（必须在 GAPRole_CentralInit() 之后！）
+    ulog_buffer_init();
+    uinfo("ulog \310\325\326\276\317\265\315\263\263\365\312\274\273\257\315\352\263\311\n");  // 日志系统初始化完成
+
     Central_Init();
-    PRINT("Key_Init()\n");
+    
+    // 使用 ulog 替代 PRINT
+    uinfo("Key_Init() - \260\264\274\374\263\365\312\274\273\257\277\252\312\274\n");  // 按键初始化开始
     Key_Init();
+    uinfo("Key_Init() - \260\264\274\374\263\365\312\274\273\257\315\352\263\311\n");  // 按键初始化完成
     
 
     Main_Circulation();

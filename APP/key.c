@@ -1,8 +1,7 @@
 #include "CONFIG.h"
 #include "key.h"
-#include "central.h"  
-// 注意：需要确保包含以下头文件，它包含CH582M定时器相关定?
-// #include "CH58x_common.h"  
+#include "central.h"
+#include "ulog_buffer.h"  // ulog 日志系统  
 
 #define SINGLE_CLICK_TIME    300  // 单击最大时间间隔（ms?
 #define DOUBLE_CLICK_TIME    600  // 双击最大时间间隔（ms?
@@ -65,8 +64,8 @@ int32_t TimeDiff(volatile TimeStamp32 *new, volatile TimeStamp32 *old)
 
 void print_timestamp(TimeStamp32 *time)
 {
-    PRINT("R16_RTC_CNT_2S=%d  ",time->sec2) ;
-    PRINT("32K=%d \n",time->t32k) ;
+    uinfo("R16_RTC_CNT_2S=%d  ",time->sec2) ;
+    uinfo("32K=%d \n",time->t32k) ;
 }
 
 int32_t pressDuration=0;
@@ -80,7 +79,7 @@ void ButtonHandler(void)
 {
     uint32_t buttonPressed = (R32_PB_PIN & CH582_PROG_BOOT_Pin) ? 0 : 1;  // 读取PB3状态（0=高电平未按下?=低电平按下）
     
-    //PRINT("ButtonHandler(), state=%d, pressed=%d\n", buttonState, buttonPressed);
+    //uinfo("ButtonHandler(), state=%d, pressed=%d\n", buttonState, buttonPressed);
 
     // 根据按键状态和触发方式处理
    
@@ -178,14 +177,14 @@ void Key_Init(void)
 {
     // 注册按键事件处理函数
     keyTaskId = TMOS_ProcessEventRegister(Key_ProcessEvent);
-    PRINT("\260\264\274\374\263\365\312\274\273\257: keyTaskId=%d\n", keyTaskId);  // 按键初始?
+    uinfo("\260\264\274\374\263\365\312\274\273\257: keyTaskId=%d\n", keyTaskId);  // 按键初始?
     
     // 配置为输入模式，使能上拉 PB0-15才有中断
-    PRINT("\311\350\326\303\316\252\312\344\310\353\304\243\312\275: CH582_PROG_BOOT_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_PROG_BOOT_Pin);  // 设置为输入模?
+    uinfo("\311\350\326\303\316\252\312\344\310\353\304\243\312\275: CH582_PROG_BOOT_Pin(0x%x)=GPIO_ModeIN_PU  \n", CH582_PROG_BOOT_Pin);  // 设置为输入模?
     GPIOB_ModeCfg(CH582_PROG_BOOT_Pin, GPIO_ModeIN_PU);
     
     // 配置中断，初始设置为下降沿触?
-    PRINT("\263\365\312\274\311\350\326\303\316\252\317\302\275\265\321\330\264\245\267\242: CH582_PROG_BOOT_Pin(0x%x)=GPIO_ITMode_FallEdge  \n", CH582_PROG_BOOT_Pin);  // 初始设置为下降沿触发
+    uinfo("\263\365\312\274\311\350\326\303\316\252\317\302\275\265\321\330\264\245\267\242: CH582_PROG_BOOT_Pin(0x%x)=GPIO_ITMode_FallEdge  \n", CH582_PROG_BOOT_Pin);  // 初始设置为下降沿触发
     GPIOB_ITModeCfg(CH582_PROG_BOOT_Pin, GPIO_ITMode_FallEdge);
     
     // 设置默认触发模式为下降沿
@@ -202,11 +201,11 @@ void sann_change(void)
 {
     if(sann_State==FALSE)
     {
-        PRINT("Disconnect BLE and stop auto reconnect\n");
+        uinfo("Disconnect BLE and stop auto reconnect\n");
         Central_DisconnectAndStopAutoReconnect();
     }else 
     {
-        PRINT("Start auto reconnect\n");
+        uinfo("Start auto reconnect\n");
         Central_StartAutoReconnect();
     }
     sann_State=!sann_State;
@@ -258,7 +257,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     // 处理单击事件
     if(events & KEY_EVENT_SINGLE_CLICK)
     {
-        PRINT("\260\264\274\374\265\245\273\367\312\302\274\376\n");  // 按键单击事件
+        uinfo("\260\264\274\374\265\245\273\367\312\302\274\376\n");  // 按键单击事件
         // 单击事件处理（BOOT_SWICH已删除）
         return (events ^ KEY_EVENT_SINGLE_CLICK);
     }
@@ -266,7 +265,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     // 处理双击事件
     if(events & KEY_EVENT_DOUBLE_CLICK)
     {
-        PRINT("\260\264\274\374\313\253\273\367\312\302\274\376\n");  // 按键双击事件
+        uinfo("\260\264\274\374\313\253\273\367\312\302\274\376\n");  // 按键双击事件
 /*
 
         GPIOB_ResetBits(CH582_12V_Pin); // 设置 PB14 为低电平
@@ -285,19 +284,19 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     // 处理长按事件
     if(events & KEY_EVENT_LONG_PRESS)
     {
-        PRINT("\260\264\274\374\263\244\260\264\312\302\274\376\n");  // 按键长按事件
+        uinfo("\260\264\274\374\263\244\260\264\312\302\274\376\n");  // 按键长按事件
         
         sann_change();
         /*
         // 检查当前BLE连接状态并执行相应操作
         if(Central_IsConnected())
         {
-            PRINT("\263\244\260\264:\265\261\307\260\323\320 BLE \301\254\275\323,\266\317\277\252\301\254\275\323\262\242\315\243\326\271\327\324\266\257\326\330\301\254\n");  // 长按当前有连接断开连接并停止自动重?
+            uinfo("\263\244\260\264:\265\261\307\260\323\320 BLE \301\254\275\323,\266\317\277\252\301\254\275\323\262\242\315\243\326\271\327\324\266\257\326\330\301\254\n");  // 长按当前有连接断开连接并停止自动重?
             Central_DisconnectAndStopAutoReconnect();
         }
         else
         {
-            PRINT("\263\244\260\264:\265\261\307\260\316\336 BLE \301\254\275\323,\306\364\266\257\327\324\266\257\313\321\313\367\272\315\301\254\275\323\n");  // 长按当前无连接启动自动搜索和连接
+            uinfo("\263\244\260\264:\265\261\307\260\316\336 BLE \301\254\275\323,\306\364\266\257\327\324\266\257\313\321\313\367\272\315\301\254\275\323\n");  // 长按当前无连接启动自动搜索和连接
             Central_StartAutoReconnect();
         }*/
         
@@ -320,13 +319,13 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
             }
             else // 按键已按下，报错
             {
-                PRINT("Error in KEY_DOUBLE_CLICK_CHECK: \260\264\274\374\322\321\260\264\317\302\265\253\326\320\266\317\316\264\264\245\267\242\n");  // 按键已按下但中断未触?
+                uinfo("Error in KEY_DOUBLE_CLICK_CHECK: \260\264\274\374\322\321\260\264\317\302\265\253\326\320\266\317\316\264\264\245\267\242\n");  // 按键已按下但中断未触?
                 buttonState = BUTTON_IDLE;
             }
         }
         else
         {
-            PRINT("Error in KEY_DOUBLE_CLICK_CHECK: \267\307\265\310\264\375\313\253\273\367\327\264\314\254 %d\n", buttonState);  // 非等待双击状?
+            uinfo("Error in KEY_DOUBLE_CLICK_CHECK: \267\307\265\310\264\375\313\253\273\367\327\264\314\254 %d\n", buttonState);  // 非等待双击状?
         }
         
         return (events ^ KEY_DOUBLE_CLICK_CHECK);
@@ -353,13 +352,13 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
             }
             else // 按键已释放但没有触发中断
             {
-                PRINT("Error in KEY_LONG_PRESSED_CHECK: \260\264\274\374\322\321\312\315\267\305\265\253\326\320\266\317\316\264\264\245\267\242\n");  // 按键已释放但中断未触?
+                uinfo("Error in KEY_LONG_PRESSED_CHECK: \260\264\274\374\322\321\312\315\267\305\265\253\326\320\266\317\316\264\264\245\267\242\n");  // 按键已释放但中断未触?
                 buttonState = BUTTON_IDLE;
             }
         }
         else
         {
-            PRINT("Error in KEY_LONG_PRESSED_CHECK: \267\307\260\264\317\302\327\264\314\254 %d\n", buttonState);  // 非按下状?
+            uinfo("Error in KEY_LONG_PRESSED_CHECK: \267\307\260\264\317\302\327\264\314\254 %d\n", buttonState);  // 非按下状?
         }
         
         return (events ^ KEY_LONG_PRESSED_CHECK);
@@ -373,35 +372,35 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
         uint16_t day = R32_RTC_CNT_DAY & 0x3FFF;
         
         uint8_t i = (t32k > 16384) ? 1 : 0;
-        PRINT("\312\261\274\344: %d \314\354 %d \303\353 \327\264\314\254: %d\n", day, sec2*2+i, buttonState);  // 时间天秒状?
+        uinfo("\312\261\274\344: %d \314\354 %d \303\353 \327\264\314\254: %d\n", day, sec2*2+i, buttonState);  // 时间天秒状?
         
         tmos_start_task(keyTaskId, KEY_TEST_SECOND, 1600); // 1s 定时
         return (events ^ KEY_TEST_SECOND);
     }
     if(events & KEY_NOISE_PRESSED)
     { 
-        PRINT("\260\264\274\374\266\266\266\257,\272\366\302\324\264\313\264\316\312\302\274\376\n");  // 按键抖动忽略此次事件
+        udebug("\260\264\274\374\266\266\266\257,\272\366\302\324\264\313\264\316\312\302\274\376\n");  // 按键抖动忽略此次事件
         return (events ^ KEY_NOISE_PRESSED);
     }
 
     if(events & KEY_STATE_UNKOWN)
     { 
-        PRINT("\260\264\274\374\327\264\314\254\322\354\263\243,\273\330\265\275\277\325\317\320\314\254\n");  // 按键状态异常回到空闲?
+        uwarn("\260\264\274\374\327\264\314\254\322\354\263\243,\273\330\265\275\277\325\317\320\314\254\n");  // 按键状态异常回到空闲态
         return (events ^ KEY_STATE_UNKOWN);
     }
 
     if(events & BUTTON_PRESSED_OVERTIME_ERR)
     { 
-        PRINT("\260\264\317\302 \265\310\265\257\306\360\300\264 \265\253\312\307\265\257\306\360\300\264\312\302\274\376\263\254\271\375\263\244\260\264\312\261\274\344 \303\273\310\313\264\246\300\355\264\355\316\363 \323\246\270\303\312\307\263\244\260\264\312\302\274\376\261\273\306\344\313\373\310\316\316\361\265\242\316\363\301\313,\325\342\300\357\310\241\317\373\263\244\260\264\270\264\262\342\310\316\316\361,\326\261\275\323\312\344\263\366\263\244\260\264\312\302\274\376,\262\242\273\330\265\275\263\365\312\274\314\254\n");  // 按下等弹起来但是弹起来事件超过长按时间没人处理错误应该是长按事件被其他任务耽误了这里取消长按复测任务直接输出长按事件并回到初始?
+        uerror("\260\264\317\302 \265\310\265\257\306\360\300\264 \265\253\312\307\265\257\306\360\300\264\312\302\274\376\263\254\271\375\263\244\260\264\312\261\274\344 \303\273\310\313\264\246\300\355\264\355\316\363 \323\246\270\303\312\307\263\244\260\264\312\302\274\376\261\273\306\344\313\373\310\316\316\361\265\242\316\363\301\313,\325\342\300\357\310\241\317\373\263\244\260\264\270\264\262\342\310\316\316\361,\326\261\275\323\312\344\263\366\263\244\260\264\312\302\274\376,\262\242\273\330\265\275\263\365\312\274\314\254\n");  // 按下等弹起来但是弹起来事件超过长按时间没人处理错误应该是长按事件被其他任务耽误了这里取消长按复测任务直接输出长按事件并回到初始态
 
         print_timestamp(&buttonPressTime);
         print_timestamp(&buttonReleaseTime);
-        PRINT("pressDuration=%d \n",pressDuration);
+        uerror("pressDuration=%d \n",pressDuration);
         return (events ^ BUTTON_PRESSED_OVERTIME_ERR);
     }
     if(events & DOUBULE_PRESSED_OVERTIME_ERR)
     { 
-        PRINT("\313\253\273\367\265\304\265\332\266\376\264\316\260\264\317\302\263\254\271\375\301\313\313\253\273\367\265\310\264\375\312\261\274\344\317\265\315\263\303\273\323\320\264\246\300\355,\261\250\264\355,\323\246\316\252\301\355\315\342\322\273\264\316\265\245\273\367\n");  // 双击的第二次按下超过了双击等待时间系统没有处理报错应为另外一次单?
+        uwarn("\313\253\273\367\265\304\265\332\266\376\264\316\260\264\317\302\263\254\271\375\301\313\313\253\273\367\265\310\264\375\312\261\274\344\317\265\315\263\303\273\323\320\264\246\300\355,\261\250\264\355,\323\246\316\252\301\355\315\342\322\273\264\316\265\245\273\367\n");  // 双击的第二次按下超过了双击等待时间系统没有处理报错应为另外一次单击
         return (events ^ DOUBULE_PRESSED_OVERTIME_ERR);
     }
 

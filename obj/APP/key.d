@@ -19,7 +19,9 @@ APP/key.o: ../APP/key.c \
  d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/SRC/StdPeriphDriver/inc/CH58x_usbhost.h \
  d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/SRC/StdPeriphDriver/inc/ISP583.h \
  d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/key.h \
- d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/central.h
+ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/central.h \
+ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/ulog/inc/ulog_buffer.h \
+ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/ulog/inc/ulog_config.h
 
 d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/HAL/include/CONFIG.h:
 
@@ -62,3 +64,7 @@ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/SRC/StdPeriphDriver/inc/ISP583.h:
 d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/key.h:
 
 d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/central.h:
+
+d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/ulog/inc/ulog_buffer.h:
+
+d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/ulog/inc/ulog_config.h:

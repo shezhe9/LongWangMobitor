@@ -26,6 +26,7 @@ CALLGRAPH_DOT := callgraph.dot \
 # Every subdirectory with source files must be described here
 SUBDIRS := \
 APP \
+Driver/ulog \
 HAL \
 RVMSIS \
 Startup \

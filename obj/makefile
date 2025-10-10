@@ -12,6 +12,7 @@ RM := rm -rf
 -include Startup/subdir.mk
 -include RVMSIS/subdir.mk
 -include HAL/subdir.mk
+-include Driver/ulog/subdir.mk
 -include APP/subdir.mk
 -include subdir.mk
 -include objects.mk

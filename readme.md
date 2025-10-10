@@ -1,28 +1,28 @@
 
-¸ÃÏîÄ¿ÊÇ»ùÓÚÇßºãµÄCH582MµÄBLE²Ù¿ØÏîÄ¿¡£ÏîÄ¿°ÑCH582M×÷ÎªÖ÷Éè±¸£¨BLE Central£©£¬¿ÉÒÔ·¢ÏÖ²¢Á¬½ÓÖ¸¶¨µÄBLEÍâÉèÉè±¸¡£
+è¯¥é¡¹ç›®æ˜¯åŸºäºŽæ²æ’çš„CH582Mçš„BLEæ“æŽ§é¡¹ç›®ã€‚é¡¹ç›®æŠŠCH582Mä½œä¸ºä¸»è®¾å¤‡ï¼ˆBLE Centralï¼‰ï¼Œå¯ä»¥å‘çŽ°å¹¶è¿žæŽ¥æŒ‡å®šçš„BLEå¤–è®¾è®¾å¤‡ã€‚
 
-## ÏîÄ¿½á¹¹
+## é¡¹ç›®ç»“æž„
 
 ```
 ch582test/
-©À©¤©¤ APP/                          # Ó¦ÓÃ²ã´úÂë
-©¦   ©À©¤©¤ central_main.c           # Ö÷³ÌÐòÈë¿Ú£¬ÏµÍ³³õÊ¼»¯
-©¦   ©À©¤©¤ central.c/central.h      # BLE CentralºËÐÄ¹¦ÄÜÊµÏÖ
-©¦   ©À©¤©¤ uart_cmd.c/uart_cmd.h    # UARTÃüÁî´¦ÀíÄ£¿é
-©¦   ©À©¤©¤ key.c/key.h              # °´¼ü¿ØÖÆÄ£¿é(×´Ì¬»úÊµÏÖ)
-©¦   ©¸©¤©¤ ws2812.c/ws2812.h        # WS2812 LED×´Ì¬Ö¸Ê¾Ä£¿é
-©À©¤©¤ Profile/                     # BLEÅäÖÃÎÄ¼þ
-©¦   ©¸©¤©¤ include/gattprofile.h    # GATT·þÎñºÍÌØÕ÷¶¨Òå
-©À©¤©¤ obj/                         # ±àÒëÊä³öÎÄ¼þ
-©¸©¤©¤ Ó²¼þÇý¶¯¿â/                   # CH582Ð¾Æ¬µ×²ãÇý¶¯
+â”œâ”€â”€ APP/                          # åº”ç”¨å±‚ä»£ç 
+â”‚   â”œâ”€â”€ central_main.c           # ä¸»ç¨‹åºå…¥å£ï¼Œç³»ç»Ÿåˆå§‹åŒ–
+â”‚   â”œâ”€â”€ central.c/central.h      # BLE Centralæ ¸å¿ƒåŠŸèƒ½å®žçŽ°
+â”‚   â”œâ”€â”€ uart_cmd.c/uart_cmd.h    # UARTå‘½ä»¤å¤„ç†æ¨¡å—
+â”‚   â”œâ”€â”€ key.c/key.h              # æŒ‰é”®æŽ§åˆ¶æ¨¡å—(çŠ¶æ€æœºå®žçŽ°)
+â”‚   â””â”€â”€ ws2812.c/ws2812.h        # WS2812 LEDçŠ¶æ€æŒ‡ç¤ºæ¨¡å—
+â”œâ”€â”€ Profile/                     # BLEé…ç½®æ–‡ä»¶
+â”‚   â””â”€â”€ include/gattprofile.h    # GATTæœåŠ¡å’Œç‰¹å¾å®šä¹‰
+â”œâ”€â”€ obj/                         # ç¼–è¯‘è¾“å‡ºæ–‡ä»¶
+â””â”€â”€ ç¡¬ä»¶é©±åŠ¨åº“/                   # CH582èŠ¯ç‰‡åº•å±‚é©±åŠ¨
 ```
 
-0x3a  Ë«»÷ ·¢ËÍÄ£Ê½ÇÐ»»ÃüÁî
+0x3a  åŒå‡» å‘é€æ¨¡å¼åˆ‡æ¢å‘½ä»¤
 
-0x3b  ³¤°´ ¶Ï¿ª£¬Í£Ö¹É¨Ãè  £¬°×É«  
-0x3c  ³¤°´ ÔÙ´Î£¬Á¬½Ó    £¬×ÏÉ«   
+0x3b  é•¿æŒ‰ æ–­å¼€ï¼Œåœæ­¢æ‰«æ  ï¼Œç™½è‰²  
+0x3c  é•¿æŒ‰ å†æ¬¡ï¼Œè¿žæŽ¥    ï¼Œç´«è‰²   
 
-0x38 3.3v ÂÌÉ«  µ¥»÷
-0x38 12v ºìÉ«   µ¥»÷
+0x38 3.3v ç»¿è‰²  å•å‡»
+0x38 12v çº¢è‰²   å•å‡»
 
 
