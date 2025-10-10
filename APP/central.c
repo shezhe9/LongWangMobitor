@@ -14,8 +14,7 @@
 #include "CONFIG.h"                                                   // 包含配置头文件
 #include "gattprofile.h"                                             // 包含GATT配置文件头文件
 #include "central.h"                                                 // 包含central主机头文件
-#include "key.h"   
-#include "ws2812.h"  
+#include "key.h"  
 /*********************************************************************
  * MACROS                                                            // 宏定义
  */
@@ -674,7 +673,6 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
 
     if(events & STOP_AUTO_RECONNECT_EVT)                             // 如果是停止自动重连事件
     {
-        setDimColor(WHITE, 0.05); // 亮度 5% 
         PRINT("Stopping auto reconnect functionality...\n");
         autoReconnectEnabled = FALSE;                                // 禁用自动重连
         
@@ -703,7 +701,6 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
     if(events & START_AUTO_RECONNECT_EVT)                            // 如果是启动自动重连事件
     {
         PRINT("Starting auto reconnect functionality...\n");
-        setDimColor(Purple, 0.05); // 亮度 5% 
         autoReconnectEnabled = TRUE;                                 // 启用自动重连
         
         // 重置连接状态
@@ -1529,7 +1526,6 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             // Display CCCD handle                                // 显示CCCD句柄
             PRINT("Found AE02 CCCD handle: 0x%04X, enabling notifications...\n", centralCCCDHdl);
             PRINT("Ready to receive notifications from AE02 and send data to AE10 (handle: 0x%04X)\n", centralWriteCharHdl);
-            setDimColor(RED, 0.05); // 亮度 5% 
             // 准备在CCCD配置完成后发送初始化数据
             PRINT("Will send initialization data after CCCD setup completes...\n");
         }

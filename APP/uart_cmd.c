@@ -1,6 +1,5 @@
 #include "CONFIG.h"
 #include "uart_cmd.h"
-#include "ws2812.h"
 #include "key.h"
 #include "central.h"  // 添加central.h头文件以访问centralTaskId和事件定义
 

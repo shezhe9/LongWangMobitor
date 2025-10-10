@@ -1,6 +1,5 @@
 #include "CONFIG.h"
 #include "key.h"
-#include "ws2812.h"
 #include "central.h"  
 // 注意：需要确保包含以下头文件，它包含CH582M定时器相关定义
 // #include "CH58x_common.h"  
@@ -246,13 +245,11 @@ void EN_TEMP_SWITCH(void) {
     if(EN_TEMP_SWITCH_flag) {
         GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
         GPIOB_SetBits(EN_TEMP_SWITCH_Pin); // 设置  为高电平
-        setDimColor(WHITE, 0.05); // 亮度 5%  
         PRINT("SET 1 EN_TEMP_SWITCH_Pin:%d\n",EN_TEMP_SWITCH_Pin);
     }
     else {
         GPIOB_ModeCfg(EN_TEMP_SWITCH_Pin,   GPIO_ModeOut_PP_5mA); // 设置  为推挽输出
         GPIOB_ResetBits(EN_TEMP_SWITCH_Pin); // 设置  为低电平
-        setDimColor(GREEN, 0.05); // 亮度 5%  
         PRINT("reSET 0 EN_TEMP_SWITCH_Pin:%d\n",EN_TEMP_SWITCH_Pin);
     }
     PRINT("EN_TEMP_SWITCH_flag:%d\n",EN_TEMP_SWITCH_flag);
@@ -269,11 +266,9 @@ void sann_change(void)
     {
         PRINT("Disconnect BLE and stop auto reconnect\n");
         Central_DisconnectAndStopAutoReconnect();
-        setDimColor(RED_COLOR, 0.1); // 设置LED为红色表示断开状态
     }else 
     {
         PRINT("Start auto reconnect\n");
-        setDimColor(BLUE, 0.1); // 设置LED为蓝色表示搜索状态
         Central_StartAutoReconnect();
     }
     sann_State=!sann_State;
@@ -291,7 +286,6 @@ void BOOT_SWICH(void) {
         DelayMs(200); // 延迟 200ms
         //  为高电平，设置显示为红色
         GPIOB_SetBits(CH582_3V3_Pin); // 设置  为高电平
-        setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
         GPIOB_ResetBits(EN_CH_Pin); // 低电平打开
         PRINT("3V3 EN\n");
 
@@ -305,7 +299,6 @@ void BOOT_SWICH(void) {
         //setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
         DelayMs(200); // 延迟 200ms
         GPIOB_SetBits(CH582_12V_Pin); // 设置  为高电平
-        setDimColor(BLUE, 0.1); // 设置 WS2812 为红色，亮度 5%
         GPIOB_ResetBits(EN_CH_Pin); // 低电平打开
         PRINT("12V EN\n");
         
@@ -321,12 +314,10 @@ void EN_CH_SWITCH(void) {
     if(EN_CH_flag)
     {
         GPIOB_SetBits(EN_CH_Pin); // 设置  为高电平
-        setDimColor(WHITE, 0.05); // 亮度 5%
         
     }else
     {
         GPIOB_ResetBits(EN_CH_Pin); // 设置  为低电平
-        setDimColor(GREEN, 0.05); // 亮度 5% 
     }
     EN_CH_flag =!EN_CH_flag; // 反转状态 
     PRINT("EN_CH_flag:%d\n",EN_CH_flag);
@@ -339,11 +330,9 @@ void EN_ESP_SWITCH(void) {
     if(EN_ESP_flag) 
     {
         GPIOB_SetBits(EN_ESP_Pin); // 设置  为高电平
-        setDimColor(WHITE, 0.05); // 亮度 5% 
     }else
     {
         GPIOB_ResetBits(EN_ESP_Pin); // 设置  为低电平
-        setDimColor(GREEN, 0.05); // 亮度 5%
     }
     PRINT("EN_ESP_flag:%d\n",EN_ESP_flag);
 }
@@ -354,11 +343,9 @@ void EN_ESP_ME_SWITCH(void) {
     EN_ESP_ME_flag =!EN_ESP_ME_flag; // 反转状态
     if(EN_ESP_ME_flag) {
         GPIOA_SetBits(EN_ESP_ME_Pin); // 设置  为高电平
-        setDimColor(WHITE, 0.05); // 亮度 5%  
     } 
     else {
         GPIOA_ResetBits(EN_ESP_ME_Pin); // 设置  为低电平
-        setDimColor(GREEN, 0.05); // 亮度 5% 
     }
     PRINT("EN_ESP_ME_flag:%d\n",EN_ESP_ME_flag);
 }
@@ -368,11 +355,9 @@ void EN_ESP_UART1_LOG_SWITCH(void) {
     EN_ESP_UART1_LOG_flag =!EN_ESP_UART1_LOG_flag; // 反转状态
     if(EN_ESP_UART1_LOG_flag) {
         GPIOB_SetBits(EN_ESP_UART1_LOG_Pin); // 设置 PB14 为高电平
-        setDimColor(WHITE, 0.05); // 亮度 5%  
     }
     else {  
         GPIOB_ResetBits(EN_ESP_UART1_LOG_Pin); // 设置 PB14 为低电平
-        setDimColor(GREEN, 0.05); // 亮度 5%
     }
     PRINT("EN_ESP_UART1_LOG_flag:%d\n",EN_ESP_UART1_LOG_flag);
 }
@@ -439,11 +424,9 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
         DelayMs(100); // 延迟 50ms
 
         GPIOB_ResetBits(CH582_3V3_Pin); // 设置 PB5 为低电平
-        setDimColor(GREEN_COLOR, 0.05); // 设置 WS2812 为绿色，亮度 5%
         //延迟50ms
         DelayMs(50); // 延迟 50ms
         GPIOB_SetBits(CH582_3V3_Pin); // 设置 PB5 为高电平
-        setDimColor(RED_COLOR, 0.05); // 设置 WS2812 为红色，亮度 5%
 */
 
         tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 10); // 10ms后开始发送
@@ -462,13 +445,11 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
         {
             PRINT("长按：当前有BLE连接，断开连接并停止自动重连\n");
             Central_DisconnectAndStopAutoReconnect();
-            setDimColor(RED_COLOR, 0.1); // 设置LED为红色表示断开状态
         }
         else
         {
             PRINT("长按：当前无BLE连接，启动自动搜索和连接\n");
             Central_StartAutoReconnect();
-            setDimColor(BLUE, 0.1); // 设置LED为蓝色表示搜索状态
         }*/
         
         return (events ^ KEY_EVENT_LONG_PRESS);

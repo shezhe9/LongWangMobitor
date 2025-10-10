@@ -8,30 +8,26 @@ C_SRCS += \
 ../APP/central.c \
 ../APP/central_main.c \
 ../APP/key.c \
-../APP/uart_cmd.c \
-../APP/ws2812.c 
+../APP/uart_cmd.c 
 
 C_DEPS += \
 ./APP/central.d \
 ./APP/central_main.d \
 ./APP/key.d \
-./APP/uart_cmd.d \
-./APP/ws2812.d 
+./APP/uart_cmd.d 
 
 OBJS += \
 ./APP/central.o \
 ./APP/central_main.o \
 ./APP/key.o \
-./APP/uart_cmd.o \
-./APP/ws2812.o 
+./APP/uart_cmd.o 
 
 
 EXPANDS += \
 ./APP/central.c.234r.expand \
 ./APP/central_main.c.234r.expand \
 ./APP/key.c.234r.expand \
-./APP/uart_cmd.c.234r.expand \
-./APP/ws2812.c.234r.expand 
+./APP/uart_cmd.c.234r.expand 
 
 
 

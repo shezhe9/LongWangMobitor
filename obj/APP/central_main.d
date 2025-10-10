@@ -25,7 +25,8 @@ APP/central_main.o: ../APP/central_main.c \
  d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/HAL/include/LED.h \
  d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/HAL/include/KEY.h \
  d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/central.h \
- d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/uart_cmd.h
+ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/uart_cmd.h \
+ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/key.h
 
 d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/HAL/include/CONFIG.h:
 
@@ -80,3 +81,5 @@ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/HAL/include/KEY.h:
 d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/central.h:
 
 d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/uart_cmd.h:
+
+d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/key.h:

@@ -14,6 +14,7 @@
 #include "hal.h"
 #include "central.h"
 #include "uart_cmd.h"
+#include "key.h"
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -73,8 +74,6 @@ int main(void)
 
     GAPRole_CentralInit();
     Central_Init();
-    PRINT("ws2812_ini()\n");
-    ws2812_ini();
     PRINT("Key_Init()\n");
     Key_Init();
     
