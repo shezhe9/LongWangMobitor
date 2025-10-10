@@ -7,18 +7,21 @@
 C_SRCS += \
 ../APP/central.c \
 ../APP/central_main.c \
+../APP/cmd_parsing.c \
 ../APP/key.c \
 ../APP/uart_cmd.c 
 
 C_DEPS += \
 ./APP/central.d \
 ./APP/central_main.d \
+./APP/cmd_parsing.d \
 ./APP/key.d \
 ./APP/uart_cmd.d 
 
 OBJS += \
 ./APP/central.o \
 ./APP/central_main.o \
+./APP/cmd_parsing.o \
 ./APP/key.o \
 ./APP/uart_cmd.o 
 
@@ -26,6 +29,7 @@ OBJS += \
 EXPANDS += \
 ./APP/central.c.234r.expand \
 ./APP/central_main.c.234r.expand \
+./APP/cmd_parsing.c.234r.expand \
 ./APP/key.c.234r.expand \
 ./APP/uart_cmd.c.234r.expand 
 

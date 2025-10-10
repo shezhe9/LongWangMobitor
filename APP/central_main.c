@@ -16,6 +16,7 @@
 #include "uart_cmd.h"
 #include "key.h"
 #include "ulog_buffer.h"  // ulog 日志系统
+#include "cmd_parsing.h"  // 命令解析模块
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -85,6 +86,15 @@ int main(void)
     Key_Init();
     uinfo("Key_Init() - \260\264\274\374\263\365\312\274\273\257\315\352\263\311\n");  // 按键初始化完成
     
+    // 初始化UART任务（TMOS任务注册）
+    PRINT("Initializing uart_task...\n");
+    uart_task_init();
+    PRINT("uart_task initialized\n");
+    
+    // 初始化命令解析任务（TMOS任务注册）
+    PRINT("Initializing cmd_parsing_task...\n");
+    cmd_parsing_task_init();
+    PRINT("cmd_parsing_task initialized\n");
 
     Main_Circulation();
 }
