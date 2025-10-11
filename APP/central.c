@@ -451,7 +451,6 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
             req.handle = centralCCCDHdl;                               // 设置CCCD句柄
             req.len = 2;                                               // 写入长度为2
             req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_REQ, req.len, NULL, 0); // 分配内存
-            printf("CCCD_handle = %x\n" ,req.handle);                  // 打印句柄值
             if(req.pValue != NULL)                                     // 如果内存分配成功
             {
                 req.pValue[0] = 1;                                     // 启用通知
@@ -464,8 +463,17 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 else
                 {
                     GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);   // 释放内存
+                    uinfo("Failed to send CCCD write request\n");
                 }
             }
+            else
+            {
+                uinfo("Failed to allocate memory for CCCD write\n");
+            }
+        }
+        else
+        {
+            uinfo("GATT procedure in progress, cannot write CCCD now\n");
         }
         return (events ^ START_WRITE_CCCD_EVT);
     }
@@ -489,11 +497,11 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 return (events ^ START_SEND_TEST_DATA_EVT);
             }
             
-            // 一次发送20个字节的测试数据（1-20）到AE10写特征
-            uinfo("Sending to AE10 write characteristic handle: 0x%04X\n", centralWriteCharHdl);
+            // 发送指定的20字节数据到AE10写特征
+            uinfo("Sending custom command to AE10 write characteristic handle: 0x%04X\n", centralWriteCharHdl);
             
             attWriteReq_t req;
-            req.cmd = TRUE;                                           // 使用Write Command（无需响应，避免权限问题）
+            req.cmd = TRUE;                                           // 使用Write Command（无需响应）
             req.sig = FALSE;                                          // 不带签名
             req.handle = centralWriteCharHdl;                         // 设置AE10写特征句柄
             req.len = 20;                                             // 写入长度为20字节
@@ -501,113 +509,53 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
             
             if(req.pValue != NULL)
             {
-                // 填充数据1-20
-                for(uint8_t i = 0; i < 20; i++)
-                {
-                    req.pValue[i] = 0;  // 数据内容为1, 2, 3, ..., 20
-                }
-                if(send_data_index == 0)
-                {
-                    req.pValue[0] = 0x81;
-                    req.pValue[1] = 0x00;
-                    req.pValue[2] = 0x02;
-                    req.pValue[3] = 0x01;
-                    req.pValue[4] = 0x00;
-                    req.pValue[5] = 0x02;
-                    req.pValue[6] = 0x00;
-                    req.pValue[7] = 0x30;
-                    req.pValue[8] = 0x00;
-                    req.pValue[9] = 0x00;
-                    req.pValue[10] = 0x02;
-                    req.pValue[11] = 0x00;
-                    req.pValue[12] = 0x30;
-                    req.pValue[13] = 0x00;
-                    req.pValue[14] = 0x00;
-                    req.pValue[15] = 0x00;
-                    req.pValue[16] = 0x00;
-                    req.pValue[17] = 0x00;
-                    req.pValue[18] = 0x00;
-                    req.pValue[19] = 0x00;
-                }else if(send_data_index == 1)
-                {
-                    req.pValue[0] = 0x82;
-                    req.pValue[1] = 0x00;
-                    req.pValue[2] = 0x02;
-                    req.pValue[3] = 0x01;
-                    req.pValue[4] = 0x03;
-                    req.pValue[5] = 0x02;
-                    req.pValue[6] = 0x00;
-                    req.pValue[7] = 0x30;
-                    req.pValue[8] = 0x00;
-                    req.pValue[9] = 0x00;
-                    req.pValue[10] = 0x02;
-                    req.pValue[11] = 0x00;
-                    req.pValue[12] = 0x30;
-                    req.pValue[13] = 0x00;
-                    req.pValue[14] = 0x00;
-                    req.pValue[15] = 0x00;
-                    req.pValue[16] = 0x00;
-                    req.pValue[17] = 0x00;
-                    req.pValue[18] = 0x00;
-                    req.pValue[19] = 0x00;
-                }
-                else
-                {
-                    req.pValue[0] = 0x83;
-                    req.pValue[1] = 0x00;
-                    req.pValue[2] = 0x02;
-                    req.pValue[3] = 0x01;
-                    req.pValue[4] = 0x20;
-                    req.pValue[5] = 0x02;
-                    req.pValue[6] = 0x00;
-                    req.pValue[7] = 0x30;
-                    req.pValue[8] = 0x00;
-                    req.pValue[9] = 0x00;
-                    req.pValue[10] = 0x02;
-                    req.pValue[11] = 0x00;
-                    req.pValue[12] = 0x30;
-                    req.pValue[13] = 0x00;
-                    req.pValue[14] = 0x00;
-                    req.pValue[15] = 0x00;
-                    req.pValue[16] = 0x00;
-                    req.pValue[17] = 0x00;
-                    req.pValue[18] = 0x00;
-                    req.pValue[19] = 0x00;
-                }
+                // 填充指定的数据：83 00 01 01 0a 02 00 2d 00 00 02 00 37 00 00 00 00 00 00 00
+                req.pValue[0]  = 0x83;
+                req.pValue[1]  = 0x00;
+                req.pValue[2]  = 0x01;
+                req.pValue[3]  = 0x01;
+                req.pValue[4]  = 0x0A;
+                req.pValue[5]  = 0x02;
+                req.pValue[6]  = 0x00;
+                req.pValue[7]  = 0x2D;
+                req.pValue[8]  = 0x00;
+                req.pValue[9]  = 0x00;
+                req.pValue[10] = 0x02;
+                req.pValue[11] = 0x00;
+                req.pValue[12] = 0x37;
+                req.pValue[13] = 0x00;
+                req.pValue[14] = 0x00;
+                req.pValue[15] = 0x00;
+                req.pValue[16] = 0x00;
+                req.pValue[17] = 0x00;
+                req.pValue[18] = 0x00;
+                req.pValue[19] = 0x00;
                 
-                send_data_index +=1;
-                if(send_data_index>2)
-                  send_data_index=0;
-                // 打印要发送的数据
-                uinfo("Sending 20 bytes test data: ");
-                for(uint8_t i = 0; i < 20; i++)
-                {
-                    uinfo("%d ", req.pValue[i]);
-                }
-                uinfo("\n");
+                // 使用ulog_array_to_hex一次性打印，避免多条日志
+                ulog_array_to_hex("Sending custom command", req.pValue, 20);
                 
                 bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);  // 使用Write Command
                 if(status == SUCCESS)
                 {
-                    uinfo("20-byte test data sent successfully using Write Command to AE10!\n");
+                    uinfo("Custom command sent successfully to AE10!\n");
                 }
                 else
                 {
-                    uinfo("Failed to send 20-byte test data, status: 0x%02X\n", status);
+                    uinfo("Failed to send custom command, status: 0x%02X\n", status);
                     GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
                 }
             }
             else
             {
-                uinfo("Failed to allocate memory for 20-byte test data\n");
+                uinfo("Failed to allocate memory for custom command\n");
             }
         }
         else
         {
-            uinfo("Cannot send test data:\n");
+            uinfo("Cannot send custom command:\n");
             uinfo("  State: %d (expected: %d - BLE_STATE_CONNECTED)\n", centralState, BLE_STATE_CONNECTED);
             uinfo("  ConnHandle: 0x%04X (expected: != 0xFFFE)\n", centralConnHandle);
-            uinfo("  AE02 WriteHandle: 0x%04X (expected: != 0)\n", centralWriteCharHdl);
+            uinfo("  AE10 WriteHandle: 0x%04X (expected: != 0)\n", centralWriteCharHdl);
         }
         return (events ^ START_SEND_TEST_DATA_EVT);
     }
@@ -778,7 +726,18 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
 
             uinfo("Exchange MTU Error: %x\n", status);                 // 打印MTU交换错误
         }
+        else
+        {
+            uinfo("MTU exchange completed successfully\n");
+        }
         centralProcedureInProgress = FALSE;                           // 清除操作进行中标志
+        
+        // MTU交换完成后，如果服务发现正在等待，则重新触发
+        if(centralDiscState == BLE_DISC_STATE_SVC && centralSvcStartHdl == 0)
+        {
+            uinfo("MTU exchange done, retrying service discovery...\n");
+            tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, 160); // 100ms后重试服务发现
+        }
     }
 
     if(pMsg->method == ATT_MTU_UPDATED_EVENT)                         // 如果是MTU更新事件
@@ -821,13 +780,10 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
         }
         else
         {
-            // Write success                                         // 写入成功
-            uinfo("Write success \n");                              // 打印写入成功
-            
-            // 检查是否是CCCD写入成功，如果是则发送初始化数据
+            // Write success - 检查是否是CCCD写入成功，如果是则发送初始化数据
             if(centralDiscState == BLE_DISC_STATE_IDLE && centralWriteCharHdl != 0)
             {
-                uinfo("CCCD setup completed, triggering initialization data send...\n");
+                uinfo("Notifications enabled. Sending initialization data...\n");
                 tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 500); // 500ms后发送初始化数据
             }
         }
@@ -850,7 +806,7 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
             uint8_t pwm_cold=pMsg->msg.handleValueNoti.pValue[11];
             uint8_t pwm_bump =pMsg->msg.handleValueNoti.pValue[13];
             uint8_t pwm_fan =pMsg->msg.handleValueNoti.pValue[14];
-            uinfo("md=%d rightTemp=%d rightTemp=%d tempDelta=%d tempEnv=%d tempWater=%d pwm_cold=%d pwm_bump=%d pwm_fan=%d "  , modetype,leftTemp,rightTemp,tempDelta,tempEnv,tempWater,pwm_cold,pwm_bump,pwm_fan); 
+            uinfo("md=%d rightTemp=%d rightTemp=%d tempDelta=%d tempEnv=%d tempWater=%d pwm_cold=%d pwm_bump=%d pwm_fan=%d \n "  , modetype,leftTemp,rightTemp,tempDelta,tempEnv,tempWater,pwm_cold,pwm_bump,pwm_fan); 
         }
         
     }
@@ -1366,11 +1322,14 @@ static void centralStartDiscovery(void)
     centralDiscState = BLE_DISC_STATE_SVC;                         // 设置发现状态为服务发现
 
     // Discovery target BLE service (AE00)                        // 发现目标BLE服务(AE00)
-    uinfo("Starting service discovery for UUID: 0x%04X\n", TARGET_SERVICE_UUID);
-    GATT_DiscPrimaryServiceByUUID(centralConnHandle,
-                                  uuid,
-                                  ATT_BT_UUID_SIZE,
-                                  centralTaskId);
+    bStatus_t status = GATT_DiscPrimaryServiceByUUID(centralConnHandle,
+                                                      uuid,
+                                                      ATT_BT_UUID_SIZE,
+                                                      centralTaskId);
+    if(status != SUCCESS)
+    {
+        uinfo("Service discovery failed: 0x%02X (will retry after MTU exchange)\n", status);
+    }
 }
 
 /*********************************************************************
@@ -1383,6 +1342,7 @@ static void centralStartDiscovery(void)
 static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
 {
     attReadByTypeReq_t req;                                        // 读取请求结构体
+    
     if(centralDiscState == BLE_DISC_STATE_SVC)                     // 如果是服务发现状态
     {
         // Service found, store handles                            // 找到服务，存储句柄
@@ -1391,22 +1351,21 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
         {
             centralSvcStartHdl = ATT_ATTR_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0); // 保存服务起始句柄
             centralSvcEndHdl = ATT_GRP_END_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0); // 保存服务结束句柄
-
-            // Display Profile Service handle range                 // 显示配置文件服务句柄范围
-            uinfo("Found Profile Service handle : %x ~ %x \n", centralSvcStartHdl, centralSvcEndHdl);
         }
         // If procedure complete                                   // 如果程序完成
         if((pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP &&
             pMsg->hdr.status == bleProcedureComplete) ||
            (pMsg->method == ATT_ERROR_RSP))
         {
+            if(pMsg->method == ATT_ERROR_RSP)
+            {
+                uinfo("Service discovery failed: 0x%02X\n", pMsg->msg.errorRsp.errCode);
+            }
+            
             if(centralSvcStartHdl != 0)                            // 如果找到AE00服务
             {
                 // Discover all characteristics in the service     // 发现服务中的所有特征
                 centralDiscState = BLE_DISC_STATE_CHAR;            // 设置状态为特征发现
-                
-                uinfo("Discovering all characteristics in AE00 service (handles: 0x%04X - 0x%04X)\n", 
-                      centralSvcStartHdl, centralSvcEndHdl);
                 GATT_DiscAllChars(centralConnHandle, centralSvcStartHdl, centralSvcEndHdl, centralTaskId);
             }
             else
@@ -1424,63 +1383,41 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
            pMsg->msg.readByTypeRsp.numPairs > 0)
         {
             // 解析发现的所有特征
-            uinfo("Discovered %d characteristics in AE00 service:\n", pMsg->msg.readByTypeRsp.numPairs);
             for(uint8_t i = 0; i < pMsg->msg.readByTypeRsp.numPairs; i++)
             {
                 uint8_t *pData = &pMsg->msg.readByTypeRsp.pDataList[i * pMsg->msg.readByTypeRsp.len];
-                uint16_t charDeclHdl = BUILD_UINT16(pData[0], pData[1]);    // 特征声明句柄
-                uint8_t properties = pData[2];                              // 特征属性
                 uint16_t valueHdl = BUILD_UINT16(pData[3], pData[4]);       // 特征值句柄
-                
-                uinfo("Char %d: DeclHdl=0x%04X, Props=0x%02X, ValueHdl=0x%04X\n", 
-                      i, charDeclHdl, properties, valueHdl);
                 
                 // 对于16字节UUID，提取2字节短UUID
                 if(pMsg->msg.readByTypeRsp.len == 21)  // 16字节UUID格式
                 {
                     uint16_t shortUUID = BUILD_UINT16(pData[5], pData[6]);  // 提取短UUID
-                    uinfo("  UUID: 0x%04X", shortUUID);
                     
                     // 检查是否为目标特征
                     if(shortUUID == TARGET_WRITE_CHAR_UUID)  // AE10写特征
                     {
                         centralWriteCharHdl = valueHdl;
                         centralCharHdl = valueHdl;  // 设置兼容变量
-                        uinfo(" -> AE10 Write Characteristic Found! Handle=0x%04X", valueHdl);
                     }
                     else if(shortUUID == TARGET_NOTIFY_CHAR_UUID)  // AE02通知特征
                     {
                         centralNotifyCharHdl = valueHdl;
-                        uinfo(" -> AE02 Notify Characteristic Found! Handle=0x%04X", valueHdl);
                     }
-                    uinfo("\n");
                 }
                 else if(pMsg->msg.readByTypeRsp.len == 7)  // 2字节UUID格式
                 {
                     uint16_t shortUUID = BUILD_UINT16(pData[5], pData[6]);
-                    uinfo("  UUID: 0x%04X", shortUUID);
                     
                     if(shortUUID == TARGET_WRITE_CHAR_UUID)  // AE10写特征
                     {
                         centralWriteCharHdl = valueHdl;
                         centralCharHdl = valueHdl;  // 设置兼容变量
-                        uinfo(" -> AE10 Write Characteristic Found! Handle=0x%04X", valueHdl);
                     }
                     else if(shortUUID == TARGET_NOTIFY_CHAR_UUID)  // AE02通知特征
                     {
                         centralNotifyCharHdl = valueHdl;
-                        uinfo(" -> AE02 Notify Characteristic Found! Handle=0x%04X", valueHdl);
                     }
-                    uinfo("\n");
                 }
-                
-                // 打印属性详情
-                uinfo("  Properties: ");
-                if(properties & 0x02) uinfo("Read ");
-                if(properties & 0x08) uinfo("Write ");
-                if(properties & 0x10) uinfo("Notify ");
-                if(properties & 0x20) uinfo("Indicate ");
-                uinfo("\n");
             }
         }
         
@@ -1488,9 +1425,6 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             pMsg->hdr.status == bleProcedureComplete) ||
            (pMsg->method == ATT_ERROR_RSP))
         {
-            uinfo("\nCharacteristic discovery summary:\n");
-            uinfo("  AE10 Write Handle: 0x%04X\n", centralWriteCharHdl);
-            uinfo("  AE02 Notify Handle: 0x%04X\n", centralNotifyCharHdl);
             
             if(centralNotifyCharHdl != 0)  // 如果找到了AE02通知特征
             {
@@ -1502,12 +1436,15 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
                 req.type.uuid[0] = LO_UINT16(GATT_CLIENT_CHAR_CFG_UUID); // 设置CCCD UUID
                 req.type.uuid[1] = HI_UINT16(GATT_CLIENT_CHAR_CFG_UUID);
 
-                uinfo("Discovering CCCD for AE02 notification...\n");
+                uinfo("===> [STEP 4/5] Starting CCCD discovery for AE02 notification...\n");
+                uinfo("Searching for CCCD (UUID: 0x2902) in range: 0x%04X - 0x%04X\n", 
+                      centralSvcStartHdl, centralSvcEndHdl);
                 GATT_ReadUsingCharUUID(centralConnHandle, &req, centralTaskId);
             }
             else
             {
-                uinfo("AE02 notification characteristic not found!\n");
+                uinfo("===> [WARNING] AE02 notification characteristic not found!\n");
+                uinfo("Notifications will not be available\n");
                 centralDiscState = BLE_DISC_STATE_IDLE;
                 centralProcedureInProgress = FALSE;
             }
@@ -1527,14 +1464,14 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             tmos_start_task(centralTaskId, START_WRITE_CCCD_EVT, DEFAULT_WRITE_CCCD_DELAY);
 
             // Display CCCD handle                                // 显示CCCD句柄
-            uinfo("Found AE02 CCCD handle: 0x%04X, enabling notifications...\n", centralCCCDHdl);
-            uinfo("Ready to receive notifications from AE02 and send data to AE10 (handle: 0x%04X)\n", centralWriteCharHdl);
-            // 准备在CCCD配置完成后发送初始化数据
+            uinfo("===> [STEP 4/5] Found AE02 CCCD handle: 0x%04X\n", centralCCCDHdl);
+            uinfo("Preparing to enable notifications...\n");
+            uinfo("Write characteristic AE10 handle: 0x%04X\n", centralWriteCharHdl);
             uinfo("Will send initialization data after CCCD setup completes...\n");
         }
         else
         {
-            uinfo("AE02 CCCD not found, notifications not available\n");
+            uinfo("===> [WARNING] AE02 CCCD not found, notifications not available\n");
             // 即使没有CCCD，连接仍然有效，可以进行写操作
             centralProcedureInProgress = FALSE;
             

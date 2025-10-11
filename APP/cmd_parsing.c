@@ -126,8 +126,11 @@ void single_click_handler(uint8_t *data, uint16_t len)
 // 发送测试数据处理函数
 void send_test_data_handler(uint8_t *data, uint16_t len)
 {
-    uinfo("Starting to send test data...\n");
-    tmos_start_task(centralTaskId, START_SEND_TEST_DATA_EVT, 10);
+    uinfo("Starting to send test data via BLE...\n");
+    uinfo("Triggering START_SEND_TEST_DATA_EVT (0x%04X) for centralTaskId=%d\n", 
+          START_SEND_TEST_DATA_EVT, centralTaskId);
+    // 立即触发事件，不需要延时
+    tmos_set_event(centralTaskId, START_SEND_TEST_DATA_EVT);
 }
 
 // 断开连接处理函数
@@ -214,7 +217,8 @@ void protocol_parsing(uint8_t *buf, uint16_t len)
 
         case MSG_SEND_TEST_DATA:
             uinfo("Parsing: MSG_SEND_TEST_DATA\n");
-            parsing_cmd(cmd_parsing_buffer, NULL, send_test_data_handler, NULL);
+            // 对于发送测试数据命令，忽略操作类型，直接执行
+            send_test_data_handler(cmd_parsing_buffer, CMD_LEN);
             break;
 
         case MSG_DISCONNECT:
