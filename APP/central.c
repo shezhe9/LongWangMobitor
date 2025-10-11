@@ -688,7 +688,11 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         centralCharHdl = 0;
         centralCCCDHdl = 0;
         
-        uinfo("Restarting device discovery for target device: '%s'...\n", TARGET_DEVICE_NAME);
+        // 初始化候选设备列表
+        centralInitCandidates();
+        
+        uinfo("Restarting device discovery (%s / %s), will select strongest signal...\n", 
+              TARGET_DEVICE_NAME_1, TARGET_DEVICE_NAME_2);
         GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
                                       DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                       DEFAULT_DISCOVERY_WHITE_LIST);
@@ -998,6 +1002,9 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 return;  // 直接返回，避免重复触发连接
             }
             
+            // 先添加设备到列表（用于去重检查）
+            centralAddDeviceInfo(pEvent->deviceInfo.addr, pEvent->deviceInfo.addrType);
+            
             // 检查广播数据中的设备名称和RSSI
             uint8_t *pAdvData = pEvent->deviceInfo.pEvtData;
             uint8_t advDataLen = pEvent->deviceInfo.dataLen;
@@ -1119,9 +1126,6 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 // while 循环结束
             }
             // if(pAdvData != NULL && advDataLen > 0) 结束
-            
-            // 如果不是目标设备，仍然添加到列表中
-            centralAddDeviceInfo(pEvent->deviceInfo.addr, pEvent->deviceInfo.addrType);
         }
         break;
 
