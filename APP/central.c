@@ -88,7 +88,7 @@
 #define DEFAULT_IO_CAPABILITIES             GAPBOND_IO_CAP_DISPLAY_ONLY // 默认GAP绑定I/O能力为仅显示
 
 // Default service discovery timer delay in 0.625ms                 
-#define DEFAULT_SVC_DISCOVERY_DELAY         1600                    // 默认服务发现延时
+#define DEFAULT_SVC_DISCOVERY_DELAY         320                     // 默认服务发现延时（优化：1000ms→200ms）
 
 // Default parameter update delay in 0.625ms                        
 #define DEFAULT_PARAM_UPDATE_DELAY          3200                    // 默认参数更新延时
@@ -100,7 +100,7 @@
 #define DEFAULT_READ_OR_WRITE_DELAY         1600                    // 默认读写操作延时
 
 // Default write CCCD delay in 0.625ms                              
-#define DEFAULT_WRITE_CCCD_DELAY            1600                    // 默认写CCCD延时
+#define DEFAULT_WRITE_CCCD_DELAY            320                     // 默认写CCCD延时（优化：1000ms→200ms 150m会失败）
 
 // Establish link timeout in 0.625ms                                
 #define ESTABLISH_LINK_TIMEOUT              3200                    // 建立连接超时时间
@@ -763,7 +763,7 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
         if(centralDiscState == BLE_DISC_STATE_SVC && centralSvcStartHdl == 0)
         {
             uinfo("MTU exchange done, retrying service discovery...\n");
-            tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, 160); // 100ms后重试服务发现
+            tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, 80); // 50ms后重试服务发现（优化：100ms→50ms）
         }
     }
 
@@ -811,7 +811,7 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
             if(centralDiscState == BLE_DISC_STATE_IDLE && centralWriteCharHdl != 0)
             {
                 uinfo("Notifications enabled. Sending initialization data...\n");
-                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 500); // 500ms后发送初始化数据
+                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 80); // 50ms后发送初始化数据（优化：500ms→50ms, 80*0.625=50ms）
             }
         }
 
@@ -1007,7 +1007,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                     tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
                                     tmos_stop_task(centralTaskId, START_AUTO_RECONNECT_EVT);
                                     
-                                    DelayMs(100);  // 等待停止完成
+                                    DelayMs(20);  // 等待停止完成（优化：100ms→20ms）
                                     
                                     // 如果已经有有效连接，先断开（只有在连接句柄有效时才终止）
                                     if(centralConnHandle != GAP_CONNHANDLE_INIT && centralState != BLE_STATE_IDLE)

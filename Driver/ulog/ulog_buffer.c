@@ -103,8 +103,15 @@ void ulog_buffer_process_one(void)
     {
         ulog_buffer_entry_t *entry = &g_ulog_buffer.entries[g_ulog_buffer.read_index];
         
-        // 打印日志级别和时间戳
-        PRINT("[%lu][", entry->timestamp);
+        // 将RTC ticks转换为秒.毫秒格式
+        // RTC频率 = 32768 Hz, 1 tick = 1/32768 秒 ≈ 0.0305ms
+        // 总毫秒 = timestamp * 1000 / 32768 ≈ timestamp * 125 / 4096 (使用整数运算避免浮点)
+        uint32_t total_ms = (entry->timestamp * 125) / 4096;  // 更精确的整数运算
+        uint32_t seconds = total_ms / 1000;
+        uint32_t milliseconds = total_ms % 1000;
+        
+        // 打印时间戳和日志级别 (格式: [秒.毫秒][级别])
+        PRINT("[%lu.%03lu][", seconds, milliseconds);
         
         // 打印日志级别
         switch(entry->level)
