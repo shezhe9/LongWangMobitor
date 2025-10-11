@@ -174,7 +174,11 @@
 							"${project}/LIB",
 							"${project}/RVMSIS",
 							"${project}/Driver/ulog",
-							"${project}/Driver/ulog/inc"
+							"${project}/Driver/ulog/inc",
+							"${project}/Driver/i2c_oled",
+							"${project}/Driver/i2c_oled/inc",
+							"${project}/Driver/i2c_humi",
+							"${project}/Driver/i2c_humi/inc"
 						],
 						"include_system_paths": [],
 						"include_files": []

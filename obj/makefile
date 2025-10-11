@@ -13,6 +13,8 @@ RM := rm -rf
 -include RVMSIS/subdir.mk
 -include HAL/subdir.mk
 -include Driver/ulog/subdir.mk
+-include Driver/i2c_oled/subdir.mk
+-include Driver/i2c_humi/subdir.mk
 -include APP/subdir.mk
 -include subdir.mk
 -include objects.mk

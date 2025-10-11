@@ -30,7 +30,9 @@ APP/central_main.o: ../APP/central_main.c \
  d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/ulog/inc/ulog_buffer.h \
  d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/ulog/inc/ulog_config.h \
  d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/cmd_parsing.h \
- d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/common_define.h
+ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/common_define.h \
+ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/i2c_oled/inc/oled_display.h \
+ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/i2c_humi/inc/app_i2c.h
 
 d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/HAL/include/CONFIG.h:
 
@@ -95,3 +97,7 @@ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/ulog/inc/
 d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/cmd_parsing.h:
 
 d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/common_define.h:
+
+d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/i2c_oled/inc/oled_display.h:
+
+d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/i2c_humi/inc/app_i2c.h:

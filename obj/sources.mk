@@ -26,6 +26,8 @@ CALLGRAPH_DOT := callgraph.dot \
 # Every subdirectory with source files must be described here
 SUBDIRS := \
 APP \
+Driver/i2c_humi \
+Driver/i2c_oled \
 Driver/ulog \
 HAL \
 RVMSIS \

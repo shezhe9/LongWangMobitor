@@ -17,6 +17,8 @@
 #include "key.h"
 #include "ulog_buffer.h"  // ulog 日志系统
 #include "cmd_parsing.h"  // 命令解析模块
+#include "oled_display.h" // OLED显示
+#include "app_i2c.h"      // I2C驱动
 
 /*********************************************************************
  * GLOBAL TYPEDEFS
@@ -95,6 +97,14 @@ int main(void)
     PRINT("Initializing cmd_parsing_task...\n");
     cmd_parsing_task_init();
     PRINT("cmd_parsing_task initialized\n");
+    
+#ifdef ENABLE_OLED_DISPLAY
+    // 初始化I2C和OLED显示
+    PRINT("Initializing I2C and OLED...\n");
+    i2c_app_init(0x3C);  // 初始化I2C，0x3C是OLED地址
+    OLED_Display_Init(); // 初始化OLED显示
+    uinfo("OLED Display Initialized\n");
+#endif
 
     Main_Circulation();
 }

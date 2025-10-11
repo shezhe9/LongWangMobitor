@@ -22,7 +22,8 @@ APP/central.o: ../APP/central.c \
  d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/central.h \
  d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/key.h \
  d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/ulog/inc/ulog_buffer.h \
- d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/ulog/inc/ulog_config.h
+ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/ulog/inc/ulog_config.h \
+ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/i2c_oled/inc/oled_display.h
 
 d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/HAL/include/CONFIG.h:
 
@@ -71,3 +72,5 @@ d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/APP/include/key.
 d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/ulog/inc/ulog_buffer.h:
 
 d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/ulog/inc/ulog_config.h:
+
+d:/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/LongWangMonitor/Driver/i2c_oled/inc/oled_display.h:

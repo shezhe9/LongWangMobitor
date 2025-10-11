@@ -16,6 +16,7 @@
 #include "central.h"                                                 // 包含central主机头文件
 #include "key.h"
 #include "ulog_buffer.h"                                             // ulog 日志系统  
+#include "oled_display.h"                                            // OLED显示  
 /*********************************************************************
  * MACROS                                                            // 宏定义
  */
@@ -792,7 +793,6 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
     }
     else if(pMsg->method == ATT_HANDLE_VALUE_NOTI)                 // 如果是特征值通知
     {
-//        uinfo("Receive noti: %x\n", *pMsg->msg.handleValueNoti.pValue);
       // 使用 ulog_array_to_hex 一次性打印，避免循环产生多条日志
       ulog_array_to_hex("Noti", pMsg->msg.handleValueNoti.pValue, pMsg->msg.handleValueNoti.len);
         if(pMsg->msg.handleValueNoti.pValue[0]==0xc0)
@@ -801,12 +801,20 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
             uint8_t leftTemp = pMsg->msg.handleValueNoti.pValue[4];
             uint8_t rightTemp = pMsg->msg.handleValueNoti.pValue[5];
             uint8_t tempDelta = pMsg->msg.handleValueNoti.pValue[7];
-           uint8_t  tempEnv =pMsg->msg.handleValueNoti.pValue[8];
-           uint8_t  tempWater=pMsg->msg.handleValueNoti.pValue[9];
+            uint8_t tempEnv =pMsg->msg.handleValueNoti.pValue[8];
+            uint8_t tempWater=pMsg->msg.handleValueNoti.pValue[9];
             uint8_t pwm_cold=pMsg->msg.handleValueNoti.pValue[11];
             uint8_t pwm_bump =pMsg->msg.handleValueNoti.pValue[13];
             uint8_t pwm_fan =pMsg->msg.handleValueNoti.pValue[14];
-            uinfo("md=%d rightTemp=%d rightTemp=%d tempDelta=%d tempEnv=%d tempWater=%d pwm_cold=%d pwm_bump=%d pwm_fan=%d \n "  , modetype,leftTemp,rightTemp,tempDelta,tempEnv,tempWater,pwm_cold,pwm_bump,pwm_fan); 
+            uinfo("md=%d leftTemp=%d rightTemp=%d tempDelta=%d tempEnv=%d tempWater=%d pwm_cold=%d pwm_bump=%d pwm_fan=%d\n", 
+                  modetype,leftTemp,rightTemp,tempDelta,tempEnv,tempWater,pwm_cold,pwm_bump,pwm_fan); 
+            
+#ifdef ENABLE_OLED_DISPLAY
+            // 更新OLED显示 - 数据需要转换为0.1°C单位（原始数据是整数度）
+            OLED_Update_Temp_Display(tempEnv * 10, leftTemp * 10, tempWater * 10, rightTemp * 10,
+                                     tempDelta, modetype, pwm_cold,
+                                     pwm_fan, pwm_bump);
+#endif
         }
         
     }
