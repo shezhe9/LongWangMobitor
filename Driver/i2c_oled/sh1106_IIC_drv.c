@@ -380,7 +380,7 @@ void SH1106_ShowSpace4(uint8_t x, uint8_t y, uint8_t mode)
     
     for(i = 0; i < 8; i++)  // 4x16只需要8字节
     {
-        temp = char_4x16[0][i];  // 空格
+        temp = char_4x16[1][i];  // 空格（索引1）
         for(m = 0; m < 8; m++)
         {
             if(temp & 0x01)
@@ -525,6 +525,68 @@ void SH1106_ShowNum16(uint8_t x, uint8_t y, int32_t num, uint8_t mode)
             y = y0;
         }
         x += 8;  // 移动到下一个数字位置
+    }
+}
+
+/**
+ * @brief 显示4x16精简冒号
+ */
+void SH1106_ShowColon4(uint8_t x, uint8_t y, uint8_t mode)
+{
+    uint8_t i, m;
+    uint8_t x0 = x, y0 = y;
+    uint8_t temp;
+    
+    for(i = 0; i < 8; i++)  // 4x16只需要8字节
+    {
+        temp = char_4x16[0][i];  // 精简冒号（索引0）
+        for(m = 0; m < 8; m++)
+        {
+            if(temp & 0x01)
+                SH1106_DrawPoint(x, y, mode);
+            else
+                SH1106_DrawPoint(x, y, !mode);
+            temp >>= 1;
+            y++;
+        }
+        x++;
+        if((x - x0) == 4)
+        {
+            x = x0;
+            y0 = y0 + 8;
+        }
+        y = y0;
+    }
+}
+
+/**
+ * @brief 显示4x16精简负号
+ */
+void SH1106_ShowMinus4(uint8_t x, uint8_t y, uint8_t mode)
+{
+    uint8_t i, m;
+    uint8_t x0 = x, y0 = y;
+    uint8_t temp;
+    
+    for(i = 0; i < 8; i++)  // 4x16只需要8字节
+    {
+        temp = char_4x16[2][i];  // 精简负号（索引2）
+        for(m = 0; m < 8; m++)
+        {
+            if(temp & 0x01)
+                SH1106_DrawPoint(x, y, mode);
+            else
+                SH1106_DrawPoint(x, y, !mode);
+            temp >>= 1;
+            y++;
+        }
+        x++;
+        if((x - x0) == 4)
+        {
+            x = x0;
+            y0 = y0 + 8;
+        }
+        y = y0;
     }
 }
 

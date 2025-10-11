@@ -46,6 +46,8 @@ void SH1106_ShowColon8(uint8_t x, uint8_t y, uint8_t mode); // 显示冒号（8x
 void SH1106_ShowSpace8(uint8_t x, uint8_t y, uint8_t mode); // 显示空格（8x16）
 void SH1106_ShowSpace4(uint8_t x, uint8_t y, uint8_t mode); // 显示空格（4x16，精简）
 void SH1106_ShowPercent8(uint8_t x, uint8_t y, uint8_t mode); // 显示百分号（8x16）
+void SH1106_ShowColon4(uint8_t x, uint8_t y, uint8_t mode); // 显示冒号（4x16，精简）
+void SH1106_ShowMinus4(uint8_t x, uint8_t y, uint8_t mode); // 显示负号（4x16，精简）
 
 #ifdef __cplusplus
 }

@@ -150,101 +150,156 @@ void OLED_Update_Temp_Display(int16_t env_temp, int16_t left_temp, int16_t water
      */
     
     // === 第1行 (y=0) ===
-    // 左:36 (x=0)
+    // 左:36 或 左-36 (x=0) - 使用4像素精简字符
     SH1106_ShowChinese(0, 0, CHINESE_LEFT, 1);
-    SH1106_ShowColon8(16, 0, 1);
     temp_int = left_temp / 10;
     if(temp_int >= -999 && temp_int <= 999)
-        SH1106_ShowNum16(20, 0, temp_int, 1);
+    {
+        if(temp_int >= 0)
+        {
+            SH1106_ShowColon4(16, 0, 1);  // 正数显示4px冒号
+            SH1106_ShowNum16(20, 0, temp_int, 1);  // 数字从x=20开始
+        }
+        else
+        {
+            SH1106_ShowMinus4(16, 0, 1);  // 负数显示4px负号
+            SH1106_ShowNum16(20, 0, -temp_int, 1);  // 显示绝对值，负号已显示
+        }
+    }
     else
+    {
+        SH1106_ShowColon4(16, 0, 1);
         SH1106_ShowString(20, 0, (uint8_t *)"--", 16, 1);
+    }
     
-    // 功:DD% (x=42)
+    // 功:DD% (x=42) - 使用4像素精简冒号
     SH1106_ShowSpace8(36, 0, 1);
-    SH1106_ShowChinese(42, 0, CHINESE_POWER, 1);
-    SH1106_ShowColon8(58, 0, 1);
+    SH1106_ShowChinese(42, 0, CHINESE_POWER, 1);  // x=42, 16px
+    SH1106_ShowColon4(58, 0, 1);  // x=58, 4px精简冒号
     if(cold_pwm_set <= 999)
     {
-        SH1106_ShowNum16(62, 0, cold_pwm_set, 1);
-        SH1106_ShowPercent8(78, 0, 1);   // % (结束于x=86)
-        SH1106_ShowSpace4(86, 0, 1);     // 4像素空格
+        SH1106_ShowNum16(62, 0, cold_pwm_set, 1);  // x=62
+        SH1106_ShowPercent8(78, 0, 1);   // x=78, % (8px，结束于x=86)
+        SH1106_ShowSpace4(86, 0, 1);     // x=86, 4px空格（结束于x=90）
     }
     else
     {
         SH1106_ShowString(62, 0, (uint8_t *)"--", 16, 1);
     }
     
-    // 降:xx (x=90)
+    // 降:xx 或 降-xx (x=90) - 使用4像素精简字符
     SH1106_ShowChinese(90, 0, CHINESE_DOWN, 1);
-    SH1106_ShowColon8(106, 0, 1);
     if(cold_delta >= -999 && cold_delta <= 999)
-        SH1106_ShowNum16(110, 0, cold_delta, 1);
+    {
+        if(cold_delta >= 0)
+        {
+            SH1106_ShowColon4(106, 0, 1);  // 正数显示4px冒号
+            SH1106_ShowNum16(110, 0, cold_delta, 1);
+        }
+        else
+        {
+            SH1106_ShowMinus4(106, 0, 1);  // 负数显示4px负号
+            SH1106_ShowNum16(110, 0, -cold_delta, 1);  // 显示绝对值
+        }
+    }
     else
+    {
+        SH1106_ShowColon4(106, 0, 1);
         SH1106_ShowString(110, 0, (uint8_t *)"--", 16, 1);
+    }
     
     // === 第2行 (y=16) ===
-    // 右:36 (x=0)
+    // 右:36 或 右-36 (x=0) - 使用4像素精简字符
     SH1106_ShowChinese(0, 16, CHINESE_RIGHT, 1);
-    SH1106_ShowColon8(16, 16, 1);
     temp_int = right_temp / 10;
     if(temp_int >= -999 && temp_int <= 999)
-        SH1106_ShowNum16(20, 16, temp_int, 1);
+    {
+        if(temp_int >= 0)
+        {
+            SH1106_ShowColon4(16, 16, 1);  // 正数显示4px冒号
+            SH1106_ShowNum16(20, 16, temp_int, 1);  // 数字从x=20开始
+        }
+        else
+        {
+            SH1106_ShowMinus4(16, 16, 1);  // 负数显示4px负号
+            SH1106_ShowNum16(20, 16, -temp_int, 1);  // 显示绝对值
+        }
+    }
     else
+    {
+        SH1106_ShowColon4(16, 16, 1);
         SH1106_ShowString(20, 16, (uint8_t *)"--", 16, 1);
+    }
     
-    // 泵:FF% (x=42)
+    // 泵:FF% (x=42) - 使用4像素精简冒号
     SH1106_ShowSpace8(36, 16, 1);
-    SH1106_ShowChinese(42, 16, CHINESE_PUMP, 1);
-    SH1106_ShowColon8(58, 16, 1);
+    SH1106_ShowChinese(42, 16, CHINESE_PUMP, 1);  // x=42, 16px
+    SH1106_ShowColon4(58, 16, 1);  // x=58, 4px精简冒号
     if(bump_fix_speed <= 999)
     {
-        SH1106_ShowNum16(62, 16, bump_fix_speed, 1);
-        SH1106_ShowPercent8(78, 16, 1);   // % (结束于x=86)
-        SH1106_ShowSpace4(86, 16, 1);     // 4像素空格
+        SH1106_ShowNum16(62, 16, bump_fix_speed, 1);  // x=62
+        SH1106_ShowPercent8(78, 16, 1);   // x=78, % (8px，结束于x=86)
+        SH1106_ShowSpace4(86, 16, 1);     // x=86, 4px空格（结束于x=90）
     }
     else
     {
         SH1106_ShowString(62, 16, (uint8_t *)"--", 16, 1);
     }
     
-    // 设:BB (x=90) - 特殊处理负数
+    // 设:BB (x=90) - 使用4像素精简字符
     SH1106_ShowChinese(90, 16, CHINESE_SET, 1);
     set_temp = env_temp / 10 - cold_delta;
     if(set_temp >= -999 && set_temp <= 999)
     {
-        if(set_temp <= -10)  // 负数≤-10，负号占据冒号位置
-            SH1106_ShowNum16(106, 16, set_temp, 1);
-        else  // 其他情况正常显示冒号
+        if(set_temp >= 0)
         {
-            SH1106_ShowColon8(106, 16, 1);
-            SH1106_ShowNum16(110, 16, set_temp, 1);
+            SH1106_ShowColon4(106, 16, 1);  // 正数显示4px冒号
+            SH1106_ShowNum16(110, 16, set_temp, 1);  // 数字从x=110开始
+        }
+        else
+        {
+            SH1106_ShowMinus4(106, 16, 1);  // 负数显示4px负号
+            SH1106_ShowNum16(110, 16, -set_temp, 1);  // 显示绝对值
         }
     }
     else
     {
-        SH1106_ShowColon8(106, 16, 1);
+        SH1106_ShowColon4(106, 16, 1);
         SH1106_ShowString(110, 16, (uint8_t *)"--", 16, 1);
     }
     
     // === 第3行 (y=32) ===
-    // 室:36 (x=0)
+    // 室:36 或 室-36 (x=0) - 使用4像素精简字符
     SH1106_ShowChinese(0, 32, CHINESE_ROOM, 1);
-    SH1106_ShowColon8(16, 32, 1);
     temp_int = env_temp / 10;
     if(temp_int >= -999 && temp_int <= 999)
-        SH1106_ShowNum16(20, 32, temp_int, 1);
+    {
+        if(temp_int >= 0)
+        {
+            SH1106_ShowColon4(16, 32, 1);  // 正数显示4px冒号
+            SH1106_ShowNum16(20, 32, temp_int, 1);  // 数字从x=20开始
+        }
+        else
+        {
+            SH1106_ShowMinus4(16, 32, 1);  // 负数显示4px负号
+            SH1106_ShowNum16(20, 32, -temp_int, 1);  // 显示绝对值
+        }
+    }
     else
+    {
+        SH1106_ShowColon4(16, 32, 1);
         SH1106_ShowString(20, 32, (uint8_t *)"--", 16, 1);
+    }
     
-    // 风:EE% (x=42)
+    // 风:EE% (x=42) - 使用4像素精简冒号
     SH1106_ShowSpace8(36, 32, 1);
-    SH1106_ShowChinese(42, 32, CHINESE_WIND, 1);
-    SH1106_ShowColon8(58, 32, 1);
+    SH1106_ShowChinese(42, 32, CHINESE_WIND, 1);  // x=42, 16px
+    SH1106_ShowColon4(58, 32, 1);  // x=58, 4px精简冒号
     if(fan_fix_speed <= 999)
     {
-        SH1106_ShowNum16(62, 32, fan_fix_speed, 1);
-        SH1106_ShowPercent8(78, 32, 1);   // % (结束于x=86)
-        SH1106_ShowSpace4(86, 32, 1);     // 4像素空格（虽然后面没内容，但保持一致）
+        SH1106_ShowNum16(62, 32, fan_fix_speed, 1);  // x=62
+        SH1106_ShowPercent8(78, 32, 1);   // x=78, % (8px，结束于x=86)
+        SH1106_ShowSpace4(86, 32, 1);     // x=86, 4px空格（结束于x=90）
     }
     else
     {
@@ -252,16 +307,29 @@ void OLED_Update_Temp_Display(int16_t env_temp, int16_t left_temp, int16_t water
     }
     
     // === 第4行 (y=48) ===
-    // 水:36 (x=0)
+    // 水:36 或 水-36 (x=0) - 使用4像素精简字符
     SH1106_ShowChinese(0, 48, CHINESE_WATER, 1);
-    SH1106_ShowColon8(16, 48, 1);
     temp_int = water_temp / 10;
     if(temp_int >= -999 && temp_int <= 999)
-        SH1106_ShowNum16(20, 48, temp_int, 1);
+    {
+        if(temp_int >= 0)
+        {
+            SH1106_ShowColon4(16, 48, 1);  // 正数显示4px冒号
+            SH1106_ShowNum16(20, 48, temp_int, 1);  // 数字从x=20开始
+        }
+        else
+        {
+            SH1106_ShowMinus4(16, 48, 1);  // 负数显示4px负号
+            SH1106_ShowNum16(20, 48, -temp_int, 1);  // 显示绝对值
+        }
+    }
     else
+    {
+        SH1106_ShowColon4(16, 48, 1);
         SH1106_ShowString(20, 48, (uint8_t *)"--", 16, 1);
+    }
     
-    // 模:CC (x=90，与"降"和"设"对齐)
+    // 模:CC (x=90) - 使用4像素精简冒号
     // 根据mode_type选择显示的汉字
     switch(mode_type)
     {
@@ -273,11 +341,12 @@ void OLED_Update_Temp_Display(int16_t env_temp, int16_t left_temp, int16_t water
         case 8:  mode_char_index = CHINESE_MODE_GUAN; break;
         case 10: mode_char_index = CHINESE_MODE_WEI; break;
         case 11: mode_char_index = CHINESE_MODE_CUO; break;
+        case 0xFF: mode_char_index = CHINESE_MODE_DUAN; break;  // 未连接显示"断"
         default: mode_char_index = CHINESE_MODE_CUO; break;
     }
-    SH1106_ShowChinese(90, 48, CHINESE_MODE, 1);     // "模"
-    SH1106_ShowColon8(106, 48, 1);                    // ":"
-    SH1106_ShowChinese(110, 48, mode_char_index, 1);  // 模式汉字
+    SH1106_ShowChinese(90, 48, CHINESE_MODE, 1);     // x=90, "模" (16px)
+    SH1106_ShowColon4(106, 48, 1);                    // x=106, ":" (4px精简冒号)
+    SH1106_ShowChinese(110, 48, mode_char_index, 1);  // x=110, 模式汉字 (16px)
     
     // 刷新显示
     SH1106_Refresh();

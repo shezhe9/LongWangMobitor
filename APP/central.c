@@ -798,11 +798,12 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
         if(pMsg->msg.handleValueNoti.pValue[0]==0xc0)
         {
             uint8_t modetype = pMsg->msg.handleValueNoti.pValue[3];
-            uint8_t leftTemp = pMsg->msg.handleValueNoti.pValue[4];
-            uint8_t rightTemp = pMsg->msg.handleValueNoti.pValue[5];
-            uint8_t tempDelta = pMsg->msg.handleValueNoti.pValue[7];
-            uint8_t tempEnv =pMsg->msg.handleValueNoti.pValue[8];
-            uint8_t tempWater=pMsg->msg.handleValueNoti.pValue[9];
+            // 温度值需要转换为int8_t来正确处理负数（从机用uint8传输有符号温度）
+            int8_t leftTemp = (int8_t)pMsg->msg.handleValueNoti.pValue[4];
+            int8_t rightTemp = (int8_t)pMsg->msg.handleValueNoti.pValue[5];
+            int8_t tempDelta = (int8_t)pMsg->msg.handleValueNoti.pValue[7];
+            int8_t tempEnv = (int8_t)pMsg->msg.handleValueNoti.pValue[8];
+            int8_t tempWater = (int8_t)pMsg->msg.handleValueNoti.pValue[9];
             uint8_t pwm_cold=pMsg->msg.handleValueNoti.pValue[11];
             uint8_t pwm_bump =pMsg->msg.handleValueNoti.pValue[13];
             uint8_t pwm_fan =pMsg->msg.handleValueNoti.pValue[14];
@@ -811,6 +812,7 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
             
 #ifdef ENABLE_OLED_DISPLAY
             // 更新OLED显示 - 数据需要转换为0.1°C单位（原始数据是整数度）
+            // int8转int16时会自动符号扩展，如-55 → -550
             OLED_Update_Temp_Display(tempEnv * 10, leftTemp * 10, tempWater * 10, rightTemp * 10,
                                      tempDelta, modetype, pwm_cold,
                                      pwm_fan, pwm_bump);
@@ -1188,6 +1190,11 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             targetDeviceFound = FALSE;  // 重置目标设备找到标志
             tmos_stop_task(centralTaskId, START_READ_RSSI_EVT);
             uinfo("Disconnected...Reason:%x\n", pEvent->linkTerminate.reason);
+            
+#ifdef ENABLE_OLED_DISPLAY
+            // 断开连接时显示"断"状态（mode_type=0xFF）
+            OLED_Update_Temp_Display(200, 200, 200, 200, 0, 0xFF, 0, 0, 0);
+#endif
             
             // 只有在启用自动重连时才重新搜索
             if(autoReconnectEnabled == TRUE)
