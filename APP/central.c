@@ -1236,8 +1236,8 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             uinfo("Disconnected...Reason:0x%02X\n", pEvent->linkTerminate.reason);
             
 #ifdef ENABLE_OLED_DISPLAY
-            // 断开连接时显示"断"状态（mode_type=0xFF）
-            OLED_Update_Temp_Display(200, 200, 200, 200, 0, 0xFF, 0, 0, 0);
+            // 断开连接时显示"断"状态（mode_type=0xFF），温度全部为0避免歧义
+            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0);
 #endif
             
             // 只有在启用自动重连时才重新搜索（添加延迟给从机准备时间）
