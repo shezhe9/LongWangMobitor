@@ -169,6 +169,7 @@ static uint8_t connectionFailCount = 0;                   // 连接失败计数�
 
 // 新增：自动重连控制变量
 static uint8_t autoReconnectEnabled = TRUE;               // 是否启用自动重连功能
+static uint8_t userTriggeredReconnect = FALSE;            // 用户主动触发的重连标志
 
 // RSSI polling state                                                
 static uint8_t centralRssi = TRUE;                                   // RSSI轮询状态
@@ -673,6 +674,34 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         uinfo("Starting auto reconnect functionality...\n");
         autoReconnectEnabled = TRUE;                                 // 启用自动重连
         
+        // 先清除可能存在的重复事件
+        tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
+        tmos_stop_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT);
+        
+        // 检查当前连接状态，避免状态冲突
+        if(centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT)
+        {
+            // 已连接，需要先断开连接再重新扫描
+            uinfo("Already connected, disconnecting first...\n");
+            userTriggeredReconnect = TRUE;  // 设置用户触发标志
+            GAPRole_TerminateLink(centralConnHandle);
+            
+            // 断开后会触发GAP_LINK_TERMINATED_EVENT，在那里会检查此标志
+            // 所以这里直接返回，不继续执行
+            return (events ^ START_AUTO_RECONNECT_EVT);
+        }
+        else if(centralState == BLE_STATE_CONNECTING)
+        {
+            // 正在连接中，取消当前连接尝试
+            uinfo("Connection in progress, canceling...\n");
+            GAPRole_TerminateLink(INVALID_CONNHANDLE);
+        }
+        else if(centralState != BLE_STATE_IDLE)
+        {
+            // 其他非空闲状态，先重置
+            uinfo("Resetting from state %d to IDLE...\n", centralState);
+        }
+        
         // 重置连接状态
         centralState = BLE_STATE_IDLE;
         centralConnHandle = GAP_CONNHANDLE_INIT;
@@ -690,6 +719,9 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         
         // 初始化候选设备列表
         centralInitCandidates();
+        
+        // 取消扫描（如果正在进行）
+        GAPRole_CentralCancelDiscovery();
         
         uinfo("Restarting device discovery (%s / %s), will select strongest signal...\n", 
               TARGET_DEVICE_NAME_1, TARGET_DEVICE_NAME_2);
@@ -1274,18 +1306,28 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             // 只有在启用自动重连时才重新搜索（添加延迟给从机准备时间）
             if(autoReconnectEnabled == TRUE)
             {
-                // 统一使用300ms延迟 - 清理重试事件后连接更稳定，无需太长延迟
-                uint16_t reconnect_delay = 480;  // 300ms（480 * 0.625ms = 300ms）
-                      
-                // 先停止可能已存在的事件，避免冲突
-                tmos_stop_task(centralTaskId, START_AUTO_RECONNECT_EVT);
-                tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
-                
-                bStatus_t status = tmos_start_task(centralTaskId, START_AUTO_RECONNECT_EVT, reconnect_delay);
-                if(status != SUCCESS)
+                // 检查是否为用户主动触发的重连
+                if(userTriggeredReconnect == TRUE)
                 {
-                    // 如果失败，尝试立即触发（不延迟）
+                    // 用户主动重连，立即开始扫描（不延迟）
+                    userTriggeredReconnect = FALSE;  // 清除标志
                     tmos_set_event(centralTaskId, START_AUTO_RECONNECT_EVT);
+                }
+                else
+                {
+                    // 自动重连，使用延迟
+                    uint16_t reconnect_delay = 480;  // 300ms（480 * 0.625ms = 300ms）
+                          
+                    // 先停止可能已存在的事件，避免冲突
+                    tmos_stop_task(centralTaskId, START_AUTO_RECONNECT_EVT);
+                    tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
+                    
+                    bStatus_t status = tmos_start_task(centralTaskId, START_AUTO_RECONNECT_EVT, reconnect_delay);
+                    if(status != SUCCESS)
+                    {
+                        // 如果失败，尝试立即触发（不延迟）
+                        tmos_set_event(centralTaskId, START_AUTO_RECONNECT_EVT);
+                    }
                 }
             }
         }
