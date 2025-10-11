@@ -105,14 +105,7 @@
 // Establish link timeout in 0.625ms                                
 #define ESTABLISH_LINK_TIMEOUT              3200                    // 建立连接超时时间
 
-// Application states                                               // 应用状态枚举
-enum
-{
-    BLE_STATE_IDLE,                                                // 空闲状态
-    BLE_STATE_CONNECTING,                                          // 正在连接状态
-    BLE_STATE_CONNECTED,                                          // 已连接状态
-    BLE_STATE_DISCONNECTING                                       // 正在断开连接状态
-};
+// Application states（已移至central.h中定义）
 
 // Discovery states                                                // 发现状态枚举
 enum
@@ -169,11 +162,11 @@ static uint8_t centralParamUpdate = TRUE;                           // 参数更
 // Phy update state                                                  
 static uint8 centralPhyUpdate = FALSE;                              // PHY更新状态
 
-// Connection handle of current connection                           
-static uint16_t centralConnHandle = GAP_CONNHANDLE_INIT;            // 当前连接句柄
+// Connection handle of current connection（供外部访问）                           
+uint16_t centralConnHandle = GAP_CONNHANDLE_INIT;                   // 当前连接句柄
 
-// Application state                                                 
-static uint8_t centralState = BLE_STATE_IDLE;                       // 应用状态
+// Application state（供外部访问）                                                 
+uint8_t centralState = BLE_STATE_IDLE;                              // 应用状态
 
 // Discovery state                                                   
 static uint8_t centralDiscState = BLE_DISC_STATE_IDLE;              // 发现状态
@@ -184,7 +177,7 @@ static uint16_t centralSvcEndHdl = 0;                               // 发现的
 
 // Discovered characteristic handles                                  
 static uint16_t centralNotifyCharHdl = 0;                           // AE02通知特征句柄
-static uint16_t centralWriteCharHdl = 0;                            // AE10写特征句柄
+uint16_t centralWriteCharHdl = 0;                                   // AE10写特征句柄（供外部访问）
 
 // Discovered Client Characteristic Configuration handle              
 static uint16_t centralCCCDHdl = 0;                                 // 发现的客户端特征配置句柄
@@ -198,8 +191,8 @@ static uint8_t centralCharVal = 0x5A;                               // 要写入
 // Value read/write toggle                                           
 static uint8_t centralDoWrite = TRUE;                               // 读/写切换标志
 
-// GATT read/write procedure state                                   
-static uint8_t centralProcedureInProgress = FALSE;                  // GATT读/写过程状态
+// GATT read/write procedure state（供外部访问）                                   
+uint8_t centralProcedureInProgress = FALSE;                         // GATT读/写过程状态
 
 /*********************************************************************
  * LOCAL FUNCTIONS                                                   // 本地函数声明
@@ -807,11 +800,12 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
         }
         else
         {
-            // Write success - 检查是否是CCCD写入成功，如果是则发送初始化数据
+            // Write success - CCCD写入成功
             if(centralDiscState == BLE_DISC_STATE_IDLE && centralWriteCharHdl != 0)
             {
-                uinfo("Notifications enabled. Sending initialization data...\n");
-                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 80); // 50ms后发送初始化数据（优化：500ms→50ms, 80*0.625=50ms）
+                uinfo("Notifications enabled.\n");
+                // 注释掉自动发送初始化数据，由上位机通过命令控制
+                // tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 80);
             }
         }
 
@@ -835,6 +829,55 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
             uint8_t pwm_fan =pMsg->msg.handleValueNoti.pValue[14];
             uinfo("md=%d leftTemp=%d rightTemp=%d tempDelta=%d tempEnv=%d tempWater=%d pwm_cold=%d pwm_bump=%d pwm_fan=%d\n", 
                   modetype,leftTemp,rightTemp,tempDelta,tempEnv,tempWater,pwm_cold,pwm_bump,pwm_fan); 
+            
+            // 检测到错误状态（md=11），自动发送错误恢复命令
+            if(modetype == 11)
+            {
+                uinfo("Error mode detected (md=11), sending recovery command D8 00 01 02...\n");
+                
+                // 组装20字节恢复命令
+                uint8_t recovery_cmd[20] = {
+                    0xD8, 0x00, 0x01, 0x02,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00
+                };
+                
+                // 检查是否可以发送（无其他GATT操作进行中）
+                if(centralProcedureInProgress == FALSE && centralWriteCharHdl != 0)
+                {
+                    attWriteReq_t req;
+                    req.cmd = TRUE;  // Write Command（无需响应）
+                    req.sig = FALSE;
+                    req.handle = centralWriteCharHdl;
+                    req.len = 20;
+                    req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0);
+                    
+                    if(req.pValue != NULL)
+                    {
+                        tmos_memcpy(req.pValue, recovery_cmd, 20);
+                        
+                        bStatus_t status = GATT_WriteCharValue(centralConnHandle, &req, centralTaskId);
+                        if(status == SUCCESS)
+                        {
+                            uinfo("Recovery command sent successfully!\n");
+                        }
+                        else
+                        {
+                            GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
+                            uinfo("Failed to send recovery command (status=0x%02X)\n", status);
+                        }
+                    }
+                    else
+                    {
+                        uinfo("Failed to allocate memory for recovery command\n");
+                    }
+                }
+                else
+                {
+                    uinfo("Cannot send recovery command (GATT busy or no write handle)\n");
+                }
+            }
             
 #ifdef ENABLE_OLED_DISPLAY
             // 更新OLED显示 - 数据需要转换为0.1°C单位（原始数据是整数度）

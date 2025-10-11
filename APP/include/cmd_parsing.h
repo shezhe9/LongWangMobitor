@@ -44,37 +44,33 @@ typedef void (*parsing_callback)(uint8_t *data, uint16_t len);  // 解析执行�
 typedef void (*save_callback)(uint8_t *data, uint16_t len);     // 保存回调
 
 //=============================================================================
-// 命令类型枚举
+// 命令类型枚举（新规范编码）
 //=============================================================================
 enum {
-    // 系统控制类 (0x38 - 0x6F)
-    MSG_SINGLE_CLICK_TEST = 0x38,    // 模拟单击事件
-    MSG_SEND_TEST_DATA = 0x3A,       // 发送测试数据
-    MSG_DISCONNECT = 0x3B,           // 断开BLE连接
-    MSG_RECONNECT = 0x3C,            // 重新连接
-    MSG_RESET_SYS = 0x6F,            // 系统复位
+    // 系统控制类 (0x10 - 0x14)
+    MSG_SINGLE_CLICK_TEST = 0x10,    // 模拟单击事件
+    MSG_SEND_TEST_DATA = 0x11,       // 发送测试数据
+    MSG_DISCONNECT = 0x12,           // 断开BLE连接
+    MSG_RECONNECT = 0x13,            // 重新连接
+    MSG_RESET_SYS = 0x14,            // 系统复位
 
-    // 扫描控制类 (0x40 - 0x42)
-    MSG_START_SCAN = 0x40,           // 开始扫描
-    MSG_STOP_SCAN = 0x41,            // 停止扫描
-    MSG_SCAN_STATUS = 0x42,          // 查询扫描状态
+    // 扫描控制类 (0x20 - 0x22)
+    MSG_START_SCAN = 0x20,           // 开始扫描
+    MSG_STOP_SCAN = 0x21,            // 停止扫描
+    MSG_SCAN_STATUS = 0x22,          // 查询扫描状态
 
-    // 连接管理类 (0x50 - 0x52)
-    MSG_CONNECT_DEVICE = 0x50,       // 连接指定设备
-    MSG_DISCONNECT_DEVICE = 0x51,    // 断开指定设备
-    MSG_CONNECTION_STATUS = 0x52,    // 查询连接状态
+    // 连接管理类 (0x23 - 0x25)
+    MSG_CONNECT_DEVICE = 0x23,       // 连接指定设备
+    MSG_DISCONNECT_DEVICE = 0x24,    // 断开指定设备
+    MSG_CONNECTION_STATUS = 0x25,    // 查询连接状态
 
-    // 数据传输类 (0x60 - 0x61)
-    MSG_SEND_DATA = 0x60,            // 发送数据到从机
-    MSG_READ_DATA = 0x61,            // 读取从机数据
+    // 数据传输类 (0x31 - 0x33)
+    MSG_SEND_DATA = 0x31,            // 发送数据到从机
+    MSG_READ_DATA = 0x32,            // 读取从机数据
+    MSG_SEND_CONTROL_CMD = 0x33,     // 发送控制命令（参数转换）
 
-    // 配置类 (0x70 - 0x72)
-    MSG_SET_SCAN_PARAM = 0x70,       // 设置扫描参数
-    MSG_SET_CONN_PARAM = 0x71,       // 设置连接参数
-    MSG_GET_DEVICE_INFO = 0x72,      // 获取设备信息
-
-    // 转发类 (0x80)
-    MSG_FWD_TO_PERIPHERAL = 0x80,    // 转发命令到从机
+    // 转发类 (0x41)
+    MSG_FWD_TO_PERIPHERAL = 0x41,    // 转发命令到从机
 
     // 未知命令
     NO_MSG = 0xFF,

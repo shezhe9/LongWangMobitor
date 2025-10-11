@@ -78,17 +78,33 @@
   */
  extern uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events);
  
- /*
-  * External variables for accessing central task ID
-  */
- extern uint8_t centralTaskId;  // Central任务ID，供外部模块使用
- 
- /*
-  * 新增：连接控制函数声明
-  */
- extern void Central_DisconnectAndStopAutoReconnect(void);  // 断开连接并停止自动重连
- extern void Central_StartAutoReconnect(void);              // 开始自动搜索和连接
- extern uint8_t Central_IsConnected(void);                  // 检查是否已连接
+/*
+ * External variables for accessing central task ID
+ */
+extern uint8_t centralTaskId;  // Central任务ID，供外部模块使用
+
+/*
+ * 新增：BLE中心设备状态枚举值定义（与central.c中的匿名enum对应）
+ */
+#define BLE_STATE_IDLE             0
+#define BLE_STATE_CONNECTING       1
+#define BLE_STATE_CONNECTED        2
+#define BLE_STATE_DISCONNECTING    3
+
+/*
+ * 新增：BLE中心设备状态变量（供外部模块访问）
+ */
+extern uint8_t centralState;                    // 中心设备连接状态
+extern uint16_t centralConnHandle;              // 当前连接句柄
+extern uint16_t centralWriteCharHdl;            // 写特征句柄（AE10）
+extern uint8_t centralProcedureInProgress;      // GATT操作进行中标志
+
+/*
+ * 新增：连接控制函数声明
+ */
+extern void Central_DisconnectAndStopAutoReconnect(void);  // 断开连接并停止自动重连
+extern void Central_StartAutoReconnect(void);              // 开始自动搜索和连接
+extern uint8_t Central_IsConnected(void);                  // 检查是否已连接
  
  /*********************************************************************
  *********************************************************************/

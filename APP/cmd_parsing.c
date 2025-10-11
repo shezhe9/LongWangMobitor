@@ -169,12 +169,172 @@ void connect_device_handler(uint8_t *data, uint16_t len)
     ulog_array_to_hex("Device address:", &data[3], 6);
 }
 
+// 发送控制命令处理函数（MSG_SEND_CONTROL_CMD 0x33）
+void send_control_cmd_handler(uint8_t *data, uint16_t len)
+{
+    uinfo("Command: Send control command to peripheral\n");
+    
+    // 解析命令参数
+    uint8_t x1 = data[3];   // 模式控制（1-4）
+    uint8_t CC = data[4];   // CC参数（0-3）
+    uint8_t x2 = data[5];   // 制冷算法（1-3）
+    uint8_t x3 = data[6];   // 算法具体参数值
+    uint8_t x4 = data[7];   // 水泵具体值（0-100）
+    uint8_t x5 = data[8];   // 风扇具体值（0-100）
+    uint8_t x6 = data[9];   // x6参数
+    uint8_t x7 = data[10];  // x7参数
+    
+    // 模式转换：1→0x81, 2→0x82, 3→0x83, 4→0x84
+    uint8_t mode_byte = 0x80 + x1;
+    
+    uinfo("Mode: %d (0x%02X), CC: %d, Algo: %d, Value: %d, Pump: %d, Fan: %d\n",
+          x1, mode_byte, CC, x2, x3, x4, x5);
+    
+    // 组装20字节发送包（按用户指定的格式）
+    uint8_t send_buffer[20];
+    send_buffer[0]  = mode_byte;  // x1 → 0x81-0x84
+    send_buffer[1]  = 0x00;
+    send_buffer[2]  = CC;
+    send_buffer[3]  = x2;
+    send_buffer[4]  = x3;
+    send_buffer[5]  = 0x02;
+    send_buffer[6]  = 0x00;
+    send_buffer[7]  = x4;         // 水泵值
+    send_buffer[8]  = 0x00;
+    send_buffer[9]  = 0x00;
+    send_buffer[10] = 0x02;
+    send_buffer[11] = 0x00;
+    send_buffer[12] = x5;         // 风扇值
+    send_buffer[13] = 0x00;
+    send_buffer[14] = 0x00;
+    send_buffer[15] = x6;
+    send_buffer[16] = 0x00;
+    send_buffer[17] = x7;
+    send_buffer[18] = 0x00;
+    send_buffer[19] = 0x00;
+    
+    ulog_array_to_hex("Control command:", send_buffer, 20);
+    
+    // 检查连接状态
+    if(centralState != BLE_STATE_CONNECTED || centralConnHandle == GAP_CONNHANDLE_INIT)
+    {
+        uinfo("Not connected, cannot send control command\n");
+        return;
+    }
+    
+    // 检查写特征句柄
+    if(centralWriteCharHdl == 0)
+    {
+        uinfo("Write characteristic not found\n");
+        return;
+    }
+    
+    // 检查GATT操作状态
+    if(centralProcedureInProgress == TRUE)
+    {
+        uinfo("GATT procedure in progress, cannot send command now\n");
+        return;
+    }
+    
+    // 发送控制命令到AE10
+    uinfo("Sending control command (20 bytes) to AE10 (handle: 0x%04X)\n", centralWriteCharHdl);
+    
+    attWriteReq_t req;
+    req.cmd = TRUE;
+    req.sig = FALSE;
+    req.handle = centralWriteCharHdl;
+    req.len = 20;
+    req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0);
+    
+    if(req.pValue != NULL)
+    {
+        tmos_memcpy(req.pValue, send_buffer, 20);
+        
+        bStatus_t status = GATT_WriteCharValue(centralConnHandle, &req, centralTaskId);
+        if(status == SUCCESS)
+        {
+            uinfo("Control command sent successfully!\n");
+        }
+        else
+        {
+            GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
+            uinfo("Failed to send control command (status=0x%02X)\n", status);
+        }
+    }
+    else
+    {
+        uinfo("Failed to allocate memory for control command\n");
+    }
+}
+
 // 发送数据处理函数
 void send_data_handler(uint8_t *data, uint16_t len)
 {
     uinfo("Command: Send data to peripheral\n");
-    ulog_array_to_hex("Data to send:", data, len);
-    // TODO: 实现数据发送功能
+    
+    // 数据从cmd_buf[3]开始，长度为17字节（CMD_LEN=20 - 前3字节）
+    // 但需要填充到20字节发送
+    uint8_t payload_buffer[20];  // 20字节缓冲区
+    tmos_memcpy(payload_buffer, &data[3], CMD_LEN - 3);  // 复制17字节
+    // 剩余3字节填充为0x00
+    payload_buffer[17] = 0x00;
+    payload_buffer[18] = 0x00;
+    payload_buffer[19] = 0x00;
+    
+    ulog_array_to_hex("Data to send:", payload_buffer, 20);
+    
+    // 检查连接状态
+    if(centralState != BLE_STATE_CONNECTED || centralConnHandle == GAP_CONNHANDLE_INIT)
+    {
+        uinfo("Not connected, cannot send data\n");
+        return;
+    }
+    
+    // 检查写特征句柄是否有效
+    if(centralWriteCharHdl == 0)
+    {
+        uinfo("Write characteristic not found\n");
+        return;
+    }
+    
+    // 检查是否有其他GATT操作正在进行
+    if(centralProcedureInProgress == TRUE)
+    {
+        uinfo("GATT procedure in progress, cannot send data now\n");
+        return;
+    }
+    
+    // 发送数据到AE10写特征（填充到20字节）
+    uinfo("Sending 20 bytes to AE10 (handle: 0x%04X)\n", centralWriteCharHdl);
+    
+    attWriteReq_t req;
+    req.cmd = TRUE;                                    // 使用Write Command（无需响应）
+    req.sig = FALSE;                                   // 不带签名
+    req.handle = centralWriteCharHdl;                  // AE10写特征句柄
+    req.len = 20;                                      // 填充到20字节
+    req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0);
+    
+    if(req.pValue != NULL)
+    {
+        // 复制填充后的20字节数据到GATT缓冲区
+        tmos_memcpy(req.pValue, payload_buffer, 20);
+        
+        // 发送写命令
+        bStatus_t status = GATT_WriteCharValue(centralConnHandle, &req, centralTaskId);
+        if(status == SUCCESS)
+        {
+            uinfo("Data sent successfully!\n");
+        }
+        else
+        {
+            GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
+            uinfo("Failed to send data (status=0x%02X)\n", status);
+        }
+    }
+    else
+    {
+        uinfo("Failed to allocate memory for data send\n");
+    }
 }
 
 // 设置扫描参数处理函数
@@ -217,8 +377,8 @@ void protocol_parsing(uint8_t *buf, uint16_t len)
 
         case MSG_SEND_TEST_DATA:
             uinfo("Parsing: MSG_SEND_TEST_DATA\n");
-            // 对于发送测试数据命令，忽略操作类型，直接执行
-            send_test_data_handler(cmd_parsing_buffer, CMD_LEN);
+            // 统一使用回调机制，根据cmd_buf[2]判断操作类型
+            parsing_cmd(cmd_parsing_buffer, NULL, send_test_data_handler, NULL);
             break;
 
         case MSG_DISCONNECT:
@@ -228,8 +388,8 @@ void protocol_parsing(uint8_t *buf, uint16_t len)
 
         case MSG_RECONNECT:
             uinfo("Parsing: MSG_RECONNECT\n");
-            // 重连命令：不管操作类型是什么，都直接执行重连
-            reconnect_handler(cmd_parsing_buffer, CMD_LEN);
+            // 统一使用回调机制，根据cmd_buf[2]判断操作类型
+            parsing_cmd(cmd_parsing_buffer, NULL, reconnect_handler, NULL);
             break;
 
         case MSG_RESET_SYS:
@@ -284,23 +444,28 @@ void protocol_parsing(uint8_t *buf, uint16_t len)
             // TODO: 实现读取数据功能
             break;
 
-        // 配置类命令
-        case MSG_SET_SCAN_PARAM:
-            uinfo("Parsing: MSG_SET_SCAN_PARAM\n");
-            parsing_cmd(cmd_parsing_buffer, NULL, set_scan_param_handler, NULL);
+        case MSG_SEND_CONTROL_CMD:
+            uinfo("Parsing: MSG_SEND_CONTROL_CMD\n");
+            parsing_cmd(cmd_parsing_buffer, NULL, send_control_cmd_handler, NULL);
             break;
 
-        case MSG_SET_CONN_PARAM:
-            uinfo("Parsing: MSG_SET_CONN_PARAM\n");
-            uinfo("Command: Set connection parameters\n");
-            // TODO: 实现设置连接参数
-            break;
+        // 配置类命令（已从新编码规范中移除，暂时注释）
+        // case MSG_SET_SCAN_PARAM:
+        //     uinfo("Parsing: MSG_SET_SCAN_PARAM\n");
+        //     parsing_cmd(cmd_parsing_buffer, NULL, set_scan_param_handler, NULL);
+        //     break;
 
-        case MSG_GET_DEVICE_INFO:
-            uinfo("Parsing: MSG_GET_DEVICE_INFO\n");
-            uinfo("Command: Get device information\n");
-            // TODO: 实现获取设备信息
-            break;
+        // case MSG_SET_CONN_PARAM:
+        //     uinfo("Parsing: MSG_SET_CONN_PARAM\n");
+        //     uinfo("Command: Set connection parameters\n");
+        //     // TODO: 实现设置连接参数
+        //     break;
+
+        // case MSG_GET_DEVICE_INFO:
+        //     uinfo("Parsing: MSG_GET_DEVICE_INFO\n");
+        //     uinfo("Command: Get device information\n");
+        //     // TODO: 实现获取设备信息
+        //     break;
 
         // 转发类命令
         case MSG_FWD_TO_PERIPHERAL:
