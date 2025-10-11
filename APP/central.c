@@ -145,13 +145,29 @@ static uint8_t centralScanRes;                                       // 扫描�
 // Scan result list                                                  
 static gapDevRec_t centralDevList[DEFAULT_MAX_SCAN_RES];            // 扫描结果列表
 
+// 目标设备候选列表（智能信号优选）
+#define MAX_CANDIDATES    5  // 最多保存5个候选设备
+
+typedef struct {
+    uint8_t  addr[B_ADDR_LEN];  // 设备地址
+    uint8_t  addrType;          // 地址类型
+    int8_t   rssi;              // 信号强度
+    uint8_t  nameIndex;         // 设备名称索引 (1=HID-LongWang, 2=DragonK)
+    uint8_t  valid;             // 是否有效
+} candidateDevice_t;
+
+static candidateDevice_t candidates[MAX_CANDIDATES];      // 候选设备列表
+static uint8_t candidateCount = 0;                        // 当前候选设备数量
+
 // 目标设备名称（替换原来的硬编码MAC地址）                                               
-static uint8_t targetDeviceName[] = TARGET_DEVICE_NAME; // 目标设备名称
-static uint8_t targetDeviceFound = FALSE;                // 是否找到目标设备
-static uint8_t connectionFailCount = 0;                  // 连接失败计数器
+static uint8_t targetDeviceName1[] = TARGET_DEVICE_NAME_1; // 目标设备名称1
+static uint8_t targetDeviceName2[] = TARGET_DEVICE_NAME_2; // 目标设备名称2
+static uint8_t connectedDeviceName[32] = {0};             // 当前连接的设备名称
+static uint8_t targetDeviceFound = FALSE;                 // 是否找到目标设备
+static uint8_t connectionFailCount = 0;                   // 连接失败计数器
 
 // 新增：自动重连控制变量
-static uint8_t autoReconnectEnabled = TRUE;              // 是否启用自动重连功能
+static uint8_t autoReconnectEnabled = TRUE;               // 是否启用自动重连功能
 
 // RSSI polling state                                                
 static uint8_t centralRssi = TRUE;                                   // RSSI轮询状态
@@ -209,6 +225,11 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg);        // GATT发�
 static void centralStartDiscovery(void);                            // 开始服务发现
 static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType); // 添加设备信息
 
+// 候选设备管理函数
+static void centralInitCandidates(void);                            // 初始化候选列表
+static void centralAddCandidate(uint8_t *addr, uint8_t addrType, int8_t rssi, uint8_t nameIndex); // 添加候选设备
+static candidateDevice_t* centralGetBestCandidate(void);            // 获取信号最强的候选设备
+
 /*********************************************************************
  * PROFILE CALLBACKS                                                 // 配置文件回调
  */
@@ -260,6 +281,7 @@ void Central_Init()
     centralCharHdl = 0;
     centralCCCDHdl = 0;
     autoReconnectEnabled = TRUE;  // 默认启用自动重连
+    centralInitCandidates();      // 初始化候选设备列表
     
     // Setup GAP                                                      // 设置GAP参数
     GAP_SetParamValue(TGAP_DISC_SCAN, DEFAULT_SCAN_DURATION);        // 设置扫描持续时间
@@ -948,7 +970,11 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
     {
         case GAP_DEVICE_INIT_DONE_EVENT:                           // 设备初始化完成事件
         {
-            uinfo("BLE \326\367\273\372\322\321\263\365\312\274\273\257,\325\375\324\332\313\321\313\367\311\350\261\270: %s\n", TARGET_DEVICE_NAME);  // 主机已初始化正在搜索设备
+            uinfo("BLE \326\367\273\372\322\321\263\365\312\274\273\257,\325\375\324\332\313\321\313\367\311\350\261\270: %s / %s\n", 
+                  TARGET_DEVICE_NAME_1, TARGET_DEVICE_NAME_2);  // 主机已初始化正在搜索设备
+            
+            // 初始化候选设备列表
+            centralInitCandidates();
             
             // 只有在启用自动重连时才开始发现
             if(autoReconnectEnabled == TRUE)
@@ -968,9 +994,10 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 return;  // 直接返回，避免重复触发连接
             }
             
-            // 检查广播数据中的设备名称
+            // 检查广播数据中的设备名称和RSSI
             uint8_t *pAdvData = pEvent->deviceInfo.pEvtData;
             uint8_t advDataLen = pEvent->deviceInfo.dataLen;
+            int8_t rssi = pEvent->deviceInfo.rssi;  // 获取RSSI（如果可用）
             uint8_t i = 0;
             
             // 如果有广播数据，进行解析
@@ -998,26 +1025,53 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                 devName[k] = pAdvData[i + 2 + k];
                             }
                             
-                            // 简化输出：只显示设备名称（RSSI在BLE扫描时一般不可用）
-                            uinfo("[\311\250\303\350] %s\n", devName);  // 扫描
+                            // 简化输出：只显示设备名称
+                            uinfo("[\311\250\303\350] %s (RSSI: %d dBm)\n", devName, rssi);  // 扫描
                             
-                                                        // 检查是否匹配目标设备名称（允许长度稍有差异）
-                            if(nameLen >= TARGET_DEVICE_NAME_LEN)
+                            // 检查是否匹配任一目标设备名称
+                            uint8_t matchedNameIndex = 0;
+                            
+                            // 检查第一个目标名称 (HID-LongWang)
+                            if(nameLen >= TARGET_DEVICE_NAME_1_LEN)
                             {
-                                // 逐字节比较设备名称（只比较目标名称的长度）
                                 uint8_t match = 1;
-                                for(uint8_t m = 0; m < TARGET_DEVICE_NAME_LEN; m++)
+                                for(uint8_t m = 0; m < TARGET_DEVICE_NAME_1_LEN; m++)
                                 {
-                                    if(pAdvData[i + 2 + m] != targetDeviceName[m])
+                                    if(pAdvData[i + 2 + m] != targetDeviceName1[m])
                                     {
                                         match = 0;
                                         break;
                                     }
                                 }
-                                
-                                if(match)
+                                if(match) matchedNameIndex = 1;
+                            }
+                            
+                            // 检查第二个目标名称 (DragonK)
+                            if(matchedNameIndex == 0 && nameLen >= TARGET_DEVICE_NAME_2_LEN)
+                            {
+                                uint8_t match = 1;
+                                for(uint8_t m = 0; m < TARGET_DEVICE_NAME_2_LEN; m++)
                                 {
-                                    uinfo("*** \325\322\265\275\304\277\261\352\311\350\261\270: %s ***\n", TARGET_DEVICE_NAME);  // 找到目标设备
+                                    if(pAdvData[i + 2 + m] != targetDeviceName2[m])
+                                    {
+                                        match = 0;
+                                        break;
+                                    }
+                                }
+                                if(match) matchedNameIndex = 2;
+                            }
+                            
+                            // 如果匹配到任一目标设备名称
+                            if(matchedNameIndex > 0)
+                                {
+                                    // 根据matchedNameIndex确定实际匹配的设备名称
+                                    const char* matchedDevName = (matchedNameIndex == 1) ? TARGET_DEVICE_NAME_1 : TARGET_DEVICE_NAME_2;
+                                    
+                                    // 保存连接的设备名称
+                                    tmos_memset(connectedDeviceName, 0, sizeof(connectedDeviceName));
+                                    tmos_memcpy(connectedDeviceName, devName, copyLen);
+                                    
+                                    uinfo("*** \325\322\265\275\304\277\261\352\311\350\261\270: %s ***\n", connectedDeviceName);  // 找到目标设备
                                     
                                     // 立即设置标志，防止重复触发连接
                                     targetDeviceFound = TRUE;
@@ -1061,7 +1115,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                         connectionFailCount = 0;  // 重置失败计数器
                                         // 启动建立连接超时事件（增加超时时间）
                                         tmos_start_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT, ESTABLISH_LINK_TIMEOUT * 2);
-                                        uinfo("\325\375\324\332\301\254\275\323 %s...\n", TARGET_DEVICE_NAME);  // 正在连接
+                                        uinfo("\325\375\324\332\301\254\275\323 %s...\n", connectedDeviceName);  // 正在连接
                                         return;  // 找到目标设备，直接返回
                                     }
                                     else
@@ -1101,12 +1155,16 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                         }
                                     }
                                 }
-                            }
+                            // if(matchedNameIndex > 0) 结束
                         }
+                        // if(nameLen > 0 && ...) 结束
                     }
+                    // if(fieldType == 0x09 || fieldType == 0x08) 结束
                     i += fieldLen + 1;  // 移动到下一个字段
                 }
+                // while 循环结束
             }
+            // if(pAdvData != NULL && advDataLen > 0) 结束
             
             // 如果不是目标设备，仍然添加到列表中
             centralAddDeviceInfo(pEvent->deviceInfo.addr, pEvent->deviceInfo.addrType);
@@ -1140,7 +1198,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 centralConnHandle = pEvent->linkCmpl.connectionHandle;
                 centralProcedureInProgress = TRUE;
 
-                uinfo("\322\321\301\254\275\323 %s\n", TARGET_DEVICE_NAME);  // 已连接
+                uinfo("\322\321\301\254\275\323 %s\n", connectedDeviceName[0] ? (char*)connectedDeviceName : "Unknown");  // 已连接
                 
                 // 停止所有重连相关的定时事件
                 tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
@@ -1581,6 +1639,124 @@ void Central_StartAutoReconnect(void)
 uint8_t Central_IsConnected(void)
 {
     return (centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT);
+}
+
+/*********************************************************************
+ * @fn      centralInitCandidates
+ *
+ * @brief   初始化候选设备列表
+ *
+ * @return  none
+ */
+static void centralInitCandidates(void)
+{
+    for(uint8_t i = 0; i < MAX_CANDIDATES; i++)
+    {
+        candidates[i].valid = FALSE;
+        candidates[i].rssi = -128;  // 最弱信号
+    }
+    candidateCount = 0;
+}
+
+/*********************************************************************
+ * @fn      centralAddCandidate
+ *
+ * @brief   添加候选设备到列表（智能优选，保留信号最强的设备）
+ *
+ * @param   addr - 设备地址
+ * @param   addrType - 地址类型
+ * @param   rssi - 信号强度
+ * @param   nameIndex - 设备名称索引 (1 or 2)
+ *
+ * @return  none
+ */
+static void centralAddCandidate(uint8_t *addr, uint8_t addrType, int8_t rssi, uint8_t nameIndex)
+{
+    // 检查设备是否已经在列表中
+    for(uint8_t i = 0; i < MAX_CANDIDATES; i++)
+    {
+        if(candidates[i].valid && tmos_memcmp(addr, candidates[i].addr, B_ADDR_LEN))
+        {
+            // 设备已存在，更新RSSI（如果更强）
+            if(rssi > candidates[i].rssi)
+            {
+                candidates[i].rssi = rssi;
+            }
+            return;
+        }
+    }
+    
+    // 设备不在列表中，尝试添加
+    if(candidateCount < MAX_CANDIDATES)
+    {
+        // 列表未满，直接添加
+        for(uint8_t i = 0; i < MAX_CANDIDATES; i++)
+        {
+            if(!candidates[i].valid)
+            {
+                tmos_memcpy(candidates[i].addr, addr, B_ADDR_LEN);
+                candidates[i].addrType = addrType;
+                candidates[i].rssi = rssi;
+                candidates[i].nameIndex = nameIndex;
+                candidates[i].valid = TRUE;
+                candidateCount++;
+                return;
+            }
+        }
+    }
+    else
+    {
+        // 列表已满，找到信号最弱的设备
+        uint8_t weakestIdx = 0;
+        int8_t weakestRssi = candidates[0].rssi;
+        
+        for(uint8_t i = 1; i < MAX_CANDIDATES; i++)
+        {
+            if(candidates[i].rssi < weakestRssi)
+            {
+                weakestRssi = candidates[i].rssi;
+                weakestIdx = i;
+            }
+        }
+        
+        // 如果新设备信号更强，替换最弱的
+        if(rssi > weakestRssi)
+        {
+            tmos_memcpy(candidates[weakestIdx].addr, addr, B_ADDR_LEN);
+            candidates[weakestIdx].addrType = addrType;
+            candidates[weakestIdx].rssi = rssi;
+            candidates[weakestIdx].nameIndex = nameIndex;
+        }
+    }
+}
+
+/*********************************************************************
+ * @fn      centralGetBestCandidate
+ *
+ * @brief   获取信号最强的候选设备
+ *
+ * @return  指向最佳候选设备的指针，如果没有候选设备则返回NULL
+ */
+static candidateDevice_t* centralGetBestCandidate(void)
+{
+    if(candidateCount == 0)
+    {
+        return NULL;
+    }
+    
+    uint8_t bestIdx = 0;
+    int8_t bestRssi = -128;
+    
+    for(uint8_t i = 0; i < MAX_CANDIDATES; i++)
+    {
+        if(candidates[i].valid && candidates[i].rssi > bestRssi)
+        {
+            bestRssi = candidates[i].rssi;
+            bestIdx = i;
+        }
+    }
+    
+    return &candidates[bestIdx];
 }
 
 /************************ endfile @ central **************************/

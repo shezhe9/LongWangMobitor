@@ -52,9 +52,16 @@
  #define TARGET_WRITE_CHAR_UUID        0xAE10  // 写特征UUID (用于发送数据)
  #define TARGET_NOTIFY_CHAR_UUID       0xAE02  // 通知特征UUID (用于接收数据)
  
- // 新增：目标设备名称
- #define TARGET_DEVICE_NAME            "HID-LongWang"
- #define TARGET_DEVICE_NAME_LEN        (sizeof(TARGET_DEVICE_NAME) - 1)  // 减去null终止符
+// 新增：目标设备名称（支持两个设备名称）
+#define TARGET_DEVICE_NAME_1          "HID-LongWang"
+#define TARGET_DEVICE_NAME_1_LEN      (sizeof(TARGET_DEVICE_NAME_1) - 1)
+
+#define TARGET_DEVICE_NAME_2          "DragonK"
+#define TARGET_DEVICE_NAME_2_LEN      (sizeof(TARGET_DEVICE_NAME_2) - 1)
+
+// 保持向后兼容
+#define TARGET_DEVICE_NAME            TARGET_DEVICE_NAME_1
+#define TARGET_DEVICE_NAME_LEN        TARGET_DEVICE_NAME_1_LEN
  
  // 新增：测试数据相关常量
  #define TEST_DATA_COUNT               20     // 发送的测试数据数量
