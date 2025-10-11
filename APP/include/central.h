@@ -23,26 +23,29 @@
   * CONSTANTS
   */
  
- // Simple BLE Observer Task Events
- #define START_DEVICE_EVT              0x0001
- #define START_DISCOVERY_EVT           0x0002
- #define START_SCAN_EVT                0x0004
- #define START_SVC_DISCOVERY_EVT       0x0008
- #define START_PARAM_UPDATE_EVT        0x0010
- #define START_PHY_UPDATE_EVT          0x0020
- #define START_READ_OR_WRITE_EVT       0x0040
- #define START_WRITE_CCCD_EVT          0x0080
- #define START_READ_RSSI_EVT           0x0100
- #define ESTABLISH_LINK_TIMEOUT_EVT    0x0200
- 
- // 新增：蓝牙发送测试数据事件
- #define START_SEND_TEST_DATA_EVT      0x0400
- // 新增：连接成功后发送初始化数据事件
- #define START_SEND_INIT_DATA_EVT      0x0800
- 
- // 新增：连接控制事件
- #define STOP_AUTO_RECONNECT_EVT       0x1000  // 停止自动重连事件
- #define START_AUTO_RECONNECT_EVT      0x2000  // 启动自动重连事件
+// Simple BLE Observer Task Events
+#define START_DEVICE_EVT              0x0001
+#define START_DISCOVERY_EVT           0x0002  // 重用作为延迟重新发现事件
+#define START_SCAN_EVT                0x0004
+#define START_SVC_DISCOVERY_EVT       0x0008
+#define START_PARAM_UPDATE_EVT        0x0010
+#define START_PHY_UPDATE_EVT          0x0020
+#define START_READ_OR_WRITE_EVT       0x0040
+#define START_WRITE_CCCD_EVT          0x0080
+#define START_READ_RSSI_EVT           0x0100
+#define ESTABLISH_LINK_TIMEOUT_EVT    0x0200
+
+// 新增：蓝牙发送测试数据事件
+#define START_SEND_TEST_DATA_EVT      0x0400
+// 新增：连接成功后发送初始化数据事件
+#define START_SEND_INIT_DATA_EVT      0x0800
+
+// 新增：连接控制事件
+#define STOP_AUTO_RECONNECT_EVT       0x1000  // 停止自动重连事件
+#define START_AUTO_RECONNECT_EVT      0x2000  // 启动自动重连事件
+
+// 新增：延迟重连事件（用于避免快速循环）- 重用现有事件号
+#define DELAYED_DISCOVERY_RETRY_EVT   START_DISCOVERY_EVT  // 0x0002 延迟后重新发现设备
  
  // 新增：目标设备服务和特征UUID定义
  #define TARGET_SERVICE_UUID           0xAE00  // 目标服务UUID

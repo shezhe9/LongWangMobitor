@@ -315,6 +315,12 @@ uint8_t send_data_index = 1;
  */
 uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
 {
+    // 调试：打印接收到的事件（排除高频的SYS_EVENT_MSG）
+    if(events != SYS_EVENT_MSG && events != 0)
+    {
+        uinfo(">>> Central_ProcessEvent: taskId=%d, events=0x%04X <<<\n", task_id, events);
+    }
+    
     if(events & SYS_EVENT_MSG)                                       // 如果是系统消息事件
     {
         uint8_t *pMsg;
@@ -676,6 +682,26 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ START_AUTO_RECONNECT_EVT);
     }
 
+    if(events & DELAYED_DISCOVERY_RETRY_EVT)                         // 延迟后重新发现设备事件
+    {
+        if(autoReconnectEnabled == TRUE && targetDeviceFound == FALSE)
+        {
+            uinfo("Retrying device discovery for '%s'...\n", TARGET_DEVICE_NAME);
+            GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
+                                          DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                          DEFAULT_DISCOVERY_WHITE_LIST);
+        }
+        else
+        {
+            uinfo("Discovery retry cancelled (autoReconnect=%d, targetFound=%d)\n", 
+                  autoReconnectEnabled, targetDeviceFound);
+        }
+        return (events ^ DELAYED_DISCOVERY_RETRY_EVT);
+    }
+
+    // 注意：断开连接后的延迟重连现在使用START_AUTO_RECONNECT_EVT事件（0x2000）
+    // 不再需要DELAYED_RECONNECT_EVT（0x8000太大，TMOS不支持）
+
     // Discard unknown events                                         // 丢弃未知事件
     return 0;
 }
@@ -976,18 +1002,32 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                     // 停止设备发现以避免冲突
                                     uinfo("Stopping device discovery before connection attempt...\n");
                                     GAPRole_CentralCancelDiscovery();
+                                    
+                                    // 停止所有重试相关的定时事件，避免干扰连接
+                                    tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
+                                    tmos_stop_task(centralTaskId, START_AUTO_RECONNECT_EVT);
+                                    
                                     DelayMs(100);  // 等待停止完成
                                     
-                                    // 如果已经连接或正在连接，先断开
-                                    if(centralState != BLE_STATE_IDLE || centralConnHandle != GAP_CONNHANDLE_INIT)
+                                    // 如果已经有有效连接，先断开（只有在连接句柄有效时才终止）
+                                    if(centralConnHandle != GAP_CONNHANDLE_INIT && centralState != BLE_STATE_IDLE)
                                     {
-                                        uinfo("Terminating existing connection...\n");
+                                        uinfo("Terminating existing connection (handle=0x%04X)...\n", centralConnHandle);
                                         GAPRole_TerminateLink(centralConnHandle);
                                         centralState = BLE_STATE_IDLE;
                                         centralConnHandle = GAP_CONNHANDLE_INIT;
                                         centralProcedureInProgress = FALSE;
                                         // 等待一段时间再尝试连接
                                         DelayMs(500);
+                                    }
+                                    else if(centralState != BLE_STATE_IDLE)
+                                    {
+                                        // 状态不是IDLE但没有有效连接句柄，只重置状态
+                                        uinfo("Resetting state (was %d) without terminating connection\n", centralState);
+                                        centralState = BLE_STATE_IDLE;
+                                        centralConnHandle = GAP_CONNHANDLE_INIT;
+                                        centralProcedureInProgress = FALSE;
+                                        DelayMs(200);
                                     }
                                     
                                     // 建立连接（使用较低的duty cycle）
@@ -1009,45 +1049,51 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                     else
                                     {
                                         uinfo("Failed to initiate connection (status=0x%02X)\n", status);
+                                        
+                                        // 重置连接状态，确保下次能正常尝试
+                                        centralState = BLE_STATE_IDLE;
+                                        centralConnHandle = GAP_CONNHANDLE_INIT;
+                                        centralProcedureInProgress = FALSE;
+                                        targetDeviceFound = FALSE;
+                                        
                                         connectionFailCount++;
                                         uinfo("Connection fail count: %d\n", connectionFailCount);
                                         
                                         // 解释错误码
                                         switch(status)
                                         {
+                                            case 0x11:
+                                                uinfo("Error: Connection rejected (0x11) - device may be busy or resources unavailable\n");
+                                                break;
                                             case 0x10:
-                                                uinfo("Error: Connection limit exceeded or incorrect mode\n");
+                                                uinfo("Error: Connection limit exceeded or incorrect mode (0x10)\n");
                                                 break;
                                             case 0x0C:
-                                                uinfo("Error: Command disallowed\n");
+                                                uinfo("Error: Command disallowed (0x0C)\n");
                                                 break;
                                             case 0x07:
-                                                uinfo("Error: Memory capacity exceeded\n");
+                                                uinfo("Error: Memory capacity exceeded (0x07)\n");
+                                                break;
+                                            case 0x02:
+                                                uinfo("Error: Connection timeout (0x02)\n");
                                                 break;
                                             default:
-                                                uinfo("Error: Unknown error code\n");
+                                                uinfo("Error: Unknown error code (0x%02X)\n", status);
                                                 break;
                                         }
                                         
-                                        // 如果连续失败5次，重启整个发现过程
+                                        // 如果连续失败5次，重启整个发现过程并延迟更长时间
                                         if(connectionFailCount >= 5)
                                         {
-                                            uinfo("Too many connection failures, restarting BLE discovery...\n");
+                                            uinfo("Too many connection failures, will restart discovery after 3 seconds...\n");
                                             connectionFailCount = 0;
                                             centralScanRes = 0;
-                                            targetDeviceFound = FALSE;
-                                            
-                                            // 延迟更长时间再重启
-                                            DelayMs(2000);
                                             
                                             // 只有在启用自动重连时才重新开始发现
                                             if(autoReconnectEnabled == TRUE)
                                             {
-                                                // 重新开始发现
-                                                GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
-                                                                              DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                                                              DEFAULT_DISCOVERY_WHITE_LIST);
-                                                uinfo("Restarted device discovery\n");
+                                                // 使用延迟事件，避免阻塞（3000ms = 4800 * 0.625ms）
+                                                tmos_start_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT, 4800);
                                             }
                                             else
                                             {
@@ -1056,17 +1102,13 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                         }
                                         else
                                         {
-                                            // 延迟后重试
-                                            DelayMs(1000);
-                                            uinfo("Will retry discovery in next scan cycle...\n");
+                                            uinfo("Will retry discovery after 350ms...\n");
                                             
                                             // 只有在启用自动重连时才重新开始发现
                                             if(autoReconnectEnabled == TRUE)
                                             {
-                                                // 重新开始发现
-                                                GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
-                                                                              DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                                                              DEFAULT_DISCOVERY_WHITE_LIST);
+                                                // 使用延迟事件，避免阻塞（350ms = 560 * 0.625ms）
+                                                tmos_start_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT, 560);
                                             }
                                             else
                                             {
@@ -1105,13 +1147,11 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 centralScanRes = 0;
                 targetDeviceFound = FALSE;  // 重置标志
                 
-                // 只有在启用自动重连时才重新开始搜索
+                // 只有在启用自动重连时才重新开始搜索（添加延迟避免快速循环）
                 if(autoReconnectEnabled == TRUE)
                 {
-                    GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE, // 重新开始设备发现
-                                                  DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                                  DEFAULT_DISCOVERY_WHITE_LIST);
-                    uinfo("Discovering...\n");
+                    uinfo("Will retry discovery in 500ms...\n");
+                    tmos_start_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT, 800);  // 500ms后重试（800 * 0.625ms）
                 }
                 else
                 {
@@ -1134,6 +1174,10 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
 
                 uinfo("Successfully connected to %s!\n", TARGET_DEVICE_NAME);
                 uinfo("Connection handle: 0x%04X\n", centralConnHandle);
+                
+                // 停止所有重连相关的定时事件
+                tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
+                tmos_stop_task(centralTaskId, START_AUTO_RECONNECT_EVT);
                 
                 // Initiate service discovery
                 tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
@@ -1189,20 +1233,50 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             centralProcedureInProgress = FALSE;
             targetDeviceFound = FALSE;  // 重置目标设备找到标志
             tmos_stop_task(centralTaskId, START_READ_RSSI_EVT);
-            uinfo("Disconnected...Reason:%x\n", pEvent->linkTerminate.reason);
+            uinfo("Disconnected...Reason:0x%02X\n", pEvent->linkTerminate.reason);
             
 #ifdef ENABLE_OLED_DISPLAY
             // 断开连接时显示"断"状态（mode_type=0xFF）
             OLED_Update_Temp_Display(200, 200, 200, 200, 0, 0xFF, 0, 0, 0);
 #endif
             
-            // 只有在启用自动重连时才重新搜索
+            // 只有在启用自动重连时才重新搜索（添加延迟给从机准备时间）
             if(autoReconnectEnabled == TRUE)
             {
-                uinfo("Re-discovering target device '%s'...\n", TARGET_DEVICE_NAME);
-                GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
-                                              DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                              DEFAULT_DISCOVERY_WHITE_LIST);
+                // 统一使用300ms延迟 - 清理重试事件后连接更稳定，无需太长延迟
+                uint16_t reconnect_delay = 480;  // 300ms（480 * 0.625ms = 300ms）
+                
+                if(pEvent->linkTerminate.reason == 0x3E)  // Local Host Terminated - 从机可能不稳定
+                {
+                    uinfo("Disconnected by local host (unstable peripheral), will retry in 300ms...\n");
+                }
+                else if(pEvent->linkTerminate.reason == 0x08)  // Connection Timeout
+                {
+                    uinfo("Connection timeout, will retry in 300ms...\n");
+                }
+                else
+                {
+                    uinfo("Will re-discover target device '%s' in 300ms...\n", TARGET_DEVICE_NAME);
+                }
+                
+                uinfo("Scheduling START_AUTO_RECONNECT_EVT (0x%04X) for taskId=%d with delay=%d\n", 
+                      START_AUTO_RECONNECT_EVT, centralTaskId, reconnect_delay);
+                      
+                // 先停止可能已存在的事件，避免冲突
+                tmos_stop_task(centralTaskId, START_AUTO_RECONNECT_EVT);
+                tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
+                
+                bStatus_t status = tmos_start_task(centralTaskId, START_AUTO_RECONNECT_EVT, reconnect_delay);
+                if(status == SUCCESS)
+                {
+                    uinfo("START_AUTO_RECONNECT_EVT scheduled successfully\n");
+                }
+                else
+                {
+                    uinfo("Warning: Failed to schedule START_AUTO_RECONNECT_EVT (status=0x%02X), will try alternate method\n", status);
+                    // 如果失败，尝试立即触发（不延迟）
+                    tmos_set_event(centralTaskId, START_AUTO_RECONNECT_EVT);
+                }
             }
             else
             {

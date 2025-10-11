@@ -228,7 +228,8 @@ void protocol_parsing(uint8_t *buf, uint16_t len)
 
         case MSG_RECONNECT:
             uinfo("Parsing: MSG_RECONNECT\n");
-            parsing_cmd(cmd_parsing_buffer, NULL, reconnect_handler, NULL);
+            // 重连命令：不管操作类型是什么，都直接执行重连
+            reconnect_handler(cmd_parsing_buffer, CMD_LEN);
             break;
 
         case MSG_RESET_SYS:
