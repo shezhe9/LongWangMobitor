@@ -478,17 +478,30 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
         if(activeKeyId < MAX_KEYS) {
             uinfo("\260\264\274\374[%d] \263\244\260\264\312\302\274\376\n", activeKeyId);  // 按键[X]长按事件
             
-            // 按键0的长按功能：切换BLE连接状态
-            if(activeKeyId == 0) {
-                if(Central_IsConnected()) {
-                    uinfo("\263\244\260\264: \266\317\277\252 BLE \301\254\275\323\262\242\315\243\326\271\327\324\266\257\326\330\301\252\n");
-                    Central_DisconnectAndStopAutoReconnect();
-                } else {
-                    uinfo("\263\244\260\264: \306\364\266\257 BLE \327\324\266\257\313\321\313\367\272\315\301\254\275\323\n");
-                    Central_StartAutoReconnect();
+            // 按键6的长按功能：发送重置从机的命令 a2 00 01 00
+            if(activeKeyId == 6) {
+
+                attWriteReq_t req;
+                req.cmd = TRUE;
+                req.sig = FALSE;
+                req.handle = centralWriteCharHdl;
+                req.len = 4;  // 4字节命令
+                req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0);
+                
+                if(req.pValue != NULL) {
+                    req.pValue[0] = 0xa2;
+                    req.pValue[1] = 0x00;
+                    req.pValue[2] = 0x01;
+                    req.pValue[3] = 0x00;
+                    
+                    bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);
+                    if(status != SUCCESS) {
+                        GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
+                        uinfo("\267\242\313\315\312\247\260\334,\327\264\314\254: 0x%02X\n", status);  // 发送失败状态
+                    }
                 }
             }
-        }
+        }   
         return (events ^ KEY_EVENT_LONG_PRESS);
     }
     
