@@ -76,10 +76,10 @@
 #define DEFAULT_PASSCODE                    0                       // 默认配对密码
 
 // Default GAP pairing mode                                         
-#define DEFAULT_PAIRING_MODE                GAPBOND_PAIRING_MODE_NO_PAIRING // 默认GAP配对模式为不配对
+#define DEFAULT_PAIRING_MODE                GAPBOND_PAIRING_MODE_WAIT_FOR_REQ // 默认GAP配对模式为等待配对请求
 
 // Default MITM mode (TRUE to require passcode or OOB when pairing) 
-#define DEFAULT_MITM_MODE                   TRUE                    // 默认启用MITM保护
+#define DEFAULT_MITM_MODE                   FALSE                   // 默认不启用MITM保护
 
 // Default bonding mode, TRUE to bond, max bonding 6 devices        
 #define DEFAULT_BONDING_MODE                TRUE                    // 默认启用绑定模式，最多绑定6个设备
