@@ -31,16 +31,16 @@
 #define DEFAULT_MAX_SCAN_RES                50                       // 最大扫描响应数量为50
 
 // Scan duration in 0.625ms                                         
-#define DEFAULT_SCAN_DURATION               2400                     // 扫描持续时间，单位0.625ms
+#define DEFAULT_SCAN_DURATION               1600                     // 扫描持续时间，单位0.625ms (1秒)
 
 // Connection min interval in 1.25ms                                
-#define DEFAULT_MIN_CONNECTION_INTERVAL     6                        // 最小连接间隔，单位1.25ms (7.5ms)
+#define DEFAULT_MIN_CONNECTION_INTERVAL     20                       // 最小连接间隔，单位1.25ms (25ms)
 
 // Connection max interval in 1.25ms                                
-#define DEFAULT_MAX_CONNECTION_INTERVAL     6                        // 最大连接间隔，单位1.25ms (7.5ms)
+#define DEFAULT_MAX_CONNECTION_INTERVAL     100                      // 最大连接间隔，单位1.25ms (125ms)
 
 // Connection supervision timeout in 10ms                           
-#define DEFAULT_CONNECTION_TIMEOUT          1000                     // 连接监督超时，单位10ms (增加到10秒)
+#define DEFAULT_CONNECTION_TIMEOUT          100                      // 连接监督超时，单位10ms (1秒)
 
 // Discovey mode (limited, general, all)                            
 #define DEFAULT_DISCOVERY_MODE              DEVDISC_MODE_ALL         // 发现模式设置为全部发现
@@ -76,7 +76,7 @@
 #define DEFAULT_PASSCODE                    0                       // 默认配对密码
 
 // Default GAP pairing mode                                         
-#define DEFAULT_PAIRING_MODE                GAPBOND_PAIRING_MODE_WAIT_FOR_REQ // 默认GAP配对模式为等待配对请求
+#define DEFAULT_PAIRING_MODE                GAPBOND_PAIRING_MODE_NO_PAIRING // 默认GAP配对模式为不配对
 
 // Default MITM mode (TRUE to require passcode or OOB when pairing) 
 #define DEFAULT_MITM_MODE                   FALSE                   // 默认不启用MITM保护
@@ -88,8 +88,7 @@
 #define DEFAULT_IO_CAPABILITIES             GAPBOND_IO_CAP_DISPLAY_ONLY // 默认GAP绑定I/O能力为仅显示
 
 // Default service discovery timer delay in 0.625ms                 
-//#define DEFAULT_SVC_DISCOVERY_DELAY         320                     // 默认服务发现延时（优化：1000ms→200ms）
-#define DEFAULT_SVC_DISCOVERY_DELAY         3200                     // 默认服务发现延时（优化：解决时序竞争问题）
+#define DEFAULT_SVC_DISCOVERY_DELAY         320                     // 默认服务发现延时
 // Default parameter update delay in 0.625ms                        
 #define DEFAULT_PARAM_UPDATE_DELAY          3200                    // 默认参数更新延时
 
@@ -100,16 +99,15 @@
 #define DEFAULT_READ_OR_WRITE_DELAY         1600                    // 默认读写操作延时
 
 // Default write CCCD delay in 0.625ms                              
-//#define DEFAULT_WRITE_CCCD_DELAY            320                     // HID-LongWang 需要这么多才能成功 默认写CCCD延时（优化：1000ms→200ms 150m会失败）
-//#define DEFAULT_WRITE_CCCD_DELAY            400                     // DragonK 需要这么多才能成功
-#define DEFAULT_WRITE_CCCD_DELAY            2400                     // 优化：增加延时确保从设备准备就绪
+//#define DEFAULT_WRITE_CCCD_DELAY            320                     // 默认写CCCD延时
+#define DEFAULT_WRITE_CCCD_DELAY            400                     // DragonK 需要这么多才能成功
 
 // Establish link timeout in 0.625ms                                
-#define ESTABLISH_LINK_TIMEOUT              3200                    // 建立连接超时时间
+#define ESTABLISH_LINK_TIMEOUT              1600                    // 建立连接超时时间
 
 // 服务发现重试机制
 #define MAX_SVC_DISCOVERY_RETRIES           3                       // 最大服务发现重试次数
-#define SVC_DISCOVERY_RETRY_DELAY           1600                    // 服务发现重试延时（0.625ms单位）
+#define SVC_DISCOVERY_RETRY_DELAY           800                     // 服务发现重试延时（0.625ms单位）
 
 // Application states（已移至central.h中定义）
 
@@ -1259,9 +1257,9 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
                 tmos_stop_task(centralTaskId, START_AUTO_RECONNECT_EVT);
                 
-                // 连接建立后，等待更长时间再进行任何操作
-                uinfo("Connection established, waiting for stability...\n");
-                tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, 2000); // 1.25秒后开始服务发现
+                // 连接建立后，立即开始服务发现
+                uinfo("Connection established, starting service discovery...\n");
+                tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
 
                 // 暂时禁用所有其他操作，只进行服务发现
                 // 不进行参数更新、PHY更新、RSSI轮询等操作
