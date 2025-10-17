@@ -386,12 +386,74 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
         if(activeKeyId < MAX_KEYS) {
             uinfo("\260\264\274\374[%d] \265\245\273\367\312\302\274\376\n", activeKeyId);  // 按键[X]单击事件
             
-            // 用户可在此添加不同按键的功能
-            // switch(activeKeyId) {
-            //     case 0: /* PA4功能 */ break;
-            //     case 1: /* PA5功能 */ break;
-            //     ...
-            // }
+            // 按键功能实现
+            switch(activeKeyId) {
+                case 2: {  // 按键[2]单击事件：触发MSG_DISCONNECT事件
+                    uinfo("\260\264\274\374[2]: \264\245\267\242\266\317\277\252\301\254\275\323\n");  // 按键触发断开连接
+                    // 调用断开连接函数
+                    Central_DisconnectAndStopAutoReconnect();
+                    break;
+                }
+                
+                case 3: {  // 按键[3]单击事件：触发MSG_RECONNECT事件
+                    uinfo("\260\264\274\374[3]: \264\245\267\242\326\330\320\302\301\254\275\323\n");  // 按键触发重新连接
+                    // 调用重新连接函数
+                    Central_StartAutoReconnect();
+                    break;
+                }
+                
+                case 10: {  // 按键[10]单击事件：轮换发送三个命令
+                    if(centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT && centralWriteCharHdl != 0) {
+                        // 检查是否有其他GATT操作正在进行
+                        if(centralProcedureInProgress == TRUE) {
+                            uinfo("GATT \262\331\327\367\325\375\324\332\275\370\320\320\326\320,\316\336\267\250\267\242\313\315\303\374\301\356\n");  // 操作正在进行中无法发送命令
+                            return (events ^ KEY_EVENT_SINGLE_CLICK);
+                        }
+                        
+                        static uint8_t cmd_index = 0;
+                        attWriteReq_t req;
+                        req.cmd = TRUE;
+                        req.sig = FALSE;
+                        req.handle = centralWriteCharHdl;
+                        req.len = 3;  // 3字节命令
+                        req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0);
+                        
+                        if(req.pValue != NULL) {
+                            // 固定的命令格式部分
+                            req.pValue[1] = 0x00;
+                            req.pValue[2] = 0x01;
+                            
+                            // 根据当前索引选择不同的命令
+                            switch(cmd_index) {
+                                case 0:
+                                    req.pValue[0] = 0x81;
+                                    uinfo("\260\264\274\374[10]: \267\242\313\315\303\374\301\356 81 00 01 (\303\374\301\3561)\n");  // 按键发送命令命令
+                                    break;
+                                case 1:
+                                    req.pValue[0] = 0x82;
+                                    uinfo("\260\264\274\374[10]: \267\242\313\315\303\374\301\356 82 00 01 (\303\374\301\3562)\n");  // 按键发送命令命令
+                                    break;
+                                case 2:
+                                    req.pValue[0] = 0x83;
+                                    uinfo("\260\264\274\374[10]: \267\242\313\315\303\374\301\356 83 00 01 (\303\374\301\3563)\n");  // 按键发送命令命令
+                                    break;
+                            }
+                            
+                            bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);
+                            if(status != SUCCESS) {
+                                GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
+                                uinfo("\267\242\313\315\312\247\260\334,\327\264\314\254: 0x%02X\n", status);  // 发送失败状态
+                            }
+                            
+                            // 更新命令索引，实现轮换
+                            cmd_index = (cmd_index + 1) % 3;
+                        }
+                    } else {
+                        uinfo("BLE \316\264\301\254\275\323,\316\336\267\250\267\242\313\315\303\374\301\356\n");  // 未连接无法发送命令
+                    }
+                    break;
+                }
+            }
         }
         return (events ^ KEY_EVENT_SINGLE_CLICK);
     }

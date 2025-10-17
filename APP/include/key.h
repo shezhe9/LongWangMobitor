@@ -34,15 +34,15 @@
 
 // 按键使能开关（1=启用，0=禁用）
 #define KEY_ENABLE_0   1  // PA4
-#define KEY_ENABLE_1   0  // PA5
-#define KEY_ENABLE_2   0  // PA6
-#define KEY_ENABLE_3   0  // PA0
-#define KEY_ENABLE_4   0  // PA1
-#define KEY_ENABLE_5   0  // PA2
-#define KEY_ENABLE_6   0  // PA3
-#define KEY_ENABLE_7   0  // PA15
+#define KEY_ENABLE_1   1  // PA5
+#define KEY_ENABLE_2   1  // PA6
+#define KEY_ENABLE_3   1  // PA0
+#define KEY_ENABLE_4   1  // PA1
+#define KEY_ENABLE_5   1  // PA2
+#define KEY_ENABLE_6   1  // PA3
+#define KEY_ENABLE_7   1  // PA15
 #define KEY_ENABLE_8   1  // PA14
-#define KEY_ENABLE_9   0  // PA7
+#define KEY_ENABLE_9   1  // PA7
 #define KEY_ENABLE_10  1  // PB1（原PROG_BOOT）
 
 // 向后兼容：保留原有PB1定义

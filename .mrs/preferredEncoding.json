@@ -6,7 +6,7 @@
 		},
 		{
 			"file": "APP/central_main.c",
-			"encoding": "gbk"
+			"encoding": "utf8"
 		}
 	]
 }
