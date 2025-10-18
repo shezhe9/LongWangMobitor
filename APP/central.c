@@ -886,6 +886,7 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
         if(pMsg->msg.handleValueNoti.pValue[0]==0xc0)
         {
             uint8_t modetype = pMsg->msg.handleValueNoti.pValue[3];
+            mode_type_golbal= pMsg->msg.handleValueNoti.pValue[3]+0x80;
             // 温度值需要转换为int8_t来正确处理负数（从机用uint8传输有符号温度）
             int8_t leftTemp = (int8_t)pMsg->msg.handleValueNoti.pValue[4];
             int8_t rightTemp = (int8_t)pMsg->msg.handleValueNoti.pValue[5];

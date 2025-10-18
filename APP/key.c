@@ -18,7 +18,7 @@
 
 // TMOS任务ID
 uint8_t keyTaskId = 0xFF;
-
+uint8_t mode_type_golbal= 0x81;
 // 按键对象数组（管理10个按键）
 KeyObject_t keys[MAX_KEYS];
 
@@ -410,7 +410,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
                             return (events ^ KEY_EVENT_SINGLE_CLICK);
                         }
                         
-                        static uint8_t cmd_index = 0;
+                        //static uint8_t cmd_index = 0;
                         attWriteReq_t req;
                         req.cmd = TRUE;
                         req.sig = FALSE;
@@ -423,19 +423,29 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
                             req.pValue[1] = 0x00;
                             req.pValue[2] = 0x01;
                             
+                            // 更新命令索引，实现轮换
+                            //mode_type_golbal = (mode_type_golbal + 1);
+                            //if(mode_type_golbal > 0x83)
+                            //{
+                            //    mode_type_golbal = 0x81;
+                            //}
                             // 根据当前索引选择不同的命令
-                            switch(cmd_index) {
-                                case 0:
+                            switch(mode_type_golbal) {
+                                case 0x83:
                                     req.pValue[0] = 0x81;
                                     uinfo("\260\264\274\374[10]: \267\242\313\315\303\374\301\356 81 00 01 (\303\374\301\3561)\n");  // 按键发送命令命令
                                     break;
-                                case 1:
+                                case 0x81:
                                     req.pValue[0] = 0x82;
                                     uinfo("\260\264\274\374[10]: \267\242\313\315\303\374\301\356 82 00 01 (\303\374\301\3562)\n");  // 按键发送命令命令
                                     break;
-                                case 2:
+                                case 0x82:
                                     req.pValue[0] = 0x83;
                                     uinfo("\260\264\274\374[10]: \267\242\313\315\303\374\301\356 83 00 01 (\303\374\301\3563)\n");  // 按键发送命令命令
+                                    break;
+                                default:
+                                   
+                                    uinfo( "mode_type_golbal=%d\n", mode_type_golbal);  // 按键发送命令命令
                                     break;
                             }
                             
@@ -445,8 +455,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
                                 uinfo("\267\242\313\315\312\247\260\334,\327\264\314\254: 0x%02X\n", status);  // 发送失败状态
                             }
                             
-                            // 更新命令索引，实现轮换
-                            cmd_index = (cmd_index + 1) % 3;
+                            
                         }
                     } else {
                         uinfo("BLE \316\264\301\254\275\323,\316\336\267\250\267\242\313\315\303\374\301\356\n");  // 未连接无法发送命令

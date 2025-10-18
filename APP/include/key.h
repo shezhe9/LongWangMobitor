@@ -60,6 +60,7 @@
 #define KEY_LONG_PRESS_TICKS   2400  // 1500ms ÷ 0.625ms = 2400
 #define KEY_DOUBLE_CLICK_TICKS 960   // 600ms ÷ 0.625ms = 960
 
+extern uint8_t mode_type_golbal;
 /******************** 按键状态定义 ********************/
 
 // 按键状态机
