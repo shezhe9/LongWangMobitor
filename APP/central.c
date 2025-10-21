@@ -869,6 +869,12 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
             if(centralDiscState == BLE_DISC_STATE_IDLE && centralWriteCharHdl != 0)
             {
                 uinfo("Notifications enabled.\n");
+                
+                // 更新OLED显示 - 阶段7：启用通知
+#ifdef ENABLE_OLED_DISPLAY
+                OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 7);
+#endif
+                
                 // 自动发送初始化数据
                 uinfo("Sending initialization data...\n");
                 tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 80);
@@ -953,9 +959,10 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
 #ifdef ENABLE_OLED_DISPLAY
             // 更新OLED显示 - 数据需要转换为0.1°C单位（原始数据是整数度）
             // int8转int16时会自动符号扩展，如-55 → -550
+            // 连接状态：8表示已连接
             OLED_Update_Temp_Display(tempEnv * 10, leftTemp * 10, tempWater * 10, rightTemp * 10,
                                      tempDelta, modetype, pwm_cold,
-                                     pwm_fan, pwm_bump);
+                                     pwm_fan, pwm_bump, 8);
 #endif
         }
         
@@ -1023,6 +1030,11 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
         {
             uinfo("BLE \326\367\273\372\322\321\263\365\312\274\273\257,\325\375\324\332\313\321\313\367\311\350\261\270: %s / %s\n", 
                   TARGET_DEVICE_NAME_1, TARGET_DEVICE_NAME_2);  // 主机已初始化正在搜索设备
+            
+            // 更新OLED显示 - 阶段1：设备初始化完成
+#ifdef ENABLE_OLED_DISPLAY
+            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 1);
+#endif
             
             // 初始化候选设备列表
             centralInitCandidates();
@@ -1174,6 +1186,11 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
 
         case GAP_DEVICE_DISCOVERY_EVENT:                           // 设备发现事件
         {
+            // 更新OLED显示 - 阶段2：设备发现完成
+#ifdef ENABLE_OLED_DISPLAY
+            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 2);
+#endif
+            
             // 扫描完成，从候选列表中选择信号最强的设备
             candidateDevice_t* bestCandidate = centralGetBestCandidate();
             
@@ -1249,6 +1266,11 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             
             if(pEvent->gap.hdr.status == SUCCESS)
             {
+                // 更新OLED显示 - 阶段3：连接建立
+#ifdef ENABLE_OLED_DISPLAY
+                OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 3);
+#endif
+                
                 centralState = BLE_STATE_CONNECTED;
                 centralConnHandle = pEvent->linkCmpl.connectionHandle;
                 centralProcedureInProgress = TRUE;
@@ -1302,7 +1324,8 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             
 #ifdef ENABLE_OLED_DISPLAY
             // 断开连接时显示"断"状态（mode_type=0xFF），温度全部为0避免歧义
-            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0);
+            // 连接状态：0表示断开
+            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 0);
 #endif
             
             // 只有在启用自动重连时才重新搜索（添加延迟给从机准备时间）
@@ -1458,6 +1481,11 @@ static void centralStartDiscovery(void)
         return;
     }
     
+    // 更新OLED显示 - 阶段4：服务发现
+#ifdef ENABLE_OLED_DISPLAY
+    OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 4);
+#endif
+    
     uint8_t uuid[ATT_BT_UUID_SIZE] = {LO_UINT16(TARGET_SERVICE_UUID),
                                       HI_UINT16(TARGET_SERVICE_UUID)}; // 目标服务UUID: AE00
 
@@ -1534,6 +1562,11 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             
             if(centralSvcStartHdl != 0)                            // 如果找到AE00服务
             {
+                // 更新OLED显示 - 阶段5：特征发现
+#ifdef ENABLE_OLED_DISPLAY
+                OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 5);
+#endif
+                
                 // Discover all characteristics in the service     // 发现服务中的所有特征
                 centralDiscState = BLE_DISC_STATE_CHAR;            // 设置状态为特征发现
                 GATT_DiscAllChars(centralConnHandle, centralSvcStartHdl, centralSvcEndHdl, centralTaskId);
@@ -1598,6 +1631,11 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             
             if(centralNotifyCharHdl != 0)  // 如果找到了AE02通知特征
             {
+                // 更新OLED显示 - 阶段6：CCCD发现
+#ifdef ENABLE_OLED_DISPLAY
+                OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 6);
+#endif
+                
                 // Discover CCCD for AE02 notification characteristic
                 centralDiscState = BLE_DISC_STATE_CCCD;           // 设置状态为CCCD发现
                 req.startHandle = centralSvcStartHdl;             // 设置起始句柄

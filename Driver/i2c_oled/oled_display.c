@@ -64,7 +64,7 @@ void OLED_Display_Clear(void)
  */
 void OLED_Update_Temp_Display(int16_t env_temp, int16_t left_temp, int16_t water_temp, int16_t right_temp,
                                int16_t cold_delta, uint8_t mode_type, uint8_t cold_pwm_set,
-                               uint8_t fan_fix_speed, uint8_t bump_fix_speed)
+                               uint8_t fan_fix_speed, uint8_t bump_fix_speed, uint8_t conn_status)
 {
     int16_t temp_int;
     int16_t set_temp;
@@ -327,6 +327,36 @@ void OLED_Update_Temp_Display(int16_t env_temp, int16_t left_temp, int16_t water
     {
         SH1106_ShowColon4(16, 48, 1);
         SH1106_ShowString(20, 48, (uint8_t *)"--", 16, 1);
+    }
+    
+    // 连接状态显示 (x=42-88) - 与"功:xx"对齐
+    SH1106_ShowSpace8(36, 48, 1);  // 8px空格
+    if(conn_status == 0)
+    {
+        // 未连接状态 - 显示"未连接"
+        SH1106_ShowChinese(42, 48, CHINESE_NOT, 1);         // "未" (16px)
+        SH1106_ShowChinese(58, 48, CHINESE_CONNECT, 1);     // "连" (16px)
+        SH1106_ShowChinese(74, 48, CHINESE_CONNECT_2, 1);   // "接" (16px)
+    }
+    else if(conn_status >= 1 && conn_status <= 7)
+    {
+        // 连接过程中显示"连:1/7"到"连:7/7"
+        SH1106_ShowChinese(42, 48, CHINESE_CONNECT, 1);     // "连" (16px) - x=42-58
+        SH1106_ShowColon4(58, 48, 1);                       // ":" (4px) - x=58-62
+        SH1106_ShowNum16(62, 48, conn_status, 1);           // 当前阶段 (8px) - x=62-70
+        SH1106_ShowString(70, 48, (uint8_t *)"/7", 16, 1);  // "/7" (16px) - x=70-86
+    }
+    else if(conn_status == 8)
+    {
+        // 已连接状态 - 显示"已连接"
+        SH1106_ShowChinese(42, 48, CHINESE_ALREADY, 1);     // "已" (16px)
+        SH1106_ShowChinese(58, 48, CHINESE_CONNECT, 1);     // "连" (16px)
+        SH1106_ShowChinese(74, 48, CHINESE_CONNECT_2, 1);   // "接" (16px)
+    }
+    else
+    {
+        // 未知状态
+        SH1106_ShowString(42, 48, (uint8_t *)"---", 16, 1);
     }
     
     // 模:CC (x=90) - 使用4像素精简冒号

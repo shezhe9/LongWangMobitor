@@ -254,6 +254,12 @@ void SH1106_ShowChinese(uint8_t x, uint8_t y, uint8_t index, uint8_t mode)
     uint8_t x0 = x, y0 = y;
     uint8_t temp;
     
+    // 添加边界检查，防止数组越界
+    if(index >= 25)  // 数组有25个元素（索引0-24）
+    {
+        return;  // 索引超出范围，直接返回
+    }
+    
     for(i = 0; i < 32; i++)
     {
         temp = chinese_temp_16x16[index][i];
