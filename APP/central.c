@@ -756,6 +756,7 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ DELAYED_DISCOVERY_RETRY_EVT);
     }
 
+
     // 注意：断开连接后的延迟重连现在使用START_AUTO_RECONNECT_EVT事件（0x2000）
     // 不再需要DELAYED_RECONNECT_EVT（0x8000太大，TMOS不支持）
 
@@ -868,8 +869,9 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
             if(centralDiscState == BLE_DISC_STATE_IDLE && centralWriteCharHdl != 0)
             {
                 uinfo("Notifications enabled.\n");
-                // 注释掉自动发送初始化数据，由上位机通过命令控制
-                // tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 80);
+                // 自动发送初始化数据
+                uinfo("Sending initialization data...\n");
+                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 80);
             }
         }
 
@@ -1182,7 +1184,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 
                 // 保存连接的设备名称
                 tmos_memset(connectedDeviceName, 0, sizeof(connectedDeviceName));
-                tmos_memcpy(connectedDeviceName, devName, tmos_strlen(devName));
+                tmos_memcpy(connectedDeviceName, devName, tmos_strlen((char*)devName));
                 
                 uinfo("[\321\241\326\320] %s (RSSI: %d dBm)\n", connectedDeviceName, bestCandidate->rssi);  // 选中
                 

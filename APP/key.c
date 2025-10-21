@@ -401,7 +401,68 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
                     Central_StartAutoReconnect();
                     break;
                 }
+                case 6: {  // 按键[6]单击事件：发送设置从机工作在专家模式温降值为40，水泵功率为49，风扇功率为50
+                    //83 00 02 01 28 02 00 31 00 00 02 00 32 00 00 00 00 00 00 00  
+                    attWriteReq_t req;
+                    req.cmd = TRUE;
+                    req.sig = FALSE;
+                    req.handle = centralWriteCharHdl;
+                    req.len = 20;  // 20字节 command
+                    req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0);
+                    if(req.pValue != NULL) {
+                        req.pValue[0] = 0x83;
+                        req.pValue[1] = 0x00;
+                        req.pValue[2] = 0x02;
+                        req.pValue[3] = 0x01;
+                        req.pValue[4] = 0x28;
+                        req.pValue[5] = 0x02;
+                        req.pValue[6] = 0x00;
+                        req.pValue[7] = 0x31;
+                        req.pValue[8] = 0x00;
+                        req.pValue[9] = 0x00;
+                        req.pValue[10] = 0x02;
+                        req.pValue[11] = 0x00;
+                        req.pValue[12] = 0x32;
+                        req.pValue[13] = 0x00;
+                        req.pValue[14] = 0x00;
+                        req.pValue[15] = 0x00;
+                        req.pValue[16] = 0x00;
+                        req.pValue[17] = 0x00;
+                        req.pValue[18] = 0x00;
+                        req.pValue[19] = 0x00;
+                    }
+                    bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);
+                    if(status != SUCCESS) {
+                        GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
+                        uinfo("\267\242\313\315\312\247\260\334,\327\264\314\254: 0x%02X\n", status);  // 发送失败状态
+                    }
                 
+                    break;
+                }
+                
+                case 7: {  //重置从机存储
+                    uinfo("reset congji \n");  // 按键触发重置从机存储
+                    attWriteReq_t req;
+                    req.cmd = TRUE;
+                    req.sig = FALSE;
+                    req.handle = centralWriteCharHdl;
+                    req.len = 4;  // 4字节命令
+                    req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0);
+                    
+                    if(req.pValue != NULL) {
+                        req.pValue[0] = 0xa2;
+                        req.pValue[1] = 0x00;
+                        req.pValue[2] = 0x01;
+                        req.pValue[3] = 0x00;
+                        
+                        bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);
+                        if(status != SUCCESS) {
+                            GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
+                            uinfo("\267\242\313\315\312\247\260\334,\327\264\314\254: 0x%02X\n", status);  // 发送失败状态
+                        }
+                    }
+                }
+
                 case 10: {  // 按键[10]单击事件：轮换发送三个命令
                     if(centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT && centralWriteCharHdl != 0) {
                         // 检查是否有其他GATT操作正在进行
@@ -488,28 +549,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
             uinfo("\260\264\274\374[%d] \263\244\260\264\312\302\274\376\n", activeKeyId);  // 按键[X]长按事件
             
             // 按键6的长按功能：发送重置从机的命令 a2 00 01 00
-            if(activeKeyId == 6) {
-
-                attWriteReq_t req;
-                req.cmd = TRUE;
-                req.sig = FALSE;
-                req.handle = centralWriteCharHdl;
-                req.len = 4;  // 4字节命令
-                req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0);
-                
-                if(req.pValue != NULL) {
-                    req.pValue[0] = 0xa2;
-                    req.pValue[1] = 0x00;
-                    req.pValue[2] = 0x01;
-                    req.pValue[3] = 0x00;
-                    
-                    bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);
-                    if(status != SUCCESS) {
-                        GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
-                        uinfo("\267\242\313\315\312\247\260\334,\327\264\314\254: 0x%02X\n", status);  // 发送失败状态
-                    }
-                }
-            }
+            
         }   
         return (events ^ KEY_EVENT_LONG_PRESS);
     }
