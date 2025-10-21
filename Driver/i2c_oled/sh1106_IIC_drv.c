@@ -438,6 +438,68 @@ void SH1106_ShowPercent8(uint8_t x, uint8_t y, uint8_t mode)
 }
 
 /**
+ * @brief 显示8x16点号
+ */
+void SH1106_ShowDot8(uint8_t x, uint8_t y, uint8_t mode)
+{
+    uint8_t i, m;
+    uint8_t x0 = x, y0 = y;
+    uint8_t temp;
+    
+    for(i = 0; i < 16; i++)
+    {
+        temp = char_8x16[3][i];  // 点号是索引3
+        for(m = 0; m < 8; m++)
+        {
+            if(temp & 0x01)
+                SH1106_DrawPoint(x, y, mode);
+            else
+                SH1106_DrawPoint(x, y, !mode);
+            temp >>= 1;
+            y++;
+        }
+        x++;
+        if((x - x0) == 8)
+        {
+            x = x0;
+            y0 = y0 + 8;
+        }
+        y = y0;
+    }
+}
+
+/**
+ * @brief 显示4x16点号（精简版）
+ */
+void SH1106_ShowDot4(uint8_t x, uint8_t y, uint8_t mode)
+{
+    uint8_t i, m;
+    uint8_t x0 = x, y0 = y;
+    uint8_t temp;
+    
+    for(i = 0; i < 8; i++)  // 4x16只需要8字节
+    {
+        temp = char_4x16[3][i];  // 精简点号（索引3）
+        for(m = 0; m < 8; m++)
+        {
+            if(temp & 0x01)
+                SH1106_DrawPoint(x, y, mode);
+            else
+                SH1106_DrawPoint(x, y, !mode);
+            temp >>= 1;
+            y++;
+        }
+        x++;
+        if((x - x0) == 4)
+        {
+            x = x0;
+            y0 = y0 + 8;
+        }
+        y = y0;
+    }
+}
+
+/**
  * @brief 显示16x16数字（不显示前导0）
  * @param x 起始x坐标
  * @param y 起始y坐标  

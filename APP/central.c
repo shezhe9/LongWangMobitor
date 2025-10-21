@@ -234,6 +234,10 @@ static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType); // 添加设
 // 候选设备管理函数
 static void centralInitCandidates(void);                            // 初始化候选列表
 static void centralAddCandidate(uint8_t *addr, uint8_t addrType, int8_t rssi, uint8_t nameIndex); // 添加候选设备
+
+// 版本号管理
+static uint16_t deviceVersion = 0;                                  // 设备版本号
+static void parseDeviceVersion(uint8_t *data, uint8_t len);         // 解析设备版本号
 static candidateDevice_t* centralGetBestCandidate(void);            // 获取信号最强的候选设备
 
 /*********************************************************************
@@ -872,7 +876,7 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
                 
                 // 更新OLED显示 - 阶段7：启用通知
 #ifdef ENABLE_OLED_DISPLAY
-                OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 7);
+                OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 7, 0);
 #endif
                 
                 // 自动发送初始化数据
@@ -885,8 +889,14 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
     }
     else if(pMsg->method == ATT_HANDLE_VALUE_NOTI)                 // 如果是特征值通知
     {
-        // 只打印C2开头的Notify消息
-        if(pMsg->msg.handleValueNoti.pValue[0] == 0xc0)
+        // 处理C2帧（版本号信息）
+        if(pMsg->msg.handleValueNoti.pValue[0] == 0xC2)
+        {
+            // 解析C2帧中的版本号
+            parseDeviceVersion(pMsg->msg.handleValueNoti.pValue, pMsg->msg.handleValueNoti.len);
+        }
+        // 处理C0帧（温度数据）
+        else if(pMsg->msg.handleValueNoti.pValue[0] == 0xC0)
         {
             ulog_array_to_hex("Noti", pMsg->msg.handleValueNoti.pValue, pMsg->msg.handleValueNoti.len);
         }
@@ -959,10 +969,10 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
 #ifdef ENABLE_OLED_DISPLAY
             // 更新OLED显示 - 数据需要转换为0.1°C单位（原始数据是整数度）
             // int8转int16时会自动符号扩展，如-55 → -550
-            // 连接状态：8表示已连接
+            // 连接状态：8表示已连接，版本号：使用解析到的版本号
             OLED_Update_Temp_Display(tempEnv * 10, leftTemp * 10, tempWater * 10, rightTemp * 10,
                                      tempDelta, modetype, pwm_cold,
-                                     pwm_fan, pwm_bump, 8);
+                                     pwm_fan, pwm_bump, 8, deviceVersion);
 #endif
         }
         
@@ -1033,7 +1043,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             
             // 更新OLED显示 - 阶段1：设备初始化完成
 #ifdef ENABLE_OLED_DISPLAY
-            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 1);
+            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 1, 0);
 #endif
             
             // 初始化候选设备列表
@@ -1188,7 +1198,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
         {
             // 更新OLED显示 - 阶段2：设备发现完成
 #ifdef ENABLE_OLED_DISPLAY
-            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 2);
+            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 2, 0);
 #endif
             
             // 扫描完成，从候选列表中选择信号最强的设备
@@ -1268,7 +1278,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             {
                 // 更新OLED显示 - 阶段3：连接建立
 #ifdef ENABLE_OLED_DISPLAY
-                OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 3);
+                OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 3, 0);
 #endif
                 
                 centralState = BLE_STATE_CONNECTED;
@@ -1325,7 +1335,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
 #ifdef ENABLE_OLED_DISPLAY
             // 断开连接时显示"断"状态（mode_type=0xFF），温度全部为0避免歧义
             // 连接状态：0表示断开
-            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 0);
+            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 0, 0);
 #endif
             
             // 只有在启用自动重连时才重新搜索（添加延迟给从机准备时间）
@@ -1483,7 +1493,7 @@ static void centralStartDiscovery(void)
     
     // 更新OLED显示 - 阶段4：服务发现
 #ifdef ENABLE_OLED_DISPLAY
-    OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 4);
+    OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 4, 0);
 #endif
     
     uint8_t uuid[ATT_BT_UUID_SIZE] = {LO_UINT16(TARGET_SERVICE_UUID),
@@ -1564,7 +1574,7 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             {
                 // 更新OLED显示 - 阶段5：特征发现
 #ifdef ENABLE_OLED_DISPLAY
-                OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 5);
+                OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 5, 0);
 #endif
                 
                 // Discover all characteristics in the service     // 发现服务中的所有特征
@@ -1633,7 +1643,7 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             {
                 // 更新OLED显示 - 阶段6：CCCD发现
 #ifdef ENABLE_OLED_DISPLAY
-                OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 6);
+                OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 6, 0);
 #endif
                 
                 // Discover CCCD for AE02 notification characteristic
@@ -1882,6 +1892,32 @@ static candidateDevice_t* centralGetBestCandidate(void)
     }
     
     return &candidates[bestIdx];
+}
+
+/*********************************************************************
+ * @fn      parseDeviceVersion
+ *
+ * @brief   Parse device version from C2 frame broadcast data.     // 从C2帧广播数据解析设备版本号
+ *
+ * @param   data - Pointer to broadcast data                       // 广播数据指针
+ * @param   len - Length of broadcast data                         // 广播数据长度
+ *
+ * @return  none                                                   // 无返回值
+ */
+static void parseDeviceVersion(uint8_t *data, uint8_t len)
+{
+    // 检查是否是C2帧头：只检查第一个字节是否为0xC2
+    if(len >= 9 && data[0] == 0xC2)
+    {
+        // 提取版本号：data7=0A(10), data8=45(69)
+        uint8_t major_version = data[7];  // 主版本号
+        uint8_t minor_version = data[8];  // 子版本号
+        
+        // 组合成16位版本号：高8位为主版本，低8位为子版本
+        deviceVersion = (major_version << 8) | minor_version;
+        
+        uinfo("Device version parsed: %d.%d\n", major_version, minor_version);
+    }
 }
 
 /************************ endfile @ central **************************/

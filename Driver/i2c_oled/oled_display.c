@@ -64,7 +64,7 @@ void OLED_Display_Clear(void)
  */
 void OLED_Update_Temp_Display(int16_t env_temp, int16_t left_temp, int16_t water_temp, int16_t right_temp,
                                int16_t cold_delta, uint8_t mode_type, uint8_t cold_pwm_set,
-                               uint8_t fan_fix_speed, uint8_t bump_fix_speed, uint8_t conn_status)
+                               uint8_t fan_fix_speed, uint8_t bump_fix_speed, uint8_t conn_status, uint16_t device_version)
 {
     int16_t temp_int;
     int16_t set_temp;
@@ -304,6 +304,18 @@ void OLED_Update_Temp_Display(int16_t env_temp, int16_t left_temp, int16_t water
     else
     {
         SH1106_ShowString(62, 32, (uint8_t *)"--", 16, 1);
+    }
+    
+    // 版本号显示 (x=90) - 与第一行"降"位置对齐
+    if(device_version != 0)
+    {
+        // 显示版本号，格式：XX.XX
+        uint8_t major_version = (device_version >> 8) & 0xFF;  // 主版本号
+        uint8_t minor_version = device_version & 0xFF;         // 子版本号
+        
+            SH1106_ShowNum16(90, 32, major_version, 1);           // 主版本号 (16px for "10") - x=90, 结束后x=106
+            SH1106_ShowDot4(106, 32, 1);                          // 点号 (4px) - x=106-110
+            SH1106_ShowNum16(110, 32, minor_version, 1);          // 子版本号 (16px for "69") - x=110
     }
     
     // === 第4行 (y=48) ===

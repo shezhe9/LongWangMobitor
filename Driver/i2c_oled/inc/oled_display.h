@@ -50,11 +50,12 @@ void OLED_Display_Init(void);
  * @param cold_pwm_set 冷功率PWM设定值
  * @param fan_fix_speed 风扇速度
  * @param bump_fix_speed 水泵速度
- * @param conn_status 连接状态 (0-断开, 1-5连接阶段, 6-已连接)
+ * @param conn_status 连接状态 (0-断开, 1-7连接阶段, 8-已连接)
+ * @param device_version 设备版本号 (0表示未连接, 非0表示已连接)
  */
 void OLED_Update_Temp_Display(int16_t env_temp, int16_t left_temp, int16_t water_temp, int16_t right_temp,
                                int16_t cold_delta, uint8_t mode_type, uint8_t cold_pwm_set,
-                               uint8_t fan_fix_speed, uint8_t bump_fix_speed, uint8_t conn_status);
+                               uint8_t fan_fix_speed, uint8_t bump_fix_speed, uint8_t conn_status, uint16_t device_version);
 
 /**
  * @brief 清空OLED显示

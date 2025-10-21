@@ -105,7 +105,7 @@ int main(void)
     OLED_Display_Init(); // 初始化OLED显示
     // 初始显示"断开"状态（mode_type=0xFF表示断开），温度全部为0避免歧义
     // 连接状态：0表示断开
-    OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 0);
+    OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 0, 0);
     uinfo("OLED Display Initialized\n");
 #endif
 
