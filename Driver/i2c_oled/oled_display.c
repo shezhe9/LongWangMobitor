@@ -371,24 +371,24 @@ void OLED_Update_Temp_Display(int16_t env_temp, int16_t left_temp, int16_t water
         SH1106_ShowString(42, 48, (uint8_t *)"---", 16, 1);
     }
     
-    // 模:CC (x=90) - 使用4像素精简冒号
-    // 根据mode_type选择显示的汉字
+    // 模式显示 (x=90) - 显示两个汉字
+    // 根据mode_type选择显示的两个汉字
+    uint8_t mode_char1_index, mode_char2_index;
     switch(mode_type)
     {
-        case 1:  mode_char_index = CHINESE_MODE_WEN; break;
-        case 2:  mode_char_index = CHINESE_MODE_YU; break;
-        case 3:  mode_char_index = CHINESE_MODE_ZHUAN; break;
-        case 4:  mode_char_index = CHINESE_MODE_LIAN; break;
-        case 7:  mode_char_index = CHINESE_MODE_LENG; break;
-        case 8:  mode_char_index = CHINESE_MODE_GUAN; break;
-        case 10: mode_char_index = CHINESE_MODE_WEI; break;
-        case 11: mode_char_index = CHINESE_MODE_CUO; break;
-        case 0xFF: mode_char_index = CHINESE_MODE_DUAN; break;  // 未连接显示"断"
-        default: mode_char_index = CHINESE_MODE_CUO; break;
+        case 1:  mode_char1_index = CHINESE_MODE_WEN;  mode_char2_index = CHINESE_DANG; break;  // 文档
+        case 2:  mode_char1_index = CHINESE_MODE_YU;   mode_char2_index = CHINESE_LE; break;    // 娱乐
+        case 3:  mode_char1_index = CHINESE_MODE_ZHUAN; mode_char2_index = CHINESE_JIA; break;  // 专家
+        case 4:  mode_char1_index = CHINESE_MODE_LIAN; mode_char2_index = CHINESE_JI; break;    // 联机
+        case 7:  mode_char1_index = CHINESE_MODE_LENG; mode_char2_index = CHINESE_QUE; break;   // 冷却
+        case 8:  mode_char1_index = CHINESE_MODE_GUAN; mode_char2_index = CHINESE_KAI; break;   // 关机 (复用"开"的位置)
+        case 10: mode_char1_index = CHINESE_MODE_WEI;  mode_char2_index = CHINESE_CONNECT; break; // 未连
+        case 11: mode_char1_index = CHINESE_MODE_CUO;  mode_char2_index = CHINESE_WU; break;    // 错误
+        case 0xFF: mode_char1_index = CHINESE_MODE_DUAN; mode_char2_index = CHINESE_KAI; break; // 断开
+        default: mode_char1_index = CHINESE_MODE_CUO;  mode_char2_index = CHINESE_WU; break;    // 错误
     }
-    SH1106_ShowChinese(90, 48, CHINESE_MODE, 1);     // x=90, "模" (16px)
-    SH1106_ShowColon4(106, 48, 1);                    // x=106, ":" (4px精简冒号)
-    SH1106_ShowChinese(110, 48, mode_char_index, 1);  // x=110, 模式汉字 (16px)
+    SH1106_ShowChinese(98, 48, mode_char1_index, 1);   // x=98, 第一个汉字 (16px)
+    SH1106_ShowChinese(114, 48, mode_char2_index, 1);  // x=114, 第二个汉字 (16px)
     
     // 刷新显示
     SH1106_Refresh();
