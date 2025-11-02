@@ -34,13 +34,13 @@
 #define DEFAULT_SCAN_DURATION               1600                     // 扫描持续时间，单位0.625ms (1秒)
 
 // Connection min interval in 1.25ms
-#define DEFAULT_MIN_CONNECTION_INTERVAL     80                       // 最小连接间隔，单位1.25ms (100ms) - 更保守设置
+#define DEFAULT_MIN_CONNECTION_INTERVAL     48                       // 最小连接间隔，单位1.25ms (60ms) - 更保守兼容不同控制器
 
 // Connection max interval in 1.25ms
-#define DEFAULT_MAX_CONNECTION_INTERVAL     100                      // 最大连接间隔，单位1.25ms (125ms) - 标准设置
+#define DEFAULT_MAX_CONNECTION_INTERVAL     80                       // 最大连接间隔，单位1.25ms (100ms) - 更保守
 
 // Connection supervision timeout in 10ms
-#define DEFAULT_CONNECTION_TIMEOUT          400                      // 连接监督超时，单位10ms (4秒) - 更长超时
+#define DEFAULT_CONNECTION_TIMEOUT          800                      // 连接监督超时，单位10ms (8秒) - 更长超时应对临时干扰
 
 // Discovey mode (limited, general, all)                            
 #define DEFAULT_DISCOVERY_MODE              DEVDISC_MODE_ALL         // 发现模式设置为全部发现
@@ -88,9 +88,16 @@
 #define DEFAULT_IO_CAPABILITIES             GAPBOND_IO_CAP_NO_INPUT_NO_OUTPUT // 无输入无输出（Just Works配对）
 
 // Default service discovery timer delay in 0.625ms
-#define DEFAULT_SVC_DISCOVERY_DELAY         1600                    // 默认服务发现延时 (1秒) - 给连接稳定时间
-// Default parameter update delay in 0.625ms                        
+#define DEFAULT_SVC_DISCOVERY_DELAY         2400                    // 默认服务发现延时 (1.5秒) - 增加稳定时间应对不同控制器
+// Default parameter update delay in 0.625ms
 #define DEFAULT_PARAM_UPDATE_DELAY          3200                    // 默认参数更新延时
+
+// 连接维护机制参数
+#define DEFAULT_HEARTBEAT_INTERVAL          9600                    // 心跳间隔，单位0.625ms (6秒) - 保持连接活跃
+#define DEFAULT_RSSI_CHECK_INTERVAL         12800                   // RSSI检查间隔，单位0.625ms (8秒) - 监控连接质量
+#define DEFAULT_ACTIVITY_TIMEOUT            24000                   // 无活动超时时间，单位0.625ms (15秒) - 检测死连接
+#define DEFAULT_CONN_HEALTH_CHECK_INTERVAL  20000                   // 连接健康检查间隔，单位0.625ms (12.5秒)
+#define MAX_WEAK_RSSI_COUNT                 3                       // 最大弱信号计数
 
 // Default phy update delay in 0.625ms                              
 #define DEFAULT_PHY_UPDATE_DELAY            2400                    // 默认PHY更新延时
@@ -221,8 +228,16 @@ static uint8_t centralCharVal = 0x5A;                               // 要写入
 // Value read/write toggle                                           
 static uint8_t centralDoWrite = TRUE;                               // 读/写切换标志
 
-// GATT read/write procedure state（供外部访问）                                   
+// GATT read/write procedure state（供外部访问）
 uint8_t centralProcedureInProgress = FALSE;                         // GATT读/写过程状态
+
+// 连接维护机制变量（简化版本，避免时间依赖）
+static uint8_t heartbeatEnabled = TRUE;                             // 心跳机制启用标志
+static uint8_t weakRssiCount = 0;                                   // 弱信号计数器
+static int8_t lastRssiValue = -80;                                  // 最后RSSI值
+static uint8_t connectionStabilityFactor = 0;                       // 连接稳定性因子 (0-10)
+static uint16_t heartbeatCount = 0;                                 // 心跳计数器
+static uint16_t rssiCheckCount = 0;                                 // RSSI检查计数器
 
 /*********************************************************************
  * LOCAL FUNCTIONS                                                   // 本地函数声明
@@ -242,6 +257,14 @@ static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType); // 添加设
 // 候选设备管理函数
 static void centralInitCandidates(void);                            // 初始化候选列表
 static void centralAddCandidate(uint8_t *addr, uint8_t addrType, int8_t rssi, uint8_t nameIndex); // 添加候选设备
+
+// 连接维护函数
+static void centralStartHeartbeat(void);                            // 启动心跳机制
+static void centralSendHeartbeat(void);                             // 发送心跳数据
+static void centralCheckConnectionHealth(void);                     // 检查连接健康状态
+static void centralMonitorRssi(void);                               // 监控RSSI变化
+static void centralUpdateConnectionStability(uint8_t stable);       // 更新连接稳定性因子
+static void centralResetConnectionMaintenance(void);                // 重置连接维护状态
 
 // 版本号管理
 static uint16_t deviceVersion = 0;                                  // 设备版本号
@@ -667,18 +690,18 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 {
                     uinfo("Initialization data sent successfully to AE10!\n");
 
-                    // 心跳机制暂时禁用，专注解决连接问题
-                    // uinfo("[连接维护] Starting heartbeat mechanism...\n");
-                    // tmos_start_task(centralTaskId, START_HEARTBEAT_EVT, HEARTBEAT_INTERVAL);
+                    // 启动连接维护机制
+                    uinfo("[连接维护] Starting heartbeat mechanism...\n");
+                    tmos_start_task(centralTaskId, START_HEARTBEAT_EVT, DEFAULT_HEARTBEAT_INTERVAL);
                 }
                 else
                 {
                     uinfo("Failed to send initialization data, status: 0x%02X\n", status);
                     GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
 
-                    // 心跳机制暂时禁用
-                    // uinfo("[连接维护] Starting heartbeat mechanism (init data failed)...\n");
-                    // tmos_start_task(centralTaskId, START_HEARTBEAT_EVT, HEARTBEAT_INTERVAL);
+                    // 启动连接维护机制（即使初始化数据失败）
+                    uinfo("[连接维护] Starting heartbeat mechanism (init data failed)...\n");
+                    tmos_start_task(centralTaskId, START_HEARTBEAT_EVT, DEFAULT_HEARTBEAT_INTERVAL);
                 }
             }
             else
@@ -809,11 +832,24 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
     // 注意：断开连接后的延迟重连现在使用START_AUTO_RECONNECT_EVT事件（0x2000）
     // 不再需要DELAYED_RECONNECT_EVT（0x8000太大，TMOS不支持）
 
-    // 心跳机制暂时禁用，专注解决连接问题
-    // if(events & START_HEARTBEAT_EVT)                                   // 如果是心跳事件
-    // {
-    //     // ... 心跳处理代码 ...
-    // }
+    if(events & START_HEARTBEAT_EVT)                                   // 如果是心跳事件
+    {
+        if(centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT)
+        {
+            centralSendHeartbeat();                                      // 发送心跳数据
+            centralMonitorRssi();                                        // 检查RSSI变化
+            centralCheckConnectionHealth();                              // 检查连接健康状态
+
+            // 安排下一次心跳
+            tmos_start_task(centralTaskId, START_HEARTBEAT_EVT, DEFAULT_HEARTBEAT_INTERVAL);
+            uinfo("Heartbeat sent, next in %d ms\n", (DEFAULT_HEARTBEAT_INTERVAL * 625) / 1000);
+        }
+        else
+        {
+            uinfo("Heartbeat skipped: not connected\n");
+        }
+        return (events ^ START_HEARTBEAT_EVT);
+    }
 
     // Discard unknown events                                         // 丢弃未知事件
     return 0;
@@ -1047,8 +1083,44 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
  */
 static void centralRssiCB(uint16_t connHandle, int8_t rssi)
 {
-    // 不打印RSSI值，避免日志过多
-    // uinfo("RSSI : -%d dB \n", -rssi);
+    // 更新最后RSSI值
+    lastRssiValue = rssi;
+
+    // RSSI值分析：0是最好，-100是最差
+    if(rssi > -60)  // 信号 > -60dBm (优秀)
+    {
+        // 信号很好，重置弱信号计数
+        if(weakRssiCount > 0)
+        {
+            weakRssiCount = 0;
+            uinfo("[RSSI] Signal excellent: -%d dBm, reset weak signal count\n", -rssi);
+        }
+        centralUpdateConnectionStability(1);  // 增加稳定性因子
+    }
+    else if(rssi > -75)  // 信号 > -75dBm (良好)
+    {
+        // 信号良好，正常状态
+        uinfo("[RSSI] Signal good: -%d dBm\n", -rssi);
+        centralUpdateConnectionStability(1);  // 增加稳定性因子
+    }
+    else if(rssi > -85)  // 信号 > -85dBm (一般)
+    {
+        // 信号一般，需要关注
+        uinfo("[RSSI] Signal fair: -%d dBm, monitoring\n", -rssi);
+    }
+    else  // 信号 <= -85dBm (弱)
+    {
+        // 信号弱，增加计数
+        weakRssiCount++;
+        uinfo("[RSSI] Signal weak: -%d dBm, weak count: %d/%d\n", -rssi, weakRssiCount, MAX_WEAK_RSSI_COUNT);
+        centralUpdateConnectionStability(0);  // 减少稳定性因子
+
+        // 如果连续弱信号次数过多，可以触发连接参数调整或其他措施
+        if(weakRssiCount >= MAX_WEAK_RSSI_COUNT)
+        {
+            uinfo("[RSSI] Persistent weak signal detected, connection may be unstable\n");
+        }
+    }
 }
 
 /*********************************************************************
@@ -1346,12 +1418,15 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
                 tmos_stop_task(centralTaskId, START_AUTO_RECONNECT_EVT);
                 
-                // 连接建立后，暂时跳过参数更新，直接开始服务发现
-                uinfo("Connection established, starting service discovery directly...\n");
-                tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
+                // 初始化连接维护机制
+                centralResetConnectionMaintenance();
 
-                // 暂时跳过参数更新以专注于解决基本功能
-                uinfo("Skipping parameter update to focus on basic functionality...\n");
+                // 连接建立后，使用连接参数更新提高稳定性
+                uinfo("Connection established, updating connection parameters for stability...\n");
+                tmos_start_task(centralTaskId, START_PARAM_UPDATE_EVT, DEFAULT_PARAM_UPDATE_DELAY);
+
+                // 参数更新后开始服务发现
+                uinfo("Connection parameters will be optimized, then service discovery will start...\n");
             }
             else
             {
@@ -1391,6 +1466,10 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 case 0x22:  // LMP_RESPONSE_TIMEOUT
                     uinfo("[诊断] LMP响应超时 - 可能是设备兼容性问题\n");
                     break;
+                case 0x3E:  // CONNECTION_FAILED_TO_BE_ESTABLISHED
+                    uinfo("[诊断] 连接建立失败 - 可能原因: 控制器兼容性问题、参数协商失败\n");
+                    uinfo("[建议] 尝试更长稳定时间或使用更保守的连接参数\n");
+                    break;
                 default:
                     uinfo("[诊断] 未知断开原因: 0x%02X\n", reason);
                     break;
@@ -1415,7 +1494,10 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             tmos_stop_task(centralTaskId, START_PARAM_UPDATE_EVT);
             tmos_stop_task(centralTaskId, START_AUTO_RECONNECT_EVT);
             tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
-            // tmos_stop_task(centralTaskId, START_HEARTBEAT_EVT);  // 心跳已禁用
+            tmos_stop_task(centralTaskId, START_HEARTBEAT_EVT);  // 停止心跳机制
+
+            // 重置连接维护状态
+            heartbeatEnabled = TRUE;  // 重置心跳启用状态
 
             uinfo("\322\321\266\317\277\252\301\254\275\323\n");  // 已断开连接
 
@@ -1449,6 +1531,10 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                         case 0x16:  // 连接参数问题 - 使用较长延迟
                             reconnect_delay = 2400;  // 1.5秒
                             uinfo("[策略] 连接参数问题，使用1.5秒延迟重连\n");
+                            break;
+                        case 0x3E:  // 连接建立失败 - 控制器兼容性问题，使用更长延迟
+                            reconnect_delay = 3200;  // 2秒
+                            uinfo("[策略] 连接建立失败(0x3E)，使用2秒延迟重连\n");
                             break;
                         default:    // 其他原因 - 使用标准延迟
                             reconnect_delay = 800;   // 500ms
@@ -2095,6 +2181,183 @@ static void parseDeviceVersion(uint8_t *data, uint8_t len)
         
         uinfo("Device version parsed: %d.%d\n", major_version, minor_version);
     }
+}
+
+/*********************************************************************
+ * @fn      centralResetConnectionMaintenance
+ *
+ * @brief   重置连接维护状态
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void centralResetConnectionMaintenance(void)
+{
+    weakRssiCount = 0;
+    lastRssiValue = -80;
+    connectionStabilityFactor = 5;  // 初始化为中等稳定性
+    heartbeatCount = 0;
+    rssiCheckCount = 0;
+
+    uinfo("[连接维护] Connection maintenance state reset\n");
+}
+
+/*********************************************************************
+ * @fn      centralSendHeartbeat
+ *
+ * @brief   发送心跳数据以保持连接活跃
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void centralSendHeartbeat(void)
+{
+    if(centralState != BLE_STATE_CONNECTED || centralConnHandle == GAP_CONNHANDLE_INIT || centralWriteCharHdl == 0)
+    {
+        uinfo("[心跳] Not connected, skipping heartbeat\n");
+        return;
+    }
+
+    // 检查是否有其他GATT操作正在进行
+    if(centralProcedureInProgress == TRUE)
+    {
+        uinfo("[心跳] GATT procedure in progress, skipping heartbeat\n");
+        return;
+    }
+
+    // 更新心跳计数
+    heartbeatCount++;
+
+    // 发送心跳数据：0x99 0x00 0x01 0x00 (轻量级心跳命令)
+    attWriteReq_t req;
+    req.cmd = TRUE;                                           // 使用Write Command（无需响应）
+    req.sig = FALSE;                                          // 不带签名
+    req.handle = centralWriteCharHdl;                         // 设置AE10写特征句柄
+    req.len = 4;                                              // 写入长度为4字节
+    req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0);
+
+    if(req.pValue != NULL)
+    {
+        // 填充心跳数据：0x99 0x00 0x01 0x00 (自定义心跳命令)
+        req.pValue[0] = 0x99;
+        req.pValue[1] = 0x00;
+        req.pValue[2] = 0x01;
+        req.pValue[3] = 0x00;
+
+        bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);  // 使用Write Command
+        if(status == SUCCESS)
+        {
+            uinfo("[心跳] Heartbeat #%d sent: 99 00 01 00\n", heartbeatCount);
+            centralUpdateConnectionStability(1);  // 增加稳定性因子
+        }
+        else
+        {
+            uinfo("[心跳] Failed to send heartbeat: 0x%02X\n", status);
+            centralUpdateConnectionStability(0);  // 减少稳定性因子
+        }
+    }
+    else
+    {
+        uinfo("[心跳] Failed to allocate memory for heartbeat\n");
+    }
+}
+
+/*********************************************************************
+ * @fn      centralMonitorRssi
+ *
+ * @brief   监控RSSI变化，检测连接质量
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void centralMonitorRssi(void)
+{
+    // 更新RSSI检查计数
+    rssiCheckCount++;
+
+    // 每2次心跳检查一次RSSI（约12秒间隔）
+    if((rssiCheckCount % 2) != 0)
+    {
+        return;  // 这次不检查RSSI
+    }
+
+    // 启动RSSI读取（使用可用的函数）
+    GAPRole_ReadRssiCmd(centralConnHandle);                       // 读取RSSI值
+    uinfo("[RSSI监控] RSSI reading started (check #%d)\n", rssiCheckCount);
+}
+
+/*********************************************************************
+ * @fn      centralCheckConnectionHealth
+ *
+ * @brief   检查连接健康状态
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void centralCheckConnectionHealth(void)
+{
+    // 检查连接稳定性
+    if(connectionStabilityFactor < 3)
+    {
+        uinfo("[健康检查] Connection stability low (%d/10), consider reconnection\n", connectionStabilityFactor);
+    }
+
+    // 检查弱信号计数
+    if(weakRssiCount >= MAX_WEAK_RSSI_COUNT)
+    {
+        uinfo("[健康检查] Weak signal threshold reached (%d), connection may be unstable\n", weakRssiCount);
+
+        // 尝试发送激活命令
+        if(centralWriteCharHdl != 0 && centralProcedureInProgress == FALSE)
+        {
+            uinfo("[健康检查] Sending activation command due to weak signal...\n");
+            centralSendHeartbeat();  // 发送心跳激活连接
+        }
+    }
+
+    uinfo("[健康检查] Stability: %d/10, Weak RSSI count: %d, Heartbeats: %d\n",
+          connectionStabilityFactor, weakRssiCount, heartbeatCount);
+}
+
+/*********************************************************************
+ * @fn      centralUpdateConnectionStability
+ *
+ * @brief   更新连接稳定性因子
+ *
+ * @param   stable - 1表示稳定，0表示不稳定
+ *
+ * @return  none
+ */
+static void centralUpdateConnectionStability(uint8_t stable)
+{
+    if(stable)
+    {
+        // 增加稳定性因子
+        if(connectionStabilityFactor < 10)
+        {
+            connectionStabilityFactor++;
+        }
+        // 重置弱信号计数
+        if(weakRssiCount > 0)
+        {
+            weakRssiCount--;
+        }
+    }
+    else
+    {
+        // 减少稳定性因子
+        if(connectionStabilityFactor > 0)
+        {
+            connectionStabilityFactor--;
+        }
+    }
+
+    // 简化的稳定性日志
+    uinfo("[稳定性] Updated to %d/10, Heartbeats: %d\n", connectionStabilityFactor, heartbeatCount);
 }
 
 /************************ endfile @ central **************************/
