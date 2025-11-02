@@ -21,8 +21,11 @@
  * MACROS                                                            // 宏定义
  */
 
-// Length of bd addr as a string                                     
+// Length of bd addr as a string
 #define B_ADDR_STR_LEN                      15                       // 蓝牙地址字符串长度定义为15
+
+// Discovery timeout event                                               // 扫描超时事件
+#define DISCOVERY_TIMEOUT_EVT               0x1000                   // 扫描超时事件标识
 
 /*********************************************************************
  * CONSTANTS                                                         // 常量定义
@@ -137,8 +140,8 @@ static const char* BLE_PROGRESS_NAMES[] = {
 #define ESTABLISH_LINK_TIMEOUT              1600                    // 建立连接超时时间
 
 // 服务发现重试机制
-#define MAX_SVC_DISCOVERY_RETRIES           3                       // 最大服务发现重试次数
-#define SVC_DISCOVERY_RETRY_DELAY           800                     // 服务发现重试延时（0.625ms单位）
+#define MAX_SVC_DISCOVERY_RETRIES           2                       // 最大服务发现重试次数（优化：减少到2次）
+#define SVC_DISCOVERY_RETRY_DELAY           200                     // 服务发现重试延时（优化：从800减少到200，即125ms）
 
 // 连接心跳机制 - 暂时禁用，专注解决连接问题
 // #define HEARTBEAT_INTERVAL                 8000                    // 心跳间隔，单位0.625ms (5秒)
@@ -457,28 +460,12 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
 
     if(events & START_PARAM_UPDATE_EVT)                               // 如果是开始参数更新事件
     {
-        // start connect parameter update                              // 开始连接参数更新
-        uinfo("正在更新连接参数: 最小间隔=%d, 最大间隔=%d, 超时=%d\n",
-              DEFAULT_UPDATE_MIN_CONN_INTERVAL, DEFAULT_UPDATE_MAX_CONN_INTERVAL, DEFAULT_UPDATE_CONN_TIMEOUT);
+        // 优化：跳过连接参数更新，直接进行服务发现（参考PC端策略）
+        uinfo("优化策略：跳过连接参数更新，直接进行服务发现（节省2秒时间）\n");
 
-        bStatus_t status = GAPRole_UpdateLink(centralConnHandle,
-                           DEFAULT_UPDATE_MIN_CONN_INTERVAL,           // 使用默认的最小连接间隔
-                           DEFAULT_UPDATE_MAX_CONN_INTERVAL,           // 使用默认的最大连接间隔
-                           DEFAULT_UPDATE_SLAVE_LATENCY,               // 使用默认的从机延迟
-                           DEFAULT_UPDATE_CONN_TIMEOUT);               // 使用默认的连接超时
+        // 直接进行服务发现，使用更短的延迟
+        tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, 200); // 200ms延迟
 
-        if(status == SUCCESS)
-        {
-            uinfo("Connection parameter update initiated successfully\n");
-            // 参数更新启动后，延迟一段时间再开始服务发现
-            tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
-        }
-        else
-        {
-            uinfo("连接参数更新失败: 0x%02X，继续进行服务发现\n", status);
-            // 如果参数更新失败，仍然进行服务发现
-            tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
-        }
         return (events ^ START_PARAM_UPDATE_EVT);
     }
 
@@ -864,8 +851,92 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                   autoReconnectEnabled, targetDeviceFound);
         }
         return (events ^ DELAYED_DISCOVERY_RETRY_EVT);
-    }
+      }
 
+    if(events & DISCOVERY_TIMEOUT_EVT)                                 // 扫描超时事件
+    {
+        uinfo("[调试] 扫描超时事件触发，targetDeviceFound = %d\n", targetDeviceFound);
+        uinfo("扫描超时，停止扫描并选择最佳设备\n");
+
+        // 停止扫描
+        GAPRole_CentralCancelDiscovery();
+
+        // 从候选列表中选择信号最强的设备
+        candidateDevice_t* bestCandidate = centralGetBestCandidate();
+
+        if(bestCandidate != NULL)
+        {
+            // 找到最佳候选设备，执行连接逻辑
+            const char* devName = (bestCandidate->nameIndex == 1) ? TARGET_DEVICE_NAME_1 : TARGET_DEVICE_NAME_2;
+
+            // 保存连接的设备名称
+            tmos_memset(connectedDeviceName, 0, sizeof(connectedDeviceName));
+            tmos_memcpy(connectedDeviceName, devName, tmos_strlen((char*)devName));
+
+            uinfo("[进度%d/8] %s - 设备扫描完成，发现目标设备\n",
+                  BLE_PROGRESS_DEVICE_FOUND, BLE_PROGRESS_NAMES[BLE_PROGRESS_DEVICE_FOUND]);
+
+            // 更新OLED显示 - 阶段2：设备发现完成
+#ifdef ENABLE_OLED_DISPLAY
+            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 2, 0);
+            uinfo("[OLED] 显示进度: %s\n", BLE_PROGRESS_NAMES[BLE_PROGRESS_DEVICE_FOUND]);
+#endif
+
+            uinfo("[选中] %s (RSSI: %d dBm)\n", connectedDeviceName, bestCandidate->rssi);
+
+            // 设置标志，防止重复触发连接
+            targetDeviceFound = TRUE;
+
+            // 如果已经有有效连接，先断开
+            if(centralConnHandle != GAP_CONNHANDLE_INIT && centralState != BLE_STATE_IDLE)
+            {
+                GAPRole_TerminateLink(centralConnHandle);
+                centralState = BLE_STATE_IDLE;
+                centralConnHandle = GAP_CONNHANDLE_INIT;
+                centralProcedureInProgress = FALSE;
+                DelayMs(300);
+            }
+
+            // 建立连接
+            bStatus_t status = GAPRole_CentralEstablishLink(TRUE,   // 使用高duty cycle扫描
+                                                         FALSE,  // 不使用白名单
+                                                         bestCandidate->addrType,
+                                                         bestCandidate->addr);
+
+            if(status == SUCCESS)
+            {
+                centralState = BLE_STATE_CONNECTING;
+                connectionFailCount = 0;
+                tmos_start_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT, ESTABLISH_LINK_TIMEOUT * 2);
+                uinfo("正在连接 %s...\n", connectedDeviceName);
+            }
+            else
+            {
+                uinfo("连接失败 (0x%02X)\n", status);
+                targetDeviceFound = FALSE;
+                connectionFailCount++;
+
+                // 重试
+                if(autoReconnectEnabled == TRUE)
+                {
+                    uint16_t retryDelay = (connectionFailCount >= 5) ? 4800 : 800;
+                    if(connectionFailCount >= 5) connectionFailCount = 0;
+                    tmos_start_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT, retryDelay);
+                }
+            }
+        }
+        else
+        {
+            // 没有找到候选设备，继续扫描
+            uinfo("未找到目标设备，继续扫描\n");
+            if(autoReconnectEnabled == TRUE)
+            {
+                tmos_start_task(centralTaskId, START_AUTO_RECONNECT_EVT, 1600); // 1秒后重新扫描
+            }
+        }
+
+        return (events ^ DISCOVERY_TIMEOUT_EVT);
+    }
 
     // 注意：断开连接后的延迟重连现在使用START_AUTO_RECONNECT_EVT事件（0x2000）
     // 不再需要DELAYED_RECONNECT_EVT（0x8000太大，TMOS不支持）
@@ -1219,6 +1290,9 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,   // 开始设备发现
                                               DEFAULT_DISCOVERY_ACTIVE_SCAN,
                                               DEFAULT_DISCOVERY_WHITE_LIST);
+
+                // 设置扫描超时，10秒后自动停止扫描并选择最佳设备
+                tmos_start_task(centralTaskId, DISCOVERY_TIMEOUT_EVT, 16000); // 10秒超时
             }
         }
         break;
@@ -1284,6 +1358,15 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                             
                             // 检查是否匹配任一目标设备名称
                             uint8_t matchedNameIndex = 0;
+
+                            // 调试：打印发现的设备名称信息
+                            if(nameLen > 0) {
+                                uinfo("[调试] 发现设备名称长度: %d, 名称: ", nameLen);
+                                for(uint8_t d = 0; d < nameLen && d < 20; d++) {
+                                    PRINT("%c", pAdvData[i + 2 + d]);
+                                }
+                                PRINT("\n");
+                            }
                             
                             // 检查第一个目标名称 (HID-LongWang)
                             if(nameLen >= TARGET_DEVICE_NAME_1_LEN)
@@ -1297,9 +1380,14 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                         break;
                                     }
                                 }
-                                if(match) matchedNameIndex = 1;
+                                if(match) {
+                                    matchedNameIndex = 1;
+                                    uinfo("[调试] 匹配到目标设备1: HID-LongWang\n");
+                                } else {
+                                    uinfo("[调试] 未匹配到目标设备1\n");
+                                }
                             }
-                            
+
                             // 检查第二个目标名称 (DragonK)
                             if(matchedNameIndex == 0 && nameLen >= TARGET_DEVICE_NAME_2_LEN)
                             {
@@ -1312,12 +1400,22 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                         break;
                                     }
                                 }
-                                if(match) matchedNameIndex = 2;
+                                if(match) {
+                                    matchedNameIndex = 2;
+                                    uinfo("[调试] 匹配到目标设备2: DragonK\n");
+                                } else {
+                                    uinfo("[调试] 未匹配到目标设备2\n");
+                                }
                             }
+
+                            // 调试：最终匹配结果
+                            uinfo("[调试] 最终匹配结果: matchedNameIndex = %d\n", matchedNameIndex);
                             
                             // 如果匹配到任一目标设备名称
                             if(matchedNameIndex > 0)
                             {
+                                uinfo("[调试] 进入目标设备连接逻辑，targetDeviceFound = %d\n", targetDeviceFound);
+
                                 // 检查设备是否已在候选列表中
                                 uint8_t alreadyAdded = FALSE;
                                 for(uint8_t c = 0; c < MAX_CANDIDATES; c++)
@@ -1335,14 +1433,80 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                     }
                                 }
                                 
-                                // 只有新设备才打印和添加
-                                if(!alreadyAdded)
+                                // 扫到即连接：发现第一个目标设备就立即连接
+                                if(!alreadyAdded && targetDeviceFound == FALSE)
                                 {
                                     uinfo("[候选] %s (RSSI: %d dBm)\n", devName, rssi);  // 候选
-                                    centralAddCandidate(pEvent->deviceInfo.addr, 
-                                                       pEvent->deviceInfo.addrType,
-                                                       rssi,
-                                                       matchedNameIndex);
+
+                                    // 立即连接此设备
+                                    uinfo("[进度%d/8] %s - 设备扫描完成，发现目标设备\n",
+                                          BLE_PROGRESS_DEVICE_FOUND, BLE_PROGRESS_NAMES[BLE_PROGRESS_DEVICE_FOUND]);
+
+                                    // 更新OLED显示 - 阶段2：设备发现完成
+#ifdef ENABLE_OLED_DISPLAY
+                                    OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 2, 0);
+                                    uinfo("[OLED] 显示进度: %s\n", BLE_PROGRESS_NAMES[BLE_PROGRESS_DEVICE_FOUND]);
+#endif
+
+                                    // 保存连接的设备名称
+                                    tmos_memset(connectedDeviceName, 0, sizeof(connectedDeviceName));
+                                    tmos_memcpy(connectedDeviceName, devName, tmos_strlen((char*)devName));
+
+                                    uinfo("[选中] %s (RSSI: %d dBm)\n", connectedDeviceName, rssi);
+
+                                    // 设置标志，防止重复触发连接
+                                    targetDeviceFound = TRUE;
+
+                                    // 停止扫描
+                                    GAPRole_CentralCancelDiscovery();
+                                    tmos_stop_task(centralTaskId, DISCOVERY_TIMEOUT_EVT);
+
+                                    // 如果已经有有效连接，先断开
+                                    if(centralConnHandle != GAP_CONNHANDLE_INIT && centralState != BLE_STATE_IDLE)
+                                    {
+                                        GAPRole_TerminateLink(centralConnHandle);
+                                        centralState = BLE_STATE_IDLE;
+                                        centralConnHandle = GAP_CONNHANDLE_INIT;
+                                        centralProcedureInProgress = FALSE;
+                                        DelayMs(300);
+                                    }
+
+                                    // 立即建立连接
+                                    bStatus_t status = GAPRole_CentralEstablishLink(TRUE,   // 使用高duty cycle扫描
+                                                                                         FALSE,  // 不使用白名单
+                                                                                         pEvent->deviceInfo.addrType,
+                                                                                         pEvent->deviceInfo.addr);
+
+                                    if(status == SUCCESS)
+                                    {
+                                        centralState = BLE_STATE_CONNECTING;
+                                        connectionFailCount = 0;
+                                        tmos_start_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT, ESTABLISH_LINK_TIMEOUT * 2);
+                                        uinfo("正在连接 %s...\n", connectedDeviceName);
+                                    }
+                                    else
+                                    {
+                                        uinfo("连接失败 (0x%02X)\n", status);
+                                        targetDeviceFound = FALSE;
+                                        connectionFailCount++;
+
+                                        // 重试
+                                        if(autoReconnectEnabled == TRUE)
+                                        {
+                                            uint16_t retryDelay = (connectionFailCount >= 5) ? 4800 : 800;
+                                            if(connectionFailCount >= 5) connectionFailCount = 0;
+                                            tmos_start_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT, retryDelay);
+                                        }
+                                    }
+                                }
+                                else if(alreadyAdded)
+                                {
+                                    // 已添加的设备，只更新RSSI
+                                    if(rssi > candidates[0].rssi) // 假设只关心第一个设备
+                                    {
+                                        candidates[0].rssi = rssi;
+                                        uinfo("[更新] %s (RSSI: %d dBm) - 信号更新\n", devName, rssi);
+                                    }
                                 }
                             }
                             // if(matchedNameIndex > 0) 结束
@@ -1358,84 +1522,16 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
         }
         break;
 
-        case GAP_DEVICE_DISCOVERY_EVENT:                           // 设备发现事件
+        case GAP_DEVICE_DISCOVERY_EVENT:                           // 设备发现事件（每次发现一个设备时触发）
         {
-            uinfo("[进度%d/8] %s - 设备扫描完成，发现目标设备\n",
-                  BLE_PROGRESS_DEVICE_FOUND, BLE_PROGRESS_NAMES[BLE_PROGRESS_DEVICE_FOUND]);
+            // 这个事件仅表示发现了一个设备，不是扫描完成
+            // 只记录发现的设备，不执行连接逻辑
+            udebug("发现一个BLE设备（扫描继续中）\n");
 
-            // 更新OLED显示 - 阶段2：设备发现完成
-#ifdef ENABLE_OLED_DISPLAY
-            OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 2, 0);
-            uinfo("[OLED] 显示进度: %s\n", BLE_PROGRESS_NAMES[BLE_PROGRESS_DEVICE_FOUND]);
-#endif
-            
-            // 扫描完成，从候选列表中选择信号最强的设备
-            candidateDevice_t* bestCandidate = centralGetBestCandidate();
-            
-            if(bestCandidate != NULL)
-            {
-                // 找到最佳候选设备
-                const char* devName = (bestCandidate->nameIndex == 1) ? TARGET_DEVICE_NAME_1 : TARGET_DEVICE_NAME_2;
-                
-                // 保存连接的设备名称
-                tmos_memset(connectedDeviceName, 0, sizeof(connectedDeviceName));
-                tmos_memcpy(connectedDeviceName, devName, tmos_strlen((char*)devName));
-                
-                uinfo("[选中] %s (RSSI: %d dBm)\n", connectedDeviceName, bestCandidate->rssi);  // 选中
-                
-                // 设置标志，防止重复触发连接
-                targetDeviceFound = TRUE;
-                
-                // 如果已经有有效连接，先断开
-                if(centralConnHandle != GAP_CONNHANDLE_INIT && centralState != BLE_STATE_IDLE)
-                {
-                    GAPRole_TerminateLink(centralConnHandle);
-                    centralState = BLE_STATE_IDLE;
-                    centralConnHandle = GAP_CONNHANDLE_INIT;
-                    centralProcedureInProgress = FALSE;
-                    DelayMs(300);
-                }
-                
-                // 建立连接 - 使用高占空比扫描提高连接成功率
-                bStatus_t status = GAPRole_CentralEstablishLink(TRUE,   // 使用高duty cycle扫描
-                                                             FALSE,  // 不使用白名单
-                                                             bestCandidate->addrType,
-                                                             bestCandidate->addr);
-                
-                if(status == SUCCESS)
-                {
-                    centralState = BLE_STATE_CONNECTING;
-                    connectionFailCount = 0;
-                    tmos_start_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT, ESTABLISH_LINK_TIMEOUT * 2);
-                    uinfo("正在连接 %s...\n", connectedDeviceName);  // 正在连接
-                }
-                else
-                {
-                    uinfo("连接失败 (0x%02X)\n", status);  // 连接失败
-                    targetDeviceFound = FALSE;
-                    connectionFailCount++;
-                    
-                    // 重试
-                    if(autoReconnectEnabled == TRUE)
-                    {
-                        uint16_t retryDelay = (connectionFailCount >= 5) ? 4800 : 800;
-                        if(connectionFailCount >= 5) connectionFailCount = 0;
-                        tmos_start_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT, retryDelay);
-                    }
-                }
-            }
-            else
-            {
-                // 没有找到候选设备
-                centralScanRes = 0;
-                
-                // 重新开始搜索
-                if(autoReconnectEnabled == TRUE)
-                {
-                    tmos_start_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT, 800);  // 500ms后重试
-                }
-            }
+            // 连接逻辑应该在扫描超时或手动停止时执行
+            break;
         }
+
         break;
 
         case GAP_LINK_ESTABLISHED_EVENT:
@@ -1783,15 +1879,15 @@ static void centralStartDiscovery(void)
         return;
     }
 
-    // 检查连接稳定性 - 如果连接刚建立，需要延迟
+    // 检查连接稳定性 - 如果连接刚建立，需要延迟（优化：减少等待时间）
     if(connectionJustEstablished)
     {
         uinfo("服务发现已延迟: 连接刚建立，需要稳定性时间（将重试第 %d/%d 次尝试）\n",
           svcDiscoveryRetryCount + 1, MAX_SVC_DISCOVERY_RETRIES);
-        // 连接刚建立，延迟一段时间再进行服务发现
+        // 连接刚建立，延迟一段时间再进行服务发现（优化：减少延迟时间）
         connectionJustEstablished = 0;  // 清除标志
-        uinfo("将在500ms延迟后重试服务发现...\n");
-        tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, 800);  // 500ms后重试
+        uinfo("将在200ms延迟后重试服务发现...（优化：从800ms减少到200ms）\n");
+        tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, 200);  // 200ms后重试（优化）
         return;
     }
 

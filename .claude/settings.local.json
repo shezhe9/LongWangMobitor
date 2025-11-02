@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(find:*)",
-      "Read(//d/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/**)"
+      "Read(//d/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/**)",
+      "Read(//d/BaiduSyncdisk/Tools/Raditor/Code/TempMonitor/WinOSApp/**)"
     ],
     "deny": [],
     "ask": []
