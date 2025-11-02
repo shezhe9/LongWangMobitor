@@ -61,10 +61,10 @@
 #define DEFAULT_RSSI_PERIOD                 2400                    // 默认RSSI读取周期，单位0.625ms
 
 // Minimum connection interval (units of 1.25ms)
-#define DEFAULT_UPDATE_MIN_CONN_INTERVAL    8                       // 更新连接参数的最小间隔 (10ms) - 完全在从机期望范围内
+#define DEFAULT_UPDATE_MIN_CONN_INTERVAL    4                       // 更新连接参数的最小间隔 (5ms) - 匹配外设期望
 
 // Maximum connection interval (units of 1.25ms)
-#define DEFAULT_UPDATE_MAX_CONN_INTERVAL    12                      // 更新连接参数的最大间隔 (15ms) - 完全在从机期望范围内
+#define DEFAULT_UPDATE_MAX_CONN_INTERVAL    8                       // 更新连接参数的最大间隔 (10ms) - 匹配外设期望
 
 // Slave latency to use parameter update
 #define DEFAULT_UPDATE_SLAVE_LATENCY        0                       // 从机延迟参数
@@ -88,9 +88,9 @@
 #define DEFAULT_IO_CAPABILITIES             GAPBOND_IO_CAP_NO_INPUT_NO_OUTPUT // 无输入无输出（Just Works配对）
 
 // Default service discovery timer delay in 0.625ms
-#define DEFAULT_SVC_DISCOVERY_DELAY         2400                    // 默认服务发现延时 (1.5秒) - 增加稳定时间应对不同控制器
+#define DEFAULT_SVC_DISCOVERY_DELAY         2400                    // 默认服务发现延时 (1.5秒) - 恢复到原来的时间
 // Default parameter update delay in 0.625ms
-#define DEFAULT_PARAM_UPDATE_DELAY          3200                    // 默认参数更新延时
+#define DEFAULT_PARAM_UPDATE_DELAY          3200                    // 默认参数更新延时 (2秒) - 恢复到原来的时间
 
 // 连接维护机制参数
 #define DEFAULT_HEARTBEAT_INTERVAL          9600                    // 心跳间隔，单位0.625ms (6秒) - 保持连接活跃
@@ -98,6 +98,30 @@
 #define DEFAULT_ACTIVITY_TIMEOUT            24000                   // 无活动超时时间，单位0.625ms (15秒) - 检测死连接
 #define DEFAULT_CONN_HEALTH_CHECK_INTERVAL  20000                   // 连接健康检查间隔，单位0.625ms (12.5秒)
 #define MAX_WEAK_RSSI_COUNT                 3                       // 最大弱信号计数
+
+// BLE连接进度定义（与OLED显示同步）
+#define BLE_PROGRESS_DISCONNECTED           0   // 断开连接
+#define BLE_PROGRESS_SCANNING              1   // 扫描设备
+#define BLE_PROGRESS_DEVICE_FOUND          2   // 发现设备
+#define BLE_PROGRESS_PHYSICAL_LINK         3   // 物理链路建立
+#define BLE_PROGRESS_PARAM_UPDATE          4   // 连接参数更新
+#define BLE_PROGRESS_SERVICE_DISCOVERY     5   // 服务发现
+#define BLE_PROGRESS_CCCD_CONFIG           6   // CCCD配置
+#define BLE_PROGRESS_INITIALIZATION        7   // 初始化数据发送
+#define BLE_PROGRESS_FULLY_CONNECTED       8   // 完全连接可用
+
+// 连接步骤名称常量
+static const char* BLE_PROGRESS_NAMES[] = {
+    "断开连接",
+    "扫描设备",
+    "发现设备",
+    "物理链路建立",
+    "连接参数更新",
+    "服务发现",
+    "CCCD配置",
+    "初始化数据发送",
+    "完全连接可用"
+};
 
 // Default phy update delay in 0.625ms                              
 #define DEFAULT_PHY_UPDATE_DELAY            2400                    // 默认PHY更新延时
@@ -231,7 +255,7 @@ static uint8_t centralDoWrite = TRUE;                               // 读/写�
 // GATT read/write procedure state（供外部访问）
 uint8_t centralProcedureInProgress = FALSE;                         // GATT读/写过程状态
 
-// 连接维护机制变量（简化版本，避免时间依赖）
+// 连接维护机制变量（简化版本）
 static uint8_t heartbeatEnabled = TRUE;                             // 心跳机制启用标志
 static uint8_t weakRssiCount = 0;                                   // 弱信号计数器
 static int8_t lastRssiValue = -80;                                  // 最后RSSI值
@@ -427,7 +451,6 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
     if(events & START_SVC_DISCOVERY_EVT)                              // 如果是开始服务发现事件
     {
         // start service discovery                                     // 开始服务发现
-        uinfo("Starting service discovery (attempt %d/%d)...\n", svcDiscoveryRetryCount + 1, MAX_SVC_DISCOVERY_RETRIES);
         centralStartDiscovery();
         return (events ^ START_SVC_DISCOVERY_EVT);
     }
@@ -435,7 +458,7 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
     if(events & START_PARAM_UPDATE_EVT)                               // 如果是开始参数更新事件
     {
         // start connect parameter update                              // 开始连接参数更新
-        uinfo("Updating connection parameters: min=%d, max=%d, timeout=%d\n",
+        uinfo("正在更新连接参数: 最小间隔=%d, 最大间隔=%d, 超时=%d\n",
               DEFAULT_UPDATE_MIN_CONN_INTERVAL, DEFAULT_UPDATE_MAX_CONN_INTERVAL, DEFAULT_UPDATE_CONN_TIMEOUT);
 
         bStatus_t status = GAPRole_UpdateLink(centralConnHandle,
@@ -452,7 +475,7 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         }
         else
         {
-            uinfo("Connection parameter update failed: 0x%02X, proceeding with service discovery\n", status);
+            uinfo("连接参数更新失败: 0x%02X，继续进行服务发现\n", status);
             // 如果参数更新失败，仍然进行服务发现
             tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
         }
@@ -537,7 +560,8 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req); // 使用Write Command
                 if(status == SUCCESS) // 写入CCCD值
                 {
-                    uinfo("CCCD write request sent successfully (no response required)\n");
+                    uinfo("[进度%d/8] %s - CCCD配置成功，通知功能已启用\n",
+                          BLE_PROGRESS_CCCD_CONFIG, BLE_PROGRESS_NAMES[BLE_PROGRESS_CCCD_CONFIG]);
                     // 注意：Write Command不需要等待响应，所以不设置centralProcedureInProgress
 
                     // 延迟启动初始化数据发送
@@ -664,7 +688,8 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
             }
             
             // 发送初始化数据：0x76 0x00 0x01 0x01
-            uinfo("Sending initialization data to AE10 write characteristic handle: 0x%04X\n", centralWriteCharHdl);
+            uinfo("[进度%d/8] %s - 发送初始化数据到外设\n",
+                  BLE_PROGRESS_INITIALIZATION, BLE_PROGRESS_NAMES[BLE_PROGRESS_INITIALIZATION]);
             
             attWriteReq_t req;
             req.cmd = TRUE;                                           // 使用Write Command（无需响应）
@@ -688,10 +713,19 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);  // 使用Write Command
                 if(status == SUCCESS)
                 {
-                    uinfo("Initialization data sent successfully to AE10!\n");
+                    uinfo("[进度%d/8] %s - 初始化数据发送成功\n",
+                          BLE_PROGRESS_INITIALIZATION, BLE_PROGRESS_NAMES[BLE_PROGRESS_INITIALIZATION]);
+                    uinfo("[进度8/8] %s - BLE连接完全建立，可以正常通信！\n",
+                          BLE_PROGRESS_FULLY_CONNECTED, BLE_PROGRESS_NAMES[BLE_PROGRESS_FULLY_CONNECTED]);
+
+                    // 更新OLED显示 - 阶段8：完全连接
+#ifdef ENABLE_OLED_DISPLAY
+                    OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 8, 0);
+                    uinfo("[OLED] 显示进度: %s\n", BLE_PROGRESS_NAMES[BLE_PROGRESS_FULLY_CONNECTED]);
+#endif
 
                     // 启动连接维护机制
-                    uinfo("[连接维护] Starting heartbeat mechanism...\n");
+                    uinfo("[Connection Maintenance] Starting heartbeat mechanism...\n");
                     tmos_start_task(centralTaskId, START_HEARTBEAT_EVT, DEFAULT_HEARTBEAT_INTERVAL);
                 }
                 else
@@ -699,8 +733,12 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                     uinfo("Failed to send initialization data, status: 0x%02X\n", status);
                     GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
 
+                    // 即使失败也认为基本连接建立，但标记未完全完成
+                    uinfo("[进度7/8] %s - 初始化数据发送失败，但基本连接已建立\n",
+                          BLE_PROGRESS_INITIALIZATION, BLE_PROGRESS_NAMES[BLE_PROGRESS_INITIALIZATION]);
+
                     // 启动连接维护机制（即使初始化数据失败）
-                    uinfo("[连接维护] Starting heartbeat mechanism (init data failed)...\n");
+                    uinfo("[Connection Maintenance] Starting heartbeat mechanism (init data failed)...\n");
                     tmos_start_task(centralTaskId, START_HEARTBEAT_EVT, DEFAULT_HEARTBEAT_INTERVAL);
                 }
             }
@@ -799,8 +837,8 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         
         // 取消扫描（如果正在进行）
         GAPRole_CentralCancelDiscovery();
-        
-        uinfo("Restarting device discovery (%s / %s), will select strongest signal...\n", 
+
+        uinfo("Restarting device discovery (%s / %s), will select strongest signal...\n",
               TARGET_DEVICE_NAME_1, TARGET_DEVICE_NAME_2);
         GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE,
                                       DEFAULT_DISCOVERY_ACTIVE_SCAN,
@@ -1161,12 +1199,15 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
     {
         case GAP_DEVICE_INIT_DONE_EVENT:                           // 设备初始化完成事件
         {
-            uinfo("BLE \326\367\273\372\322\321\263\365\312\274\273\257,\325\375\324\332\313\321\313\367\311\350\261\270: %s / %s\n", 
-                  TARGET_DEVICE_NAME_1, TARGET_DEVICE_NAME_2);  // 主机已初始化正在搜索设备
-            
+            uinfo("=== BLE连接开始 ===\n");
+            uinfo("[进度%d/8] %s - BLE主机初始化完成，开始扫描设备: %s / %s\n",
+                  BLE_PROGRESS_SCANNING, BLE_PROGRESS_NAMES[BLE_PROGRESS_SCANNING],
+                  TARGET_DEVICE_NAME_1, TARGET_DEVICE_NAME_2);
+
             // 更新OLED显示 - 阶段1：设备初始化完成
 #ifdef ENABLE_OLED_DISPLAY
             OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 1, 0);
+            uinfo("[OLED] 显示进度: %s\n", BLE_PROGRESS_NAMES[BLE_PROGRESS_SCANNING]);
 #endif
             
             // 初始化候选设备列表
@@ -1238,7 +1279,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                             // 只有首次扫描到才打印日志
                             if(!alreadyScanned)
                             {
-                                uinfo("[\311\250\303\350] %s (RSSI: %d dBm)\n", devName, rssi);  // 扫描
+                                uinfo("[扫描] %s (RSSI: %d dBm)\n", devName, rssi);  // 扫描
                             }
                             
                             // 检查是否匹配任一目标设备名称
@@ -1297,7 +1338,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                                 // 只有新设备才打印和添加
                                 if(!alreadyAdded)
                                 {
-                                    uinfo("[\272\362\321\241] %s (RSSI: %d dBm)\n", devName, rssi);  // 候选
+                                    uinfo("[候选] %s (RSSI: %d dBm)\n", devName, rssi);  // 候选
                                     centralAddCandidate(pEvent->deviceInfo.addr, 
                                                        pEvent->deviceInfo.addrType,
                                                        rssi,
@@ -1319,9 +1360,13 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
 
         case GAP_DEVICE_DISCOVERY_EVENT:                           // 设备发现事件
         {
+            uinfo("[进度%d/8] %s - 设备扫描完成，发现目标设备\n",
+                  BLE_PROGRESS_DEVICE_FOUND, BLE_PROGRESS_NAMES[BLE_PROGRESS_DEVICE_FOUND]);
+
             // 更新OLED显示 - 阶段2：设备发现完成
 #ifdef ENABLE_OLED_DISPLAY
             OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 2, 0);
+            uinfo("[OLED] 显示进度: %s\n", BLE_PROGRESS_NAMES[BLE_PROGRESS_DEVICE_FOUND]);
 #endif
             
             // 扫描完成，从候选列表中选择信号最强的设备
@@ -1336,7 +1381,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 tmos_memset(connectedDeviceName, 0, sizeof(connectedDeviceName));
                 tmos_memcpy(connectedDeviceName, devName, tmos_strlen((char*)devName));
                 
-                uinfo("[\321\241\326\320] %s (RSSI: %d dBm)\n", connectedDeviceName, bestCandidate->rssi);  // 选中
+                uinfo("[选中] %s (RSSI: %d dBm)\n", connectedDeviceName, bestCandidate->rssi);  // 选中
                 
                 // 设置标志，防止重复触发连接
                 targetDeviceFound = TRUE;
@@ -1362,11 +1407,11 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                     centralState = BLE_STATE_CONNECTING;
                     connectionFailCount = 0;
                     tmos_start_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT, ESTABLISH_LINK_TIMEOUT * 2);
-                    uinfo("\325\375\324\332\301\254\275\323 %s...\n", connectedDeviceName);  // 正在连接
+                    uinfo("正在连接 %s...\n", connectedDeviceName);  // 正在连接
                 }
                 else
                 {
-                    uinfo("\301\254\275\323\312\247\260\334 (0x%02X)\n", status);  // 连接失败
+                    uinfo("连接失败 (0x%02X)\n", status);  // 连接失败
                     targetDeviceFound = FALSE;
                     connectionFailCount++;
                     
@@ -1399,11 +1444,16 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             
             if(pEvent->gap.hdr.status == SUCCESS)
             {
+                uinfo("[进度%d/8] %s - 物理链路已建立: %s\n",
+                      BLE_PROGRESS_PHYSICAL_LINK, BLE_PROGRESS_NAMES[BLE_PROGRESS_PHYSICAL_LINK],
+                      connectedDeviceName[0] ? (char*)connectedDeviceName : "Unknown");
+
                 // 更新OLED显示 - 阶段3：连接建立
 #ifdef ENABLE_OLED_DISPLAY
                 OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 3, 0);
+                uinfo("[OLED] 显示进度: %s\n", BLE_PROGRESS_NAMES[BLE_PROGRESS_PHYSICAL_LINK]);
 #endif
-                
+
                 centralState = BLE_STATE_CONNECTED;
                 centralConnHandle = pEvent->linkCmpl.connectionHandle;
                 centralProcedureInProgress = FALSE;  // 重置GATT操作标志，允许服务发现
@@ -1412,7 +1462,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 // 标记连接刚建立
                 connectionJustEstablished = 1;
 
-                uinfo("\322\321\301\254\275\323 %s\n", connectedDeviceName[0] ? (char*)connectedDeviceName : "Unknown");  // 已连接
+                uinfo("[状态] 物理链路层连接完成，开始协议栈配置...\n");
                 
                 // 停止所有重连相关的定时事件
                 tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
@@ -1422,11 +1472,12 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 centralResetConnectionMaintenance();
 
                 // 连接建立后，使用连接参数更新提高稳定性
-                uinfo("Connection established, updating connection parameters for stability...\n");
+                uinfo("[进度%d/8] %s - 开始连接参数协商...\n",
+                      BLE_PROGRESS_PARAM_UPDATE, BLE_PROGRESS_NAMES[BLE_PROGRESS_PARAM_UPDATE]);
                 tmos_start_task(centralTaskId, START_PARAM_UPDATE_EVT, DEFAULT_PARAM_UPDATE_DELAY);
 
                 // 参数更新后开始服务发现
-                uinfo("Connection parameters will be optimized, then service discovery will start...\n");
+                uinfo("连接参数将进行优化，然后开始服务发现...\n");
             }
             else
             {
@@ -1499,12 +1550,15 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             // 重置连接维护状态
             heartbeatEnabled = TRUE;  // 重置心跳启用状态
 
-            uinfo("\322\321\266\317\277\252\301\254\275\323\n");  // 已断开连接
+            uinfo("=== BLE连接断开 ===\n");
+            uinfo("[进度%d/8] %s - BLE连接已断开 (原因: 0x%02X)\n",
+                  BLE_PROGRESS_DISCONNECTED, BLE_PROGRESS_NAMES[BLE_PROGRESS_DISCONNECTED], reason);
 
 #ifdef ENABLE_OLED_DISPLAY
             // 断开连接时显示"断"状态（mode_type=0xFF），温度全部为0避免歧义
             // 连接状态：0表示断开
             OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 0, 0);
+            uinfo("[OLED] 显示进度: %s\n", BLE_PROGRESS_NAMES[BLE_PROGRESS_DISCONNECTED]);
 #endif
 
             // 只有在启用自动重连时才重新搜索（根据错误原因调整延迟）
@@ -1558,7 +1612,9 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
         {
             if(pEvent->linkUpdate.status == SUCCESS)
             {
-                uinfo("[成功] 连接参数更新: 间隔=%d*1.25ms, 延迟=%d, 超时=%d*10ms\n",
+                uinfo("[进度%d/8] %s - 连接参数协商成功\n",
+                      BLE_PROGRESS_PARAM_UPDATE, BLE_PROGRESS_NAMES[BLE_PROGRESS_PARAM_UPDATE]);
+                uinfo("[参数] 间隔=%d*1.25ms, 延迟=%d, 超时=%d*10ms\n",
                       pEvent->linkUpdate.connInterval,
                       pEvent->linkUpdate.connLatency,
                       pEvent->linkUpdate.connTimeout);
@@ -1730,19 +1786,25 @@ static void centralStartDiscovery(void)
     // 检查连接稳定性 - 如果连接刚建立，需要延迟
     if(connectionJustEstablished)
     {
-        uinfo("Service discovery delayed: connection just established, need stability time\n");
+        uinfo("服务发现已延迟: 连接刚建立，需要稳定性时间（将重试第 %d/%d 次尝试）\n",
+          svcDiscoveryRetryCount + 1, MAX_SVC_DISCOVERY_RETRIES);
         // 连接刚建立，延迟一段时间再进行服务发现
         connectionJustEstablished = 0;  // 清除标志
-        uinfo("Will retry service discovery after 500ms delay...\n");
+        uinfo("将在500ms延迟后重试服务发现...\n");
         tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, 800);  // 500ms后重试
         return;
     }
 
-    uinfo("Service discovery starting: connection should be stable now\n");
-    
+    // 真正开始服务发现时才打印日志
+    uinfo("开始服务发现 (第 %d/%d 次尝试)...\n", svcDiscoveryRetryCount + 1, MAX_SVC_DISCOVERY_RETRIES);
+
+    uinfo("[进度%d/8] %s - 开始GATT服务发现\n",
+          BLE_PROGRESS_SERVICE_DISCOVERY, BLE_PROGRESS_NAMES[BLE_PROGRESS_SERVICE_DISCOVERY]);
+
     // 更新OLED显示 - 阶段4：服务发现
 #ifdef ENABLE_OLED_DISPLAY
     OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 4, 0);
+    uinfo("[OLED] 显示进度: %s\n", BLE_PROGRESS_NAMES[BLE_PROGRESS_SERVICE_DISCOVERY]);
 #endif
     
     uint8_t uuid[ATT_BT_UUID_SIZE] = {LO_UINT16(TARGET_SERVICE_UUID),
@@ -2200,7 +2262,7 @@ static void centralResetConnectionMaintenance(void)
     heartbeatCount = 0;
     rssiCheckCount = 0;
 
-    uinfo("[连接维护] Connection maintenance state reset\n");
+    uinfo("[Connection Maintenance] Connection maintenance state reset\n");
 }
 
 /*********************************************************************
@@ -2216,14 +2278,14 @@ static void centralSendHeartbeat(void)
 {
     if(centralState != BLE_STATE_CONNECTED || centralConnHandle == GAP_CONNHANDLE_INIT || centralWriteCharHdl == 0)
     {
-        uinfo("[心跳] Not connected, skipping heartbeat\n");
+        uinfo("[Heartbeat] Not connected, skipping heartbeat\n");
         return;
     }
 
     // 检查是否有其他GATT操作正在进行
     if(centralProcedureInProgress == TRUE)
     {
-        uinfo("[心跳] GATT procedure in progress, skipping heartbeat\n");
+        uinfo("[Heartbeat] GATT procedure in progress, skipping heartbeat\n");
         return;
     }
 
@@ -2249,18 +2311,18 @@ static void centralSendHeartbeat(void)
         bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);  // 使用Write Command
         if(status == SUCCESS)
         {
-            uinfo("[心跳] Heartbeat #%d sent: 99 00 01 00\n", heartbeatCount);
+            uinfo("[Heartbeat] Heartbeat #%d sent: 99 00 01 00\n", heartbeatCount);
             centralUpdateConnectionStability(1);  // 增加稳定性因子
         }
         else
         {
-            uinfo("[心跳] Failed to send heartbeat: 0x%02X\n", status);
+            uinfo("[Heartbeat] Failed to send heartbeat: 0x%02X\n", status);
             centralUpdateConnectionStability(0);  // 减少稳定性因子
         }
     }
     else
     {
-        uinfo("[心跳] Failed to allocate memory for heartbeat\n");
+        uinfo("[Heartbeat] Failed to allocate memory for heartbeat\n");
     }
 }
 
@@ -2286,7 +2348,7 @@ static void centralMonitorRssi(void)
 
     // 启动RSSI读取（使用可用的函数）
     GAPRole_ReadRssiCmd(centralConnHandle);                       // 读取RSSI值
-    uinfo("[RSSI监控] RSSI reading started (check #%d)\n", rssiCheckCount);
+    uinfo("[RSSI Monitor] RSSI reading started (check #%d)\n", rssiCheckCount);
 }
 
 /*********************************************************************
@@ -2303,23 +2365,23 @@ static void centralCheckConnectionHealth(void)
     // 检查连接稳定性
     if(connectionStabilityFactor < 3)
     {
-        uinfo("[健康检查] Connection stability low (%d/10), consider reconnection\n", connectionStabilityFactor);
+        uinfo("[Health Check] Connection stability low (%d/10), consider reconnection\n", connectionStabilityFactor);
     }
 
     // 检查弱信号计数
     if(weakRssiCount >= MAX_WEAK_RSSI_COUNT)
     {
-        uinfo("[健康检查] Weak signal threshold reached (%d), connection may be unstable\n", weakRssiCount);
+        uinfo("[Health Check] Weak signal threshold reached (%d), connection may be unstable\n", weakRssiCount);
 
         // 尝试发送激活命令
         if(centralWriteCharHdl != 0 && centralProcedureInProgress == FALSE)
         {
-            uinfo("[健康检查] Sending activation command due to weak signal...\n");
+            uinfo("[Health Check] Sending activation command due to weak signal...\n");
             centralSendHeartbeat();  // 发送心跳激活连接
         }
     }
 
-    uinfo("[健康检查] Stability: %d/10, Weak RSSI count: %d, Heartbeats: %d\n",
+    uinfo("[Health Check] Stability: %d/10, Weak RSSI count: %d, Heartbeats: %d\n",
           connectionStabilityFactor, weakRssiCount, heartbeatCount);
 }
 
@@ -2357,7 +2419,7 @@ static void centralUpdateConnectionStability(uint8_t stable)
     }
 
     // 简化的稳定性日志
-    uinfo("[稳定性] Updated to %d/10, Heartbeats: %d\n", connectionStabilityFactor, heartbeatCount);
+    uinfo("[Stability] Updated to %d/10, Heartbeats: %d\n", connectionStabilityFactor, heartbeatCount);
 }
 
 /************************ endfile @ central **************************/

@@ -301,7 +301,7 @@ void Key_Init(void)
 {
     // 注册TMOS任务
     keyTaskId = TMOS_ProcessEventRegister(Key_ProcessEvent);
-    uinfo("\260\264\274\374\317\265\315\263\263\365\312\274\273\257: keyTaskId=%d\n", keyTaskId);  // 按键系统初始化
+    uinfo("按键系统初始化: keyTaskId=%d\n", keyTaskId);  // 按键系统初始化
     
     // 初始化所有按键对象
     uint16_t enabledPinsA = 0;  // GPIOA启用的引脚
@@ -323,10 +323,10 @@ void Key_Init(void)
         {
             if(keys[i].gpio == KEY_GPIO_A) {
                 enabledPinsA |= keys[i].pin;
-                uinfo("\260\264\274\374[%d] \306\364\323\303 PA (0x%04x)\n", i, keys[i].pin);  // 按键[X] 启用 PA
+                uinfo("按键[%d] 启用 PA (0x%04x)\n", i, keys[i].pin);  // 按键[X] 启用 PA
             } else {
                 enabledPinsB |= keys[i].pin;
-                uinfo("\260\264\274\374[%d] \306\364\323\303 PB (0x%04x)\n", i, keys[i].pin);  // 按键[X] 启用 PB
+                uinfo("按键[%d] 启用 PB (0x%04x)\n", i, keys[i].pin);  // 按键[X] 启用 PB
             }
             enabledCount++;
         }
@@ -335,38 +335,38 @@ void Key_Init(void)
     // 配置GPIOA（如果有启用的引脚）
     if(enabledPinsA > 0)
     {
-        uinfo("\311\350\326\303 GPIOA \316\252\312\344\310\353\304\243\312\275(GPIO_ModeIN_PU): 0x%04x\n", enabledPinsA);
+        uinfo("设置 GPIOA 上拉输入模式(GPIO_ModeIN_PU): 0x%04x\n", enabledPinsA);
         GPIOA_ModeCfg(enabledPinsA, GPIO_ModeIN_PU);
         
         // 配置中断（下降沿触发）
-        uinfo("\311\350\326\303 GPIOA \316\252\317\302\275\265\321\330\264\245\267\242(GPIO_ITMode_FallEdge): 0x%04x\n", enabledPinsA);
+        uinfo("设置 GPIOA 中断模��(GPIO_ITMode_FallEdge): 0x%04x\n", enabledPinsA);
         GPIOA_ITModeCfg(enabledPinsA, GPIO_ITMode_FallEdge);
         
         // 启用GPIOA中断
         PFIC_EnableIRQ(GPIO_A_IRQn);
-        uinfo("\306\364\323\303 GPIOA \326\320\266\317(GPIO_A_IRQn)\n");  // 启用GPIOA中断
+        uinfo("启用 GPIOA 中断(GPIO_A_IRQn)\n");  // 启用GPIOA中断
     }
     
     // 配置GPIOB（如果有启用的引脚）
     if(enabledPinsB > 0)
     {
-        uinfo("\311\350\326\303 GPIOB \316\252\312\344\310\353\304\243\312\275(GPIO_ModeIN_PU): 0x%04x\n", enabledPinsB);
+        uinfo("设置 GPIOB 上拉输入模式(GPIO_ModeIN_PU): 0x%04x\n", enabledPinsB);
         GPIOB_ModeCfg(enabledPinsB, GPIO_ModeIN_PU);
         
         // 配置中断（下降沿触发）
-        uinfo("\311\350\326\303 GPIOB \316\252\317\302\275\265\321\330\264\245\267\242(GPIO_ITMode_FallEdge): 0x%04x\n", enabledPinsB);
+        uinfo("设置 GPIOB 中断模式(GPIO_ITMode_FallEdge): 0x%04x\n", enabledPinsB);
         GPIOB_ITModeCfg(enabledPinsB, GPIO_ITMode_FallEdge);
         
         // 启用GPIOB中断
         PFIC_EnableIRQ(GPIO_B_IRQn);
-        uinfo("\306\364\323\303 GPIOB \326\320\266\317(GPIO_B_IRQn)\n");  // 启用GPIOB中断
+        uinfo("启用 GPIOB 中断(GPIO_B_IRQn)\n");  // 启用GPIOB中断
     }
     
     // 初始化活动按键ID
     activeKeyId = 0xFF;
     
-    uinfo("\260\264\274\374\317\265\315\263\263\365\312\274\273\257\315\352\263\311! \262\341\327\367 %d \270\366 %d \270\366\260\264\274\374\n", 
-          MAX_KEYS, 
+    uinfo("按键初始化完成! 总共 %d 个按键，启用 %d 个按键\n",
+          MAX_KEYS,
           enabledCount);  // 按键系统初始化完成！
 }
 
@@ -384,19 +384,19 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & KEY_EVENT_SINGLE_CLICK)
     {
         if(activeKeyId < MAX_KEYS) {
-            uinfo("\260\264\274\374[%d] \265\245\273\367\312\302\274\376\n", activeKeyId);  // 按键[X]单击事件
+            uinfo("按键[%d] 单击事件\n", activeKeyId);  // 按键[X]单击事件
             
             // 按键功能实现
             switch(activeKeyId) {
                 case 2: {  // 按键[2]单击事件：触发MSG_DISCONNECT事件
-                    uinfo("\260\264\274\374[2]: \264\245\267\242\266\317\277\252\301\254\275\323\n");  // 按键触发断开连接
+                    uinfo("按键[2]: 触发断开连接\n");  // 按键触发断开连接
                     // 调用断开连接函数
                     Central_DisconnectAndStopAutoReconnect();
                     break;
                 }
                 
                 case 3: {  // 按键[3]单击事件：触发MSG_RECONNECT事件
-                    uinfo("\260\264\274\374[3]: \264\245\267\242\326\330\320\302\301\254\275\323\n");  // 按键触发重新连接
+                    uinfo("按键[3]: 触发重新连接\n");  // 按键触发重新连接
                     // 调用重新连接函数
                     Central_StartAutoReconnect();
                     break;
@@ -434,7 +434,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
                     bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);
                     if(status != SUCCESS) {
                         GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
-                        uinfo("\267\242\313\315\312\247\260\334,\327\264\314\254: 0x%02X\n", status);  // 发送失败状态
+                        uinfo("发送失败状态: 0x%02X\n", status);  // 发送失败状态
                     }
                 
                     break;
@@ -458,7 +458,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
                         bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);
                         if(status != SUCCESS) {
                             GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
-                            uinfo("\267\242\313\315\312\247\260\334,\327\264\314\254: 0x%02X\n", status);  // 发送失败状态
+                            uinfo("发送失败状态: 0x%02X\n", status);  // 发送失败状态
                         }
                     }
                 }
@@ -467,7 +467,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
                     if(centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT && centralWriteCharHdl != 0) {
                         // 检查是否有其他GATT操作正在进行
                         if(centralProcedureInProgress == TRUE) {
-                            uinfo("GATT \262\331\327\367\325\375\324\332\275\370\320\320\326\320,\316\336\267\250\267\242\313\315\303\374\301\356\n");  // 操作正在进行中无法发送命令
+                            uinfo("GATT 操作正在进行中无法发送命令\n");  // 操作正在进行中无法发送命令
                             return (events ^ KEY_EVENT_SINGLE_CLICK);
                         }
                         
@@ -494,15 +494,15 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
                             switch(mode_type_golbal) {
                                 case 0x83:
                                     req.pValue[0] = 0x81;
-                                    uinfo("\260\264\274\374[10]: \267\242\313\315\303\374\301\356 81 00 01 (\303\374\301\3561)\n");  // 按键发送命令命令
+                                    uinfo("按键[10]: 发送命令 81 00 01 (发送1)\n");  // 按键发送命令命令
                                     break;
                                 case 0x81:
                                     req.pValue[0] = 0x82;
-                                    uinfo("\260\264\274\374[10]: \267\242\313\315\303\374\301\356 82 00 01 (\303\374\301\3562)\n");  // 按键发送命令命令
+                                    uinfo("按键[10]: 发送命令 82 00 01 (发送2)\n");  // 按键发送命令命令
                                     break;
                                 case 0x82:
                                     req.pValue[0] = 0x83;
-                                    uinfo("\260\264\274\374[10]: \267\242\313\315\303\374\301\356 83 00 01 (\303\374\301\3563)\n");  // 按键发送命令命令
+                                    uinfo("按键[10]: 发送命令 83 00 01 (发送3)\n");  // 按键发送命令命令
                                     break;
                                 default:
                                    
@@ -513,13 +513,13 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
                             bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req);
                             if(status != SUCCESS) {
                                 GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
-                                uinfo("\267\242\313\315\312\247\260\334,\327\264\314\254: 0x%02X\n", status);  // 发送失败状态
+                                uinfo("发送失败状态: 0x%02X\n", status);  // 发送失败状态
                             }
                             
                             
                         }
                     } else {
-                        uinfo("BLE \316\264\301\254\275\323,\316\336\267\250\267\242\313\315\303\374\301\356\n");  // 未连接无法发送命令
+                        uinfo("BLE 未连接无法发送命令\n");  // 未连接无法发送命令
                     }
                     break;
                 }
@@ -532,7 +532,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & KEY_EVENT_DOUBLE_CLICK)
     {
         if(activeKeyId < MAX_KEYS) {
-            uinfo("\260\264\274\374[%d] \313\253\273\367\312\302\274\376\n", activeKeyId);  // 按键[X]双击事件
+            uinfo("按键[%d] 双击事件\n", activeKeyId);  // 按键[X]双击事件
             
             // 按键0的双击功能：发送测试数据
             if(activeKeyId == 0) {
@@ -546,7 +546,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & KEY_EVENT_LONG_PRESS)
     {
         if(activeKeyId < MAX_KEYS) {
-            uinfo("\260\264\274\374[%d] \263\244\260\264\312\302\274\376\n", activeKeyId);  // 按键[X]长按事件
+            uinfo("按键[%d] 长按事件\n", activeKeyId);  // 按键[X]长按事件
             
             // 按键6的长按功能：发送重置从机的命令 a2 00 01 00
             
@@ -577,14 +577,14 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
                 }
                 else  // 按键已按下，报错
                 {
-                    uwarn("\260\264\274\374[%d] \313\253\273\367\270\264\262\342\320\363\263\243: \260\264\274\374\322\321\260\264\317\302\265\253\326\320\266\317\316\264\264\245\267\242\n", 
+                    uwarn("按键[%d] 双击复测异常: 按键已按下应该等待状态\n",
                           activeKeyId);  // 双击复测异常
                     key->state = BUTTON_IDLE;
                 }
             }
             else
             {
-                uwarn("\260\264\274\374[%d] \313\253\273\367\270\264\262\342\320\363\263\243: \267\307\265\310\264\375\313\253\273\367\327\264\314\254 %d\n", 
+                uwarn("按键[%d] 双击复测异常: 非等待双击状态 %d\n", 
                       activeKeyId, key->state);  // 非等待双击状态
             }
         }
@@ -626,14 +626,14 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
                 }
                 else  // 按键已释放但没有触发中断
                 {
-                    uerror("\260\264\274\374[%d] \263\244\260\264\270\264\262\342\320\363\263\243: \260\264\274\374\322\321\312\315\267\305\265\253\326\320\266\317\316\264\264\245\267\242\n", 
+                    uerror("按键[%d] 长按复测异常: 按键已按下应该为等待状态\n", 
                            activeKeyId);  // 长按复测异常
                     key->state = BUTTON_IDLE;
                 }
             }
             else
             {
-                uerror("\260\264\274\374[%d] \263\244\260\264\270\264\262\342\320\363\263\243: \267\307\260\264\317\302\327\264\314\254 %d\n", 
+                uerror("按键[%d] 长按复测异常: 非按下状态 %d\n", 
                        activeKeyId, key->state);  // 非按下状态
             }
         }
@@ -649,7 +649,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
         uint16_t day = R32_RTC_CNT_DAY & 0x3FFF;
         
         uint8_t i = (t32k > 16384) ? 1 : 0;
-        uinfo("\312\261\274\344: %d \314\354 %d \303\353", day, sec2*2+i);  // 时间
+        uinfo("时间: %d 时 %d 分", day, sec2*2+i);  // ��间
         
         // 打印所有按键状态
         for(uint8_t j = 0; j < MAX_KEYS; j++)
@@ -668,7 +668,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & KEY_NOISE_PRESSED)
     {
         if(activeKeyId < MAX_KEYS) {
-            udebug("\260\264\274\374[%d] \266\266\266\257, \272\366\302\324\264\313\264\316\312\302\274\376\n", activeKeyId);  // 按键抖动
+            udebug("按键[%d] 抖动, 忽略此次事件\n", activeKeyId);  // 按键抖动
         }
         return (events ^ KEY_NOISE_PRESSED);
     }
@@ -677,7 +677,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & KEY_STATE_UNKOWN)
     {
         if(activeKeyId < MAX_KEYS) {
-            uwarn("\260\264\274\374[%d] \327\264\314\254\322\354\263\243, \273\330\265\275\277\325\317\320\314\254\n", activeKeyId);  // 按键状态异常
+            uwarn("按键[%d] 状态异常, 请检查硬件\n", activeKeyId);  // 按键状态异常
         }
         return (events ^ KEY_STATE_UNKOWN);
     }
@@ -686,7 +686,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & BUTTON_PRESSED_OVERTIME_ERR)
     {
         if(activeKeyId < MAX_KEYS) {
-            uerror("\260\264\274\374[%d] \260\264\317\302\263\254\312\261: pressDuration=%d ms\n", 
+            uerror("按键[%d] 按下超时: pressDuration=%d ms\n", 
                    activeKeyId, keys[activeKeyId].pressDuration);  // 按键按下超时
             
             print_timestamp(&keys[activeKeyId].pressTime);
@@ -699,7 +699,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & DOUBULE_PRESSED_OVERTIME_ERR)
     {
         if(activeKeyId < MAX_KEYS) {
-            uwarn("\260\264\274\374[%d] \313\253\273\367\263\254\312\261, \323\246\316\252\301\355\315\342\322\273\264\316\265\245\273\367\n", activeKeyId);  // 双击超时
+            uwarn("按键[%d] 双击超时, 可能是误触发\n", activeKeyId);  // 双击超时
         }
         return (events ^ DOUBULE_PRESSED_OVERTIME_ERR);
     }
@@ -708,7 +708,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & SINGLE_PRESSED_RELASE)
     {
         if(activeKeyId < MAX_KEYS) {
-            udebug("\260\264\274\374[%d] \265\245\273\367\312\315\267\305\n", activeKeyId);  // 单击释放
+            udebug("按键[%d] 单击释放\n", activeKeyId);  // 单击释放
         }
         return (events ^ SINGLE_PRESSED_RELASE);
     }
@@ -717,7 +717,7 @@ uint16_t Key_ProcessEvent(uint8_t taskId, uint16_t events)
     if(events & DOUBULE_PRESSED_RELASE)
     {
         if(activeKeyId < MAX_KEYS) {
-            udebug("\260\264\274\374[%d] \313\253\273\367\312\315\267\305\n", activeKeyId);  // 双击释放
+            udebug("按键[%d] 双击释放\n", activeKeyId);  // 双击释放
         }
         return (events ^ DOUBULE_PRESSED_RELASE);
     }

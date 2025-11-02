@@ -58,7 +58,7 @@ void ulog_buffer_init(void)
     
     // 注册日志处理任务
     tPrint_Log_Task = TMOS_ProcessEventRegister(Print_Log_ProcessEvent);
-    PRINT("ulog \264\362\323\241\310\316\316\361\327\242\262\341 ID: %d\n", tPrint_Log_Task);  // 打印任务注册
+    PRINT("ulog 日志处理任务 ID: %d\n", tPrint_Log_Task);  // 打印任务注册
     
     // 立即触发一次任务，让它开始处理日志并设置周期性调度
     // 注意：在初始化阶段 tmos_start_task 可能失败，所以使用 tmos_set_event
