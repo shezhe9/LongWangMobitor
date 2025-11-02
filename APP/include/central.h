@@ -44,6 +44,9 @@
 #define STOP_AUTO_RECONNECT_EVT       0x1000  // 停止自动重连事件
 #define START_AUTO_RECONNECT_EVT      0x2000  // 启动自动重连事件
 
+// 新增：连接维护事件
+#define START_HEARTBEAT_EVT           0x4000  // 连接心跳事件
+
 // 新增：延迟重连事件（用于避免快速循环）- 重用现有事件号
 #define DELAYED_DISCOVERY_RETRY_EVT   START_DISCOVERY_EVT  // 0x0002 延迟后重新发现设备
  

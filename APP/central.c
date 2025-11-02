@@ -33,14 +33,14 @@
 // Scan duration in 0.625ms                                         
 #define DEFAULT_SCAN_DURATION               1600                     // 扫描持续时间，单位0.625ms (1秒)
 
-// Connection min interval in 1.25ms                                
-#define DEFAULT_MIN_CONNECTION_INTERVAL     20                       // 最小连接间隔，单位1.25ms (25ms)
+// Connection min interval in 1.25ms
+#define DEFAULT_MIN_CONNECTION_INTERVAL     80                       // 最小连接间隔，单位1.25ms (100ms) - 更保守设置
 
-// Connection max interval in 1.25ms                                
-#define DEFAULT_MAX_CONNECTION_INTERVAL     100                      // 最大连接间隔，单位1.25ms (125ms)
+// Connection max interval in 1.25ms
+#define DEFAULT_MAX_CONNECTION_INTERVAL     100                      // 最大连接间隔，单位1.25ms (125ms) - 标准设置
 
-// Connection supervision timeout in 10ms                           
-#define DEFAULT_CONNECTION_TIMEOUT          100                      // 连接监督超时，单位10ms (1秒)
+// Connection supervision timeout in 10ms
+#define DEFAULT_CONNECTION_TIMEOUT          400                      // 连接监督超时，单位10ms (4秒) - 更长超时
 
 // Discovey mode (limited, general, all)                            
 #define DEFAULT_DISCOVERY_MODE              DEVDISC_MODE_ALL         // 发现模式设置为全部发现
@@ -60,23 +60,23 @@
 // Default read RSSI period in 0.625ms                             
 #define DEFAULT_RSSI_PERIOD                 2400                    // 默认RSSI读取周期，单位0.625ms
 
-// Minimum connection interval (units of 1.25ms)                    
-#define DEFAULT_UPDATE_MIN_CONN_INTERVAL    20                      // 更新连接参数的最小间隔
+// Minimum connection interval (units of 1.25ms)
+#define DEFAULT_UPDATE_MIN_CONN_INTERVAL    8                       // 更新连接参数的最小间隔 (10ms) - 完全在从机期望范围内
 
-// Maximum connection interval (units of 1.25ms)                    
-#define DEFAULT_UPDATE_MAX_CONN_INTERVAL    100                     // 更新连接参数的最大间隔
+// Maximum connection interval (units of 1.25ms)
+#define DEFAULT_UPDATE_MAX_CONN_INTERVAL    12                      // 更新连接参数的最大间隔 (15ms) - 完全在从机期望范围内
 
-// Slave latency to use parameter update                            
+// Slave latency to use parameter update
 #define DEFAULT_UPDATE_SLAVE_LATENCY        0                       // 从机延迟参数
 
-// Supervision timeout value (units of 10ms)                        
-#define DEFAULT_UPDATE_CONN_TIMEOUT         600                     // 连接超时值，单位10ms
+// Supervision timeout value (units of 10ms)
+#define DEFAULT_UPDATE_CONN_TIMEOUT         300                     // 连接超时值，单位10ms (3秒) - 匹配从机期望
 
 // Default passcode                                                 
 #define DEFAULT_PASSCODE                    0                       // 默认配对密码
 
-// Default GAP pairing mode                                         
-#define DEFAULT_PAIRING_MODE                GAPBOND_PAIRING_MODE_NO_PAIRING // 默认GAP配对模式为不配对
+// Default GAP pairing mode
+#define DEFAULT_PAIRING_MODE                GAPBOND_PAIRING_MODE_WAIT_FOR_REQ // 允许配对请求
 
 // Default MITM mode (TRUE to require passcode or OOB when pairing) 
 #define DEFAULT_MITM_MODE                   FALSE                   // 默认不启用MITM保护
@@ -84,11 +84,11 @@
 // Default bonding mode, TRUE to bond, max bonding 6 devices        
 #define DEFAULT_BONDING_MODE                TRUE                    // 默认启用绑定模式，最多绑定6个设备
 
-// Default GAP bonding I/O capabilities                             
-#define DEFAULT_IO_CAPABILITIES             GAPBOND_IO_CAP_DISPLAY_ONLY // 默认GAP绑定I/O能力为仅显示
+// Default GAP bonding I/O capabilities
+#define DEFAULT_IO_CAPABILITIES             GAPBOND_IO_CAP_NO_INPUT_NO_OUTPUT // 无输入无输出（Just Works配对）
 
-// Default service discovery timer delay in 0.625ms                 
-#define DEFAULT_SVC_DISCOVERY_DELAY         320                     // 默认服务发现延时
+// Default service discovery timer delay in 0.625ms
+#define DEFAULT_SVC_DISCOVERY_DELAY         1600                    // 默认服务发现延时 (1秒) - 给连接稳定时间
 // Default parameter update delay in 0.625ms                        
 #define DEFAULT_PARAM_UPDATE_DELAY          3200                    // 默认参数更新延时
 
@@ -102,12 +102,16 @@
 //#define DEFAULT_WRITE_CCCD_DELAY            320                     // 默认写CCCD延时
 #define DEFAULT_WRITE_CCCD_DELAY            400                     // DragonK 需要这么多才能成功
 
-// Establish link timeout in 0.625ms                                
+// Establish link timeout in 0.625ms
 #define ESTABLISH_LINK_TIMEOUT              1600                    // 建立连接超时时间
 
 // 服务发现重试机制
 #define MAX_SVC_DISCOVERY_RETRIES           3                       // 最大服务发现重试次数
 #define SVC_DISCOVERY_RETRY_DELAY           800                     // 服务发现重试延时（0.625ms单位）
+
+// 连接心跳机制 - 暂时禁用，专注解决连接问题
+// #define HEARTBEAT_INTERVAL                 8000                    // 心跳间隔，单位0.625ms (5秒)
+// #define HEARTBEAT_DATA_SIZE                8                       // 心跳数据大小
 
 // Application states（已移至central.h中定义）
 
@@ -187,10 +191,14 @@ static uint8 centralPhyUpdate = FALSE;                              // PHY更新
 // Connection handle of current connection（供外部访问）                           
 uint16_t centralConnHandle = GAP_CONNHANDLE_INIT;                   // 当前连接句柄
 
-// Application state（供外部访问）                                                 
+// Application state（供外部访问）
 uint8_t centralState = BLE_STATE_IDLE;                              // 应用状态
 
-// Discovery state                                                   
+// Connection establishment flag (for stability checking)
+static uint8_t connectionJustEstablished = 0;                       // 连接刚建立标志
+
+
+// Discovery state
 static uint8_t centralDiscState = BLE_DISC_STATE_IDLE;              // 发现状态
 
 // Discovered service start and end handle                           
@@ -404,11 +412,27 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
     if(events & START_PARAM_UPDATE_EVT)                               // 如果是开始参数更新事件
     {
         // start connect parameter update                              // 开始连接参数更新
-        GAPRole_UpdateLink(centralConnHandle,
+        uinfo("Updating connection parameters: min=%d, max=%d, timeout=%d\n",
+              DEFAULT_UPDATE_MIN_CONN_INTERVAL, DEFAULT_UPDATE_MAX_CONN_INTERVAL, DEFAULT_UPDATE_CONN_TIMEOUT);
+
+        bStatus_t status = GAPRole_UpdateLink(centralConnHandle,
                            DEFAULT_UPDATE_MIN_CONN_INTERVAL,           // 使用默认的最小连接间隔
                            DEFAULT_UPDATE_MAX_CONN_INTERVAL,           // 使用默认的最大连接间隔
                            DEFAULT_UPDATE_SLAVE_LATENCY,               // 使用默认的从机延迟
                            DEFAULT_UPDATE_CONN_TIMEOUT);               // 使用默认的连接超时
+
+        if(status == SUCCESS)
+        {
+            uinfo("Connection parameter update initiated successfully\n");
+            // 参数更新启动后，延迟一段时间再开始服务发现
+            tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
+        }
+        else
+        {
+            uinfo("Connection parameter update failed: 0x%02X, proceeding with service discovery\n", status);
+            // 如果参数更新失败，仍然进行服务发现
+            tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
+        }
         return (events ^ START_PARAM_UPDATE_EVT);
     }
 
@@ -474,37 +498,50 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
     {
         if(centralProcedureInProgress == FALSE)                        // 如果当前没有正在进行的操作
         {
-            // Do a write                                              // 执行写操作
+            // Do a write - 使用Write Command (无需响应)避免阻塞
             attWriteReq_t req;
 
-            req.cmd = FALSE;                                           // 不是命令
+            req.cmd = TRUE;                                            // 使用Write Command（无需响应）
             req.sig = FALSE;                                           // 不带签名
             req.handle = centralCCCDHdl;                               // 设置CCCD句柄
             req.len = 2;                                               // 写入长度为2
-            req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_REQ, req.len, NULL, 0); // 分配内存
+            req.pValue = GATT_bm_alloc(centralConnHandle, ATT_WRITE_CMD, req.len, NULL, 0); // 分配内存
             if(req.pValue != NULL)                                     // 如果内存分配成功
             {
                 req.pValue[0] = 1;                                     // 启用通知
                 req.pValue[1] = 0;
 
-                if(GATT_WriteCharValue(centralConnHandle, &req, centralTaskId) == SUCCESS) // 写入CCCD值
+                bStatus_t status = GATT_WriteNoRsp(centralConnHandle, &req); // 使用Write Command
+                if(status == SUCCESS) // 写入CCCD值
                 {
-                    centralProcedureInProgress = TRUE;                 // 设置操作进行中标志
+                    uinfo("CCCD write request sent successfully (no response required)\n");
+                    // 注意：Write Command不需要等待响应，所以不设置centralProcedureInProgress
+
+                    // 延迟启动初始化数据发送
+                    tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 800); // 500ms后发送初始化数据
                 }
                 else
                 {
-                    GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);   // 释放内存
-                    uinfo("Failed to send CCCD write request\n");
+                    uinfo("Failed to send CCCD write request: 0x%02X\n", status);
+
+                    // 即使CCCD写入失败，也尝试发送初始化数据
+                    tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 800);
                 }
+                GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);   // 释放内存
             }
             else
             {
                 uinfo("Failed to allocate memory for CCCD write\n");
+
+                // 即使CCCD内存分配失败，也尝试发送初始化数据
+                tmos_start_task(centralTaskId, START_SEND_INIT_DATA_EVT, 800);
             }
         }
         else
         {
-            uinfo("GATT procedure in progress, cannot write CCCD now\n");
+            uinfo("GATT procedure in progress, retrying CCCD write in 500ms...\n");
+            // 重试CCCD写入
+            tmos_start_task(centralTaskId, START_WRITE_CCCD_EVT, 800); // 500ms后重试
         }
         return (events ^ START_WRITE_CCCD_EVT);
     }
@@ -629,11 +666,19 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
                 if(status == SUCCESS)
                 {
                     uinfo("Initialization data sent successfully to AE10!\n");
+
+                    // 心跳机制暂时禁用，专注解决连接问题
+                    // uinfo("[连接维护] Starting heartbeat mechanism...\n");
+                    // tmos_start_task(centralTaskId, START_HEARTBEAT_EVT, HEARTBEAT_INTERVAL);
                 }
                 else
                 {
                     uinfo("Failed to send initialization data, status: 0x%02X\n", status);
                     GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_CMD);
+
+                    // 心跳机制暂时禁用
+                    // uinfo("[连接维护] Starting heartbeat mechanism (init data failed)...\n");
+                    // tmos_start_task(centralTaskId, START_HEARTBEAT_EVT, HEARTBEAT_INTERVAL);
                 }
             }
             else
@@ -763,6 +808,12 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
 
     // 注意：断开连接后的延迟重连现在使用START_AUTO_RECONNECT_EVT事件（0x2000）
     // 不再需要DELAYED_RECONNECT_EVT（0x8000太大，TMOS不支持）
+
+    // 心跳机制暂时禁用，专注解决连接问题
+    // if(events & START_HEARTBEAT_EVT)                                   // 如果是心跳事件
+    // {
+    //     // ... 心跳处理代码 ...
+    // }
 
     // Discard unknown events                                         // 丢弃未知事件
     return 0;
@@ -1228,8 +1279,8 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                     DelayMs(300);
                 }
                 
-                // 建立连接
-                bStatus_t status = GAPRole_CentralEstablishLink(FALSE,  // 使用低duty cycle
+                // 建立连接 - 使用高占空比扫描提高连接成功率
+                bStatus_t status = GAPRole_CentralEstablishLink(TRUE,   // 使用高duty cycle扫描
                                                              FALSE,  // 不使用白名单
                                                              bestCandidate->addrType,
                                                              bestCandidate->addr);
@@ -1283,8 +1334,11 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 
                 centralState = BLE_STATE_CONNECTED;
                 centralConnHandle = pEvent->linkCmpl.connectionHandle;
-                centralProcedureInProgress = TRUE;
+                centralProcedureInProgress = FALSE;  // 重置GATT操作标志，允许服务发现
                 svcDiscoveryRetryCount = 0;  // 重置服务发现重试计数器
+
+                // 标记连接刚建立
+                connectionJustEstablished = 1;
 
                 uinfo("\322\321\301\254\275\323 %s\n", connectedDeviceName[0] ? (char*)connectedDeviceName : "Unknown");  // 已连接
                 
@@ -1292,12 +1346,12 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
                 tmos_stop_task(centralTaskId, START_AUTO_RECONNECT_EVT);
                 
-                // 连接建立后，立即开始服务发现
-                uinfo("Connection established, starting service discovery...\n");
+                // 连接建立后，暂时跳过参数更新，直接开始服务发现
+                uinfo("Connection established, starting service discovery directly...\n");
                 tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
 
-                // 暂时禁用所有其他操作，只进行服务发现
-                // 不进行参数更新、PHY更新、RSSI轮询等操作
+                // 暂时跳过参数更新以专注于解决基本功能
+                uinfo("Skipping parameter update to focus on basic functionality...\n");
             }
             else
             {
@@ -1317,8 +1371,31 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
 
         case GAP_LINK_TERMINATED_EVENT:
         {
-            uinfo("GAP_LINK_TERMINATED_EVENT: reason=0x%02X, connHandle=0x%04X\n", 
-                  pEvent->linkTerminate.reason, centralConnHandle);
+            uint8_t reason = pEvent->linkTerminate.reason;
+
+            uinfo("GAP_LINK_TERMINATED_EVENT: reason=0x%02X, connHandle=0x%04X\n",
+                  reason, centralConnHandle);
+
+            // 根据不同的断开原因进行诊断
+            switch(reason)
+            {
+                case 0x08:  // CONNECTION_TIMEOUT_UNSPECIFIED
+                    uinfo("[诊断] 连接超时 - 可能原因: 服务发现过早、连接参数不匹配\n");
+                    break;
+                case 0x13:  // REMOTE_USER_TERMINATED_CONN
+                    uinfo("[诊断] 远程设备主动断开连接\n");
+                    break;
+                case 0x16:  // CONN_INTERVAL_UNACCEPTABLE
+                    uinfo("[诊断] 连接参数不被接受 - 需要调整连接参数\n");
+                    break;
+                case 0x22:  // LMP_RESPONSE_TIMEOUT
+                    uinfo("[诊断] LMP响应超时 - 可能是设备兼容性问题\n");
+                    break;
+                default:
+                    uinfo("[诊断] 未知断开原因: 0x%02X\n", reason);
+                    break;
+            }
+
             centralState = BLE_STATE_IDLE;
             centralConnHandle = GAP_CONNHANDLE_INIT;
             centralDiscState = BLE_DISC_STATE_IDLE;
@@ -1328,17 +1405,27 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
             centralCCCDHdl = 0;  // 重置CCCD句柄
             centralScanRes = 0;
             centralProcedureInProgress = FALSE;
-            targetDeviceFound = FALSE;  // 重置目标设备找到标志
-            tmos_stop_task(centralTaskId, START_READ_RSSI_EVT);
-            uinfo("\322\321\266\317\277\252\301\254\275\323\n");  // 已断开连接
+            targetDeviceFound = FALSE;  // 重置目标设备找到标���
+            connectionJustEstablished = 0;  // 重置连接刚建立标志
+
             
+            // 停止所有相关的定时任务
+            tmos_stop_task(centralTaskId, START_READ_RSSI_EVT);
+            tmos_stop_task(centralTaskId, START_SVC_DISCOVERY_EVT);
+            tmos_stop_task(centralTaskId, START_PARAM_UPDATE_EVT);
+            tmos_stop_task(centralTaskId, START_AUTO_RECONNECT_EVT);
+            tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
+            // tmos_stop_task(centralTaskId, START_HEARTBEAT_EVT);  // 心跳已禁用
+
+            uinfo("\322\321\266\317\277\252\301\254\275\323\n");  // 已断开连接
+
 #ifdef ENABLE_OLED_DISPLAY
             // 断开连接时显示"断"状态（mode_type=0xFF），温度全部为0避免歧义
             // 连接状态：0表示断开
             OLED_Update_Temp_Display(0, 0, 0, 0, 0, 0xFF, 0, 0, 0, 0, 0);
 #endif
-            
-            // 只有在启用自动重连时才重新搜索（添加延迟给从机准备时间）
+
+            // 只有在启用自动重连时才重新搜索（根据错误原因调整延迟）
             if(autoReconnectEnabled == TRUE)
             {
                 // 检查是否为用户主动触发的重连
@@ -1350,17 +1437,30 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 }
                 else
                 {
-                    // 自动重连，使用延迟
-                    uint16_t reconnect_delay = 480;  // 300ms（480 * 0.625ms = 300ms）
-                          
-                    // 先停止可能已存在的事件，避免冲突
-                    tmos_stop_task(centralTaskId, START_AUTO_RECONNECT_EVT);
-                    tmos_stop_task(centralTaskId, DELAYED_DISCOVERY_RETRY_EVT);
-                    
+                    // 根据断开原因调整重连延迟
+                    uint16_t reconnect_delay;
+
+                    switch(reason)
+                    {
+                        case 0x08:  // 连接超时 - 增加延迟给从机更多准备时间
+                            reconnect_delay = 1600;  // 1秒
+                            uinfo("[策略] 连接超时，使用1秒延迟重连\n");
+                            break;
+                        case 0x16:  // 连接参数问题 - 使用较长延迟
+                            reconnect_delay = 2400;  // 1.5秒
+                            uinfo("[策略] 连接参数问题，使用1.5秒延迟重连\n");
+                            break;
+                        default:    // 其他原因 - 使用标准延迟
+                            reconnect_delay = 800;   // 500ms
+                            uinfo("[策略] 使用标准500ms延迟重连\n");
+                            break;
+                    }
+
                     bStatus_t status = tmos_start_task(centralTaskId, START_AUTO_RECONNECT_EVT, reconnect_delay);
                     if(status != SUCCESS)
                     {
                         // 如果失败，尝试立即触发（不延迟）
+                        uinfo("[警告] 延迟重连启动失败，立即重连\n");
                         tmos_set_event(centralTaskId, START_AUTO_RECONNECT_EVT);
                     }
                 }
@@ -1370,7 +1470,43 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
 
         case GAP_LINK_PARAM_UPDATE_EVENT:
         {
-            uinfo("Param Update...\n");
+            if(pEvent->linkUpdate.status == SUCCESS)
+            {
+                uinfo("[成功] 连接参数更新: 间隔=%d*1.25ms, 延迟=%d, 超时=%d*10ms\n",
+                      pEvent->linkUpdate.connInterval,
+                      pEvent->linkUpdate.connLatency,
+                      pEvent->linkUpdate.connTimeout);
+
+                // 验证参数是否在预期范围内
+                uint16_t actualInterval = pEvent->linkUpdate.connInterval;
+                if(actualInterval < DEFAULT_UPDATE_MIN_CONN_INTERVAL || actualInterval > DEFAULT_UPDATE_MAX_CONN_INTERVAL)
+                {
+                    uinfo("[警告] 从机返回的连接间隔超出请求范围: 请求[%d-%d], 实际[%d]\n",
+                          DEFAULT_UPDATE_MIN_CONN_INTERVAL, DEFAULT_UPDATE_MAX_CONN_INTERVAL, actualInterval);
+                }
+            }
+            else
+            {
+                uinfo("[失败] 连接参数更新失败: 0x%02X\n", pEvent->linkUpdate.status);
+
+                // 根据错误代码提供具体诊断
+                switch(pEvent->linkUpdate.status)
+                {
+                    case 0x01:  // 0x01 = LL_INVALID_PARAMS
+                        uinfo("[诊断] 无效的连接参数 - 从机不支持请求的参数\n");
+                        break;
+                    case 0x02:  // 0x02 = LL_UNACCEPTABLE_CONN_INTERVAL
+                        uinfo("[诊断] 连接间隔不可接受 - 需要使用更宽的参数范围\n");
+                        break;
+                    default:
+                        uinfo("[诊断] 未知的参数更新错误: 0x%02X\n", pEvent->linkUpdate.status);
+                        break;
+                }
+
+                // 即使参数更新失败，也继续进行服务发现
+                uinfo("参数更新失败，但继续进行服务发现...\n");
+                tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
+            }
         }
         break;
 
@@ -1380,6 +1516,7 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
         }
         break;
 
+        
         case GAP_EXT_ADV_DEVICE_INFO_EVENT:
         {
             uinfo("Recv ext adv from %02X:%02X:%02X:%02X:%02X:%02X\n",
@@ -1484,12 +1621,38 @@ static void centralPasscodeCB(uint8_t *deviceAddr, uint16_t connectionHandle,
  */
 static void centralStartDiscovery(void)
 {
-    // 检查连接句柄是否有效
+    // 检查连���状态和连接句柄是否有效
+    if(centralState != BLE_STATE_CONNECTED)
+    {
+        uinfo("Service discovery aborted: not connected (state=%d)\n", centralState);
+        return;
+    }
+
     if(centralConnHandle == GAP_CONNHANDLE_INIT || centralConnHandle == 0xFFFE)
     {
         uinfo("Service discovery aborted: invalid connection handle (0x%04X)\n", centralConnHandle);
         return;
     }
+
+    // 检查是否已经有GATT操作在进行中
+    if(centralProcedureInProgress)
+    {
+        uinfo("Service discovery aborted: another GATT procedure is in progress\n");
+        return;
+    }
+
+    // 检查连接稳定性 - 如果连接刚建立，需要延迟
+    if(connectionJustEstablished)
+    {
+        uinfo("Service discovery delayed: connection just established, need stability time\n");
+        // 连接刚建立，延迟一段时间再进行服务发现
+        connectionJustEstablished = 0;  // 清除标志
+        uinfo("Will retry service discovery after 500ms delay...\n");
+        tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, 800);  // 500ms后重试
+        return;
+    }
+
+    uinfo("Service discovery starting: connection should be stable now\n");
     
     // 更新OLED显示 - 阶段4：服务发现
 #ifdef ENABLE_OLED_DISPLAY
@@ -1505,10 +1668,13 @@ static void centralStartDiscovery(void)
 
     centralDiscState = BLE_DISC_STATE_SVC;                         // 设置发现状态为服务发现
 
+    // 设置GATT操作进行中标志
+    centralProcedureInProgress = TRUE;
+
     // Discovery target BLE service (AE00)                        // 发现目标BLE服务(AE00)
-    uinfo("Attempting service discovery: connHandle=0x%04X, taskId=%d, uuid=0x%04X\n", 
+    uinfo("Attempting service discovery: connHandle=0x%04X, taskId=%d, uuid=0x%04X\n",
           centralConnHandle, centralTaskId, TARGET_SERVICE_UUID);
-    
+
     bStatus_t status = GATT_DiscPrimaryServiceByUUID(centralConnHandle,
                                                       uuid,
                                                       ATT_BT_UUID_SIZE,
@@ -1516,7 +1682,10 @@ static void centralStartDiscovery(void)
     if(status != SUCCESS)
     {
         uinfo("Service discovery failed: 0x%02X (attempt %d/%d)\n", status, svcDiscoveryRetryCount + 1, MAX_SVC_DISCOVERY_RETRIES);
-        
+
+        // 重置GATT操作进行中标志
+        centralProcedureInProgress = FALSE;
+
         // 检查是否需要重试
         if(svcDiscoveryRetryCount < MAX_SVC_DISCOVERY_RETRIES)
         {
@@ -1676,9 +1845,13 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
                                           pMsg->msg.readByTypeRsp.pDataList[1]);
             centralProcedureInProgress = FALSE;                   // 清除操作进行中标志
 
+            // RSSI监控暂时禁用 - 当前库版本可能不完全支持RSSI事件
+            // uinfo("Starting RSSI monitoring for connection health check...\n");
+            // tmos_start_task(centralTaskId, START_READ_RSSI_EVT, DEFAULT_RSSI_PERIOD);
+
             // Start do write CCCD to enable notifications        // 开始写CCCD启用通知
             tmos_start_task(centralTaskId, START_WRITE_CCCD_EVT, DEFAULT_WRITE_CCCD_DELAY);
-            
+
             // 不打印CCCD找到的详细信息
         }
         else
@@ -1686,7 +1859,11 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
             uinfo("===> [WARNING] AE02 CCCD not found, notifications not available\n");
             // 即使没有CCCD，连接仍然有效，可以进行写操作
             centralProcedureInProgress = FALSE;
-            
+
+            // RSSI监控暂时禁用 - 当前库版本可能不完全支持RSSI事件
+            // uinfo("Starting RSSI monitoring for connection health check (no CCCD)...\n");
+            // tmos_start_task(centralTaskId, START_READ_RSSI_EVT, DEFAULT_RSSI_PERIOD);
+
             // 即使没有CCCD，也触发初始化数据发送
             if(centralWriteCharHdl != 0)
             {

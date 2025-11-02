@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Read(//d/BaiduSyncdisk/Tools/Raditor/Code/EXAM_PC/BLE/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

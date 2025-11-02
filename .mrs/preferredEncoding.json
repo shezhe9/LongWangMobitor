@@ -7,6 +7,10 @@
 		{
 			"file": "APP/central_main.c",
 			"encoding": "utf8"
+		},
+		{
+			"file": "HAL/include/config.h",
+			"encoding": "gbk"
 		}
 	]
 }
