@@ -43,7 +43,7 @@
 #define DEFAULT_MAX_CONNECTION_INTERVAL     80                       // 最大连接间隔，单位1.25ms (100ms) - 更保守
 
 // Connection supervision timeout in 10ms
-#define DEFAULT_CONNECTION_TIMEOUT          800                      // 连接监督超时，单位10ms (8秒) - 更长超时应对临时干扰
+#define DEFAULT_CONNECTION_TIMEOUT          1200                     // 连接监督超时，单位10ms (12秒) - 应对外设按键任务等CPU占用情况
 
 // Discovey mode (limited, general, all)                            
 #define DEFAULT_DISCOVERY_MODE              DEVDISC_MODE_ALL         // 发现模式设置为全部发现
@@ -64,16 +64,22 @@
 #define DEFAULT_RSSI_PERIOD                 2400                    // 默认RSSI读取周期，单位0.625ms
 
 // Minimum connection interval (units of 1.25ms)
-#define DEFAULT_UPDATE_MIN_CONN_INTERVAL    4                       // 更新连接参数的最小间隔 (5ms) - 匹配外设期望
+// 🔧 关键修复：与外设期望参数匹配（外设期望5-10ms，这里使用5-12ms以增加容错性）
+#define DEFAULT_UPDATE_MIN_CONN_INTERVAL    4                       // 更新连接参数的最小间隔 (5ms) - 与外设期望匹配
 
 // Maximum connection interval (units of 1.25ms)
-#define DEFAULT_UPDATE_MAX_CONN_INTERVAL    8                       // 更新连接参数的最大间隔 (10ms) - 匹配外设期望
+// 外设期望最大10ms，但允许稍微超出以增加容错性
+#define DEFAULT_UPDATE_MAX_CONN_INTERVAL    12                      // 更新连接参数的最大间隔 (15ms) - 超出外设期望但仍在合理范围
 
 // Slave latency to use parameter update
-#define DEFAULT_UPDATE_SLAVE_LATENCY        0                       // 从机延迟参数
+// 🔧 关键修复：外设期望从机延迟=0，但允许小值以增加容错性
+// 从机延迟=2意味着外设可以跳过最多2个连接事件（10-30ms），仍能保持连接
+// 这对于外设处理按键任务等CPU占用情况有帮助，同时在外设可接受范围内
+#define DEFAULT_UPDATE_SLAVE_LATENCY        2                       // 从机延迟参数（允许跳过2个连接事件，外设期望0但允许小值）
 
 // Supervision timeout value (units of 10ms)
-#define DEFAULT_UPDATE_CONN_TIMEOUT         300                     // 连接超时值，单位10ms (3秒) - 匹配从机期望
+// 外设期望5秒（500），使用6秒（600）以增加容错性
+#define DEFAULT_UPDATE_CONN_TIMEOUT         600                     // 连接超时值，单位10ms (6秒) - 超出外设期望5秒以增加容错性
 
 // Default passcode                                                 
 #define DEFAULT_PASSCODE                    0                       // 默认配对密码
@@ -139,9 +145,10 @@ static const char* BLE_PROGRESS_NAMES[] = {
 // Establish link timeout in 0.625ms
 #define ESTABLISH_LINK_TIMEOUT              1600                    // 建立连接超时时间
 
-// 服务发现重试机制
-#define MAX_SVC_DISCOVERY_RETRIES           2                       // 最大服务发现重试次数（优化：减少到2次）
-#define SVC_DISCOVERY_RETRY_DELAY           200                     // 服务发现重试延时（优化：从800减少到200，即125ms）
+// 服务发现重试机制（参考WinOSApp策略：快速重试）
+#define MAX_SVC_DISCOVERY_RETRIES           2                       // 最大服务发现重试次数（与WinOSApp一致）
+#define SVC_DISCOVERY_RETRY_DELAY           800                     // 服务发现重试延时（500ms，与WinOSApp一致）
+#define SVC_DISCOVERY_TIMEOUT_SHORT         1600                    // 服务发现短超时（1秒），用于快速重试
 
 // 连接心跳机制 - 暂时禁用，专注解决连接问题
 // #define HEARTBEAT_INTERVAL                 8000                    // 心跳间隔，单位0.625ms (5秒)
@@ -376,6 +383,8 @@ void Central_Init()
     GATT_InitClient();
     // Register to receive incoming ATT Indications/Notifications     // 注册接收ATT指示/通知
     GATT_RegisterForInd(centralTaskId);
+    // 注意：在TMOS系统中，GATT消息会自动通过SYS_EVENT_MSG路由到任务
+    // 只要在调用GATT函数时传递了正确的taskId，消息就会自动路由，无需额外注册
     // Setup a delayed profile startup                               // 设置延迟的配置文件启动
     tmos_set_event(centralTaskId, START_DEVICE_EVT);
 }
@@ -458,15 +467,37 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ START_SVC_DISCOVERY_EVT);
     }
 
-    if(events & START_PARAM_UPDATE_EVT)                               // 如果是开始参数更新事件
+    if(events & SVC_DISCOVERY_TIMEOUT_EVT)                             // 如果是服务发现超时事件
     {
-        // 优化：跳过连接参数更新，直接进行服务发现（参考PC端策略）
-        uinfo("优化策略：跳过连接参数更新，直接进行服务发现（节省2秒时间）\n");
-
-        // 直接进行服务发现，使用更短的延迟
-        tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, 200); // 200ms延迟
-
-        return (events ^ START_PARAM_UPDATE_EVT);
+        // 🔧 关键修复：参考WinOSApp策略，使用短超时快速重试
+        // WinOSApp在500ms无响应后会立即重试，我们使用1秒超时然后快速重试
+        uinfo("[超时] 服务发现超时：1秒内未收到外设响应（快速重试机制）\n");
+        
+        // 停止超时检测
+        tmos_stop_task(centralTaskId, SVC_DISCOVERY_TIMEOUT_EVT);
+        
+        // 重置GATT操作进行中标志，允许重试
+        centralProcedureInProgress = FALSE;
+        
+        // 检查是否需要重试（参考WinOSApp：最多2次重试）
+        if(svcDiscoveryRetryCount < MAX_SVC_DISCOVERY_RETRIES)
+        {
+            svcDiscoveryRetryCount++;
+            uinfo("快速重试服务发现（第 %d/%d 次，延迟500ms）...\n", 
+                  svcDiscoveryRetryCount, MAX_SVC_DISCOVERY_RETRIES);
+            // 参考WinOSApp：500ms延迟后重试
+            tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, SVC_DISCOVERY_RETRY_DELAY);
+        }
+        else
+        {
+            uinfo("[失败] 服务发现在 %d 次快速重试后仍超时，断开连接...\n", MAX_SVC_DISCOVERY_RETRIES);
+            svcDiscoveryRetryCount = 0; // 重置计数器
+            centralDiscState = BLE_DISC_STATE_IDLE;
+            // 断开连接
+            GAPRole_TerminateLink(centralConnHandle);
+        }
+        
+        return (events ^ SVC_DISCOVERY_TIMEOUT_EVT);
     }
 
     if(events & START_PHY_UPDATE_EVT)                                 // 如果是开始PHY更新事件
@@ -943,20 +974,7 @@ uint16_t Central_ProcessEvent(uint8_t task_id, uint16_t events)
 
     if(events & START_HEARTBEAT_EVT)                                   // 如果是心跳事件
     {
-        if(centralState == BLE_STATE_CONNECTED && centralConnHandle != GAP_CONNHANDLE_INIT)
-        {
-            centralSendHeartbeat();                                      // 发送心跳数据
-            centralMonitorRssi();                                        // 检查RSSI变化
-            centralCheckConnectionHealth();                              // 检查连接健康状态
-
-            // 安排下一次心跳
-            tmos_start_task(centralTaskId, START_HEARTBEAT_EVT, DEFAULT_HEARTBEAT_INTERVAL);
-            uinfo("Heartbeat sent, next in %d ms\n", (DEFAULT_HEARTBEAT_INTERVAL * 625) / 1000);
-        }
-        else
-        {
-            uinfo("Heartbeat skipped: not connected\n");
-        }
+        // 移除心跳与质量监测逻辑
         return (events ^ START_HEARTBEAT_EVT);
     }
 
@@ -1192,44 +1210,9 @@ static void centralProcessGATTMsg(gattMsgEvent_t *pMsg)
  */
 static void centralRssiCB(uint16_t connHandle, int8_t rssi)
 {
-    // 更新最后RSSI值
-    lastRssiValue = rssi;
-
-    // RSSI值分析：0是最好，-100是最差
-    if(rssi > -60)  // 信号 > -60dBm (优秀)
-    {
-        // 信号很好，重置弱信号计数
-        if(weakRssiCount > 0)
-        {
-            weakRssiCount = 0;
-            uinfo("[RSSI] Signal excellent: -%d dBm, reset weak signal count\n", -rssi);
-        }
-        centralUpdateConnectionStability(1);  // 增加稳定性因子
-    }
-    else if(rssi > -75)  // 信号 > -75dBm (良好)
-    {
-        // 信号良好，正常状态
-        uinfo("[RSSI] Signal good: -%d dBm\n", -rssi);
-        centralUpdateConnectionStability(1);  // 增加稳定性因子
-    }
-    else if(rssi > -85)  // 信号 > -85dBm (一般)
-    {
-        // 信号一般，需要关注
-        uinfo("[RSSI] Signal fair: -%d dBm, monitoring\n", -rssi);
-    }
-    else  // 信号 <= -85dBm (弱)
-    {
-        // 信号弱，增加计数
-        weakRssiCount++;
-        uinfo("[RSSI] Signal weak: -%d dBm, weak count: %d/%d\n", -rssi, weakRssiCount, MAX_WEAK_RSSI_COUNT);
-        centralUpdateConnectionStability(0);  // 减少稳定性因子
-
-        // 如果连续弱信号次数过多，可以触发连接参数调整或其他措施
-        if(weakRssiCount >= MAX_WEAK_RSSI_COUNT)
-        {
-            uinfo("[RSSI] Persistent weak signal detected, connection may be unstable\n");
-        }
-    }
+    // 移除RSSI质量监测相关日志与计算
+    (void)connHandle;
+    (void)rssi;
 }
 
 /*********************************************************************
@@ -1567,13 +1550,22 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                 // 初始化连接维护机制
                 centralResetConnectionMaintenance();
 
-                // 连接建立后，使用连接参数更新提高稳定性
-                uinfo("[进度%d/8] %s - 开始连接参数协商...\n",
+                // 关键修复：连接刚建立时，等待更长时间让外设准备就绪
+                // 过早启动服务发现会导致外设无法响应，引发连接超时（reason=0x08）
+                uinfo("[进度%d/8] %s - 跳过连接参数更新，等待连接稳定后开始服务发现\n",
                       BLE_PROGRESS_PARAM_UPDATE, BLE_PROGRESS_NAMES[BLE_PROGRESS_PARAM_UPDATE]);
-                tmos_start_task(centralTaskId, START_PARAM_UPDATE_EVT, DEFAULT_PARAM_UPDATE_DELAY);
+                
+                // 不立即启动服务发现，只设置标志
+                // 服务发现将在 centralStartDiscovery() 中被触发，使用更长的稳定延迟
+                // 这样可以确保外设完全准备好后再进行GATT操作
 
-                // 参数更新后开始服务发现
-                uinfo("连接参数将进行优化，然后开始服务发现...\n");
+                // 移除质量监测相关的周期性RSSI读取，避免产生无用日志
+
+                // 🔧 关键修复：启动服务发现，但使用足够的延迟确保外设准备就绪
+                // centralStartDiscovery() 会检查 connectionJustEstablished 标志
+                // 如果标志为1，将延迟1.5秒后再进行服务发现
+                uinfo("连接已建立，将在延迟后开始服务发现（等待外设准备就绪）...\n");
+                tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, 400); // 延迟250ms后触发服务发现流程
             }
             else
             {
@@ -1722,6 +1714,10 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                     uinfo("[警告] 从机返回的连接间隔超出请求范围: 请求[%d-%d], 实际[%d]\n",
                           DEFAULT_UPDATE_MIN_CONN_INTERVAL, DEFAULT_UPDATE_MAX_CONN_INTERVAL, actualInterval);
                 }
+                
+                // 参数更新成功，延迟一段时间确保连接稳定后再进行服务发现
+                uinfo("连接参数协商完成，延迟后开始服务发现...\n");
+                tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
             }
             else
             {
@@ -1741,8 +1737,8 @@ static void centralEventCB(gapRoleEvent_t *pEvent)
                         break;
                 }
 
-                // 即使参数更新失败，也继续进行服务发现
-                uinfo("参数更新失败，但继续进行服务发现...\n");
+                // 即使参数更新失败，也延迟后继续进行服务发现（给连接更多稳定时间）
+                uinfo("参数更新失败，但将在延迟后继续进行服务发现...\n");
                 tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
             }
         }
@@ -1879,15 +1875,18 @@ static void centralStartDiscovery(void)
         return;
     }
 
-    // 检查连接稳定性 - 如果连接刚建立，需要延迟（优化：减少等待时间）
+    // 🔧 关键修复：连接刚建立时使用足够长的延迟，确保外设完全准备就绪
+    // 过早的服务发现会导致外设无法及时响应，引发连接超时（reason=0x08）
     if(connectionJustEstablished)
     {
-        uinfo("服务发现已延迟: 连接刚建立，需要稳定性时间（将重试第 %d/%d 次尝试）\n",
-          svcDiscoveryRetryCount + 1, MAX_SVC_DISCOVERY_RETRIES);
-        // 连接刚建立，延迟一段时间再进行服务发现（优化：减少延迟时间）
-        connectionJustEstablished = 0;  // 清除标志
-        uinfo("将在200ms延迟后重试服务发现...（优化：从800ms减少到200ms）\n");
-        tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, 200);  // 200ms后重试（优化）
+        uinfo("服务发现已延迟: 连接刚建立，等待外设准备就绪（关键修复）\n");
+        // 清除标志，避免重复延迟
+        connectionJustEstablished = 0;
+        
+        // 使用更长的延迟（1.5秒），确保外设栈层完全初始化并准备好GATT操作
+        // 单位是0.625ms，DEFAULT_SVC_DISCOVERY_DELAY = 2400 = 1.5秒
+        uinfo("将在延迟后重试服务发现（等待外设准备就绪，延迟1.5秒）...\n");
+        tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
         return;
     }
 
@@ -1925,7 +1924,8 @@ static void centralStartDiscovery(void)
                                                       centralTaskId);
     if(status != SUCCESS)
     {
-        uinfo("Service discovery failed: 0x%02X (attempt %d/%d)\n", status, svcDiscoveryRetryCount + 1, MAX_SVC_DISCOVERY_RETRIES);
+        uinfo("[错误] 服务发现请求失败: 0x%02X (尝试 %d/%d)\n", status, svcDiscoveryRetryCount + 1, MAX_SVC_DISCOVERY_RETRIES);
+        uinfo("[诊断] 可能原因: GATT客户端未正确初始化或连接状态异常\n");
 
         // 重置GATT操作进行中标志
         centralProcedureInProgress = FALSE;
@@ -1934,12 +1934,12 @@ static void centralStartDiscovery(void)
         if(svcDiscoveryRetryCount < MAX_SVC_DISCOVERY_RETRIES)
         {
             svcDiscoveryRetryCount++;
-            uinfo("Retrying service discovery in %d ms...\n", SVC_DISCOVERY_RETRY_DELAY * 625 / 1000);
+            uinfo("将在 %d ms后重试服务发现...\n", SVC_DISCOVERY_RETRY_DELAY * 625 / 1000);
             tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, SVC_DISCOVERY_RETRY_DELAY);
         }
         else
         {
-            uinfo("Service discovery failed after %d attempts, disconnecting...\n", MAX_SVC_DISCOVERY_RETRIES);
+            uinfo("[失败] 服务发现在 %d 次尝试后仍失败，断开连接...\n", MAX_SVC_DISCOVERY_RETRIES);
             svcDiscoveryRetryCount = 0; // 重置计数器
             // 断开连接
             GAPRole_TerminateLink(centralConnHandle);
@@ -1950,6 +1950,11 @@ static void centralStartDiscovery(void)
     {
         uinfo("Service discovery initiated successfully\n");
         svcDiscoveryRetryCount = 0; // 重置计数器
+        
+        // 🔧 关键修复：参考WinOSApp策略，使用短超时快速重试（1秒）
+        // 如果1秒内没有收到响应，立即重试而不是等10秒
+        // 这样可以更快地应对外设暂时无法响应的情况（如处理按键任务）
+        tmos_start_task(centralTaskId, SVC_DISCOVERY_TIMEOUT_EVT, SVC_DISCOVERY_TIMEOUT_SHORT);
     }
 }
 
@@ -1966,12 +1971,19 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
     
     if(centralDiscState == BLE_DISC_STATE_SVC)                     // 如果是服务发现状态
     {
+        // 🔧 关键修复：停止服务发现超时检测，因为已收到响应
+        tmos_stop_task(centralTaskId, SVC_DISCOVERY_TIMEOUT_EVT);
+        
+        // 重置重试计数器（收到响应说明成功）
+        svcDiscoveryRetryCount = 0;
+        
         // Service found, store handles                            // 找到服务，存储句柄
         if(pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP &&
            pMsg->msg.findByTypeValueRsp.numInfo > 0)
         {
             centralSvcStartHdl = ATT_ATTR_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0); // 保存服务起始句柄
             centralSvcEndHdl = ATT_GRP_END_HANDLE(pMsg->msg.findByTypeValueRsp.pHandlesInfo, 0); // 保存服务结束句柄
+            uinfo("服务发现成功: 服务句柄范围 [0x%04X-0x%04X]\n", centralSvcStartHdl, centralSvcEndHdl);
         }
         // If procedure complete                                   // 如果程序完成
         if((pMsg->method == ATT_FIND_BY_TYPE_VALUE_RSP &&
@@ -1980,7 +1992,33 @@ static void centralGATTDiscoveryEvent(gattMsgEvent_t *pMsg)
         {
             if(pMsg->method == ATT_ERROR_RSP)
             {
-                uinfo("Service discovery failed: 0x%02X\n", pMsg->msg.errorRsp.errCode);
+                uinfo("[错误] 服务发现失败: 错误码 0x%02X\n", pMsg->msg.errorRsp.errCode);
+                
+                // 🔧 关键修复：参考WinOSApp策略，错误时也快速重试
+                // 停止超时检测
+                tmos_stop_task(centralTaskId, SVC_DISCOVERY_TIMEOUT_EVT);
+                
+                // 重置GATT操作进行中标志，允许重试
+                centralProcedureInProgress = FALSE;
+                
+                // 检查是否需要重试（参考WinOSApp：最多2次重试）
+                if(svcDiscoveryRetryCount < MAX_SVC_DISCOVERY_RETRIES)
+                {
+                    svcDiscoveryRetryCount++;
+                    uinfo("服务发现错误，快速重试（第 %d/%d 次，延迟500ms）...\n", 
+                          svcDiscoveryRetryCount, MAX_SVC_DISCOVERY_RETRIES);
+                    // 参考WinOSApp：500ms延迟后重试
+                    tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, SVC_DISCOVERY_RETRY_DELAY);
+                    return; // 等待重试，不继续执行
+                }
+                else
+                {
+                    uinfo("[失败] 服务发现在 %d 次快速重试后仍失败，断开连接...\n", MAX_SVC_DISCOVERY_RETRIES);
+                    svcDiscoveryRetryCount = 0;
+                    centralDiscState = BLE_DISC_STATE_IDLE;
+                    GAPRole_TerminateLink(centralConnHandle);
+                    return;
+                }
             }
             
             if(centralSvcStartHdl != 0)                            // 如果找到AE00服务
@@ -2357,8 +2395,7 @@ static void centralResetConnectionMaintenance(void)
     connectionStabilityFactor = 5;  // 初始化为中等稳定性
     heartbeatCount = 0;
     rssiCheckCount = 0;
-
-    uinfo("[Connection Maintenance] Connection maintenance state reset\n");
+    // 移除质量监测日志
 }
 
 /*********************************************************************
@@ -2433,18 +2470,7 @@ static void centralSendHeartbeat(void)
  */
 static void centralMonitorRssi(void)
 {
-    // 更新RSSI检查计数
-    rssiCheckCount++;
-
-    // 每2次心跳检查一次RSSI（约12秒间隔）
-    if((rssiCheckCount % 2) != 0)
-    {
-        return;  // 这次不检查RSSI
-    }
-
-    // 启动RSSI读取（使用可用的函数）
-    GAPRole_ReadRssiCmd(centralConnHandle);                       // 读取RSSI值
-    uinfo("[RSSI Monitor] RSSI reading started (check #%d)\n", rssiCheckCount);
+    // 移除周期性RSSI读取
 }
 
 /*********************************************************************
@@ -2458,27 +2484,7 @@ static void centralMonitorRssi(void)
  */
 static void centralCheckConnectionHealth(void)
 {
-    // 检查连接稳定性
-    if(connectionStabilityFactor < 3)
-    {
-        uinfo("[Health Check] Connection stability low (%d/10), consider reconnection\n", connectionStabilityFactor);
-    }
-
-    // 检查弱信号计数
-    if(weakRssiCount >= MAX_WEAK_RSSI_COUNT)
-    {
-        uinfo("[Health Check] Weak signal threshold reached (%d), connection may be unstable\n", weakRssiCount);
-
-        // 尝试发送激活命令
-        if(centralWriteCharHdl != 0 && centralProcedureInProgress == FALSE)
-        {
-            uinfo("[Health Check] Sending activation command due to weak signal...\n");
-            centralSendHeartbeat();  // 发送心跳激活连接
-        }
-    }
-
-    uinfo("[Health Check] Stability: %d/10, Weak RSSI count: %d, Heartbeats: %d\n",
-          connectionStabilityFactor, weakRssiCount, heartbeatCount);
+    // 移除连接健康检查日志与心跳激活
 }
 
 /*********************************************************************
@@ -2492,30 +2498,8 @@ static void centralCheckConnectionHealth(void)
  */
 static void centralUpdateConnectionStability(uint8_t stable)
 {
-    if(stable)
-    {
-        // 增加稳定性因子
-        if(connectionStabilityFactor < 10)
-        {
-            connectionStabilityFactor++;
-        }
-        // 重置弱信号计数
-        if(weakRssiCount > 0)
-        {
-            weakRssiCount--;
-        }
-    }
-    else
-    {
-        // 减少稳定性因子
-        if(connectionStabilityFactor > 0)
-        {
-            connectionStabilityFactor--;
-        }
-    }
-
-    // 简化的稳定性日志
-    uinfo("[Stability] Updated to %d/10, Heartbeats: %d\n", connectionStabilityFactor, heartbeatCount);
+    // 移除稳定性因子计算与日志
+    (void)stable;
 }
 
 /************************ endfile @ central **************************/
